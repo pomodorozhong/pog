@@ -1,6 +1,6 @@
 # Route of Grace: plan
 
-Updated 2026-10-14. Replaces the build order in the old project's handoff note, and adds what extracting the game data taught us.
+Updated 2026-10-14 (UI redesign added as milestone 5). Replaces the build order in the old project's handoff note, and adds what extracting the game data taught us.
 
 ## Goal
 
@@ -16,7 +16,7 @@ A map-based route planner for Elden Ring (base game and Shadow of the Erdtree). 
 | Playthroughs    | One profile is one whole route: its own goal, constraints, wishlist, progress, position, linked save slot and map annotations. Switching profiles switches all of these. |
 | Map per profile | Each profile has its own nodes and paths. "Import from another profile" copies annotations across, so a new playthrough doesn't start from a blank map.                  |
 | Path data       | The player draws paths in the editor. No automatic navmesh.                                                                                                              |
-| Places          | Graces come from the game data. Item pins come from the game data once item locations are extracted (milestone 5); until then the player places them.                    |
+| Places          | Graces come from the game data. Item pins come from the game data once item locations are extracted (milestone 6); until then the player places them.                    |
 | Names           | Official in-game English and zh-TW names win over any other source. Player-written text is kept as written.                                                              |
 | Language        | English and Traditional Chinese (zh-TW) for all interface text.                                                                                                          |
 | Spoilers        | Fine. Show missable and quest-lock warnings freely.                                                                                                                      |
@@ -46,7 +46,7 @@ Everything below comes from the player's own install, read natively on macOS in 
 
 - **`WorldMapPointParam`:** the game's own map markers, with positions and names.
 - **`ItemLotParam`:** what each pickup gives and its "picked up" event flag, but no position.
-- **Map layout files (`map/mapstudio/*.msb`):** readable for overworld cells (`m60_*`), DLC cells (`m61_*`) and legacy dungeons (`m10_*` etc.). Treasure entries there link item lots to world positions, so item locations can probably be extracted (milestone 5).
+- **Map layout files (`map/mapstudio/*.msb`):** readable for overworld cells (`m60_*`), DLC cells (`m61_*`) and legacy dungeons (`m10_*` etc.). Treasure entries there link item lots to world positions, so item locations can probably be extracted (milestone 6).
 
 **Gotchas worth remembering:**
 
@@ -146,6 +146,8 @@ Original plan, kept for reference:
 
 ### 4. Profiles, wishlist and routing
 
+The interface for these features stays plain and functional; only blockers are fixed until the redesign in milestone 5.
+
 - [x] **Playthrough profiles:** create, rename, switch (header) and delete; goal and constraints as free text. Version 1 player files upgrade into one untitled profile.
 - [ ] **Map per profile:** move `map.json` to `maps/<profile id>.json` (the existing map goes to `profile-1`); switching profiles loads that profile's map; undo history is per profile; a new profile starts empty; a deleted profile's map moves to `deleted/`.
 - [ ] **"Import from another profile":** pick a profile and, optionally, one layer; copy its nodes and paths into the active profile as one undo step. Graces already present (same grace ID) are reused instead of duplicated, so copied paths attach to them.
@@ -162,30 +164,40 @@ Original plan, kept for reference:
 - [ ] Visit order (nearest neighbor + 2-opt) and the detour estimate.
 - [ ] "Next stops" view, with the route drawn on the map.
 
-### 5. Item locations from map layout files (spike, then build)
+### 5. UI redesign
+
+After milestone 4, when every main screen exists (map editor, profiles, wishlist, progress, save import, route), so the design covers how profiles shape the whole app rather than being patched one feature at a time.
+
+- [ ] Collect UI issues from the player during milestone 4 here, as they come up.
+- [ ] Layout: header, side panel, where the profile, wishlist, progress and route live; desktop and narrow windows.
+- [ ] Map: node markers, labels and path styles, readable at stream resolution too, since the OBS viewer (milestone 8) reuses them.
+- [ ] English and zh-TW checked together (text length, wording against the game's own terms).
+- [ ] Later milestones (6–9) build their UI to this design.
+
+### 6. Item locations from map layout files (spike, then build)
 
 - [ ] Parse ER MSB treasure entries: part position + item lot ID, per map cell.
 - [ ] Join item lot → item → world position → map pixel (milestone 3's transform).
 - [ ] If reliable, offer "place pin from game data" when wishlisting; otherwise keep manual pins. Shops, drops from enemies and quest rewards have no treasure position, so manual pins and notes stay necessary.
 
-### 6. Local MCP server
+### 7. Local MCP server
 
 - [ ] The four tools above, on the active profile's wishlist, writing `player.json` through the same store and revision checks as the app.
 - [ ] When adding a wishlist item, suggest region and requirements, and ask the player to confirm the pin.
 
-### 7. OBS viewer
+### 8. OBS viewer
 
 - [ ] Copy in `server/viewer.ts` and `src/sync/*` from the old project. Replace `LiveSnapshot.ui` with map view state (center, zoom, layer, selected stop) and drop `scroll.ts`.
 - [ ] Layouts, transparent background, `?lang=`, hotkey to advance.
 
-### 8. Prerequisites and missables
+### 9. Prerequisites and missables
 
 - [ ] Requirement flags on edges and items, using game event flags where possible (boss beaten, grace discovered). Requirements live on the profile's map; whether they're met comes from that profile's progress.
 - [ ] "Blocked by X" and "Don't miss" views, per profile.
 
 ## Risks and open questions
 
-- **MSB parsing (milestone 5):** not yet attempted. The ER format is documented by the modding community (SoulsFormats). Coverage is limited to world pickups.
+- **MSB parsing (milestone 6):** not yet attempted. The ER format is documented by the modding community (SoulsFormats). Coverage is limited to world pickups.
 - **Reading progress from the save:** decided: a manual import button (milestone 4).
   - **Safety:** the app never writes the save; it copies the file, checks each slot's MD5, and parses the copy.
   - **Hardest part:** finding the event-flag block inside a slot, which sits after variable-length sections. Community save editors document the layout.
