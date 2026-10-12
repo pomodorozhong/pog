@@ -17,6 +17,7 @@ import {
   type MapLayerInfo,
 } from "./catalog";
 import { edgeLine, isOneWay } from "./editing";
+import { enableGestures } from "./gestures";
 import { EDGE_STYLE, NODE_SYMBOL } from "./style";
 
 export type Selection = { kind: "node" | "edge"; id: string } | null;
@@ -70,7 +71,10 @@ export function MapCanvas(props: Props) {
       crs: L.CRS.Simple,
       minZoom: 1,
       maxZoom: 8,
-      zoomSnap: 0.5,
+      // Fractional zoom, so pinch and wheel zoom glide instead of stepping.
+      zoomSnap: 0,
+      zoomDelta: 0.5,
+      scrollWheelZoom: false,
       attributionControl: false,
       doubleClickZoom: false,
       keyboard: false,
@@ -105,8 +109,16 @@ export function MapCanvas(props: Props) {
         .getContainer()
         .classList.toggle("show-labels", instance.getZoom() >= LABEL_ZOOM);
     };
-    instance.on("moveend zoomend", report);
+    // Gestures move the map every frame; report the view once it settles.
+    let reportTimer: ReturnType<typeof setTimeout> | undefined;
+    instance.on("moveend zoomend", () => {
+      clearTimeout(reportTimer);
+      reportTimer = setTimeout(report, 150);
+    });
+    const disableGestures = enableGestures(instance);
     return () => {
+      clearTimeout(reportTimer);
+      disableGestures();
       instance.remove();
       map.current = null;
     };
