@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   EDGE_TYPES,
   NODE_KINDS,
@@ -36,6 +36,8 @@ type Props = {
   showNode(id: string): void;
   deleteSelection(): void;
   recovery?: string;
+  /** Shown above the layer summary when nothing is selected. */
+  profile: ReactNode;
 };
 
 export function Inspector(props: Props) {
@@ -71,7 +73,16 @@ export function Inspector(props: Props) {
       ) : edge ? (
         <EdgePanel {...props} edgeId={edge.id} key={edge.id} />
       ) : (
-        <Summary t={t} doc={doc} layer={layer} data={data} edit={props.edit} />
+        <>
+          {props.profile}
+          <Summary
+            t={t}
+            doc={doc}
+            layer={layer}
+            data={data}
+            edit={props.edit}
+          />
+        </>
       )}
     </aside>
   );

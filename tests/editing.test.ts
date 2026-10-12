@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MapDocument, MapNode } from "../src/domain/types";
 import { applyMapAction, historyReducer } from "../src/map/editing";
-import { validDocument } from "../src/storage/schema";
+import { initialDocuments, validDocument } from "../src/storage/schema";
 
 const node = (id: string, layer: MapNode["layer"] = "overworld"): MapNode => ({
   id,
@@ -113,19 +113,14 @@ describe("document validation", () => {
       false,
     );
     expect(validDocument("map", { ...base, extra: true })).toBe(false);
+    const player = initialDocuments().player;
+    expect(validDocument("player", { ...player, language: "zh-TW" })).toBe(
+      true,
+    );
+    expect(validDocument("player", { ...player, language: "fr" })).toBe(false);
     expect(
-      validDocument("player", {
-        schemaVersion: 1,
-        language: "zh-TW",
-        view: { layer: "dlc", x: 1, y: 2, zoom: 3 },
-      }),
-    ).toBe(true);
-    expect(
-      validDocument("player", {
-        schemaVersion: 1,
-        language: "fr",
-        view: { layer: "dlc", x: 1, y: 2, zoom: 3 },
-      }),
+      validDocument("player", { ...player, activeProfile: "missing" }),
     ).toBe(false);
+    expect(validDocument("player", { ...player, profiles: [] })).toBe(false);
   });
 });

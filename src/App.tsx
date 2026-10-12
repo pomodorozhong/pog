@@ -24,6 +24,7 @@ import { Inspector } from "./map/Inspector";
 import { EDGE_NAMES, LAYER_NAMES } from "./map/labels";
 import { MapCanvas, type Draft, type Selection } from "./map/MapCanvas";
 import { EDGE_STYLE } from "./map/style";
+import { ProfilePanel, ProfileSwitcher } from "./profiles/ProfilePanel";
 import { initialDocuments } from "./storage/schema";
 import {
   usePersistentDocument,
@@ -292,6 +293,7 @@ export default function App() {
         </nav>
         <div className="ml-auto flex items-center gap-3 text-sm">
           <SaveIndicator t={t} statuses={[mapSave.status, playerSave.status]} />
+          <ProfileSwitcher t={t} player={player} setPlayer={setPlayer} />
           <select
             aria-label={t("Language")}
             className="field"
@@ -394,6 +396,7 @@ export default function App() {
           showNode={showNode}
           deleteSelection={deleteSelection}
           recovery={mapSave.recovery ?? playerSave.recovery}
+          profile={<ProfilePanel t={t} player={player} setPlayer={setPlayer} />}
         />
       </div>
     </div>

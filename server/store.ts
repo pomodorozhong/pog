@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import lockfile from "proper-lockfile";
 import type { DocumentName, Documents } from "../src/domain/types.ts";
-import { validDocument } from "../src/storage/schema.ts";
+import { upgradeDocument, validDocument } from "../src/storage/schema.ts";
 import { resolveStoragePaths } from "./paths.ts";
 
 export const MAX_SAVE_BYTES = 4 * 1024 * 1024;
@@ -37,7 +37,7 @@ export class FileStore {
       );
     }
     try {
-      const state: unknown = JSON.parse(raw);
+      const state = upgradeDocument(name, JSON.parse(raw));
       if (
         Buffer.byteLength(raw) > MAX_SAVE_BYTES ||
         !validDocument(name, state)

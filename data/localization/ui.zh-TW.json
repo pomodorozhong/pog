@@ -64,5 +64,15 @@
   "Nearby graces": "附近的賜福",
   "The game has {total} graces on this layer. Graces you placed by hand are linked to the nearest one and keep their position.": "遊戲在此圖層有 {total} 個賜福。你手動放置的賜福會連結到最近的賜福，位置保持不變。",
   "Add graces from the game ({count})": "從遊戲加入賜福（{count}）",
-  "Every grace on this layer is on the map.": "此圖層的賜福都已在地圖上。"
+  "Every grace on this layer is on the map.": "此圖層的賜福都已在地圖上。",
+  "Playthrough": "周目",
+  "Untitled playthrough": "未命名周目",
+  "Name": "名稱",
+  "Goal": "目標",
+  "Constraints": "限制",
+  "For example: a faith build that beats Malenia": "例如：擊敗瑪蓮妮亞的信仰流派",
+  "For example: no DLC, rune level 1, no Torrent": "例如：不含 DLC、盧恩等級 1、不騎靈馬",
+  "New playthrough": "新增周目",
+  "Delete playthrough": "刪除周目",
+  "Delete the playthrough “{name}”?": "要刪除周目「{name}」嗎？"
 }

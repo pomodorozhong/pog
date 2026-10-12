@@ -60,10 +60,25 @@ export type MapDocument = {
 };
 
 export type MapView = { layer: LayerId; x: number; y: number; zoom: number };
+/**
+ * One whole route: a playthrough with its own goal and constraints. Wishlist,
+ * progress, position and the linked save slot join it in milestone 4. The map
+ * (nodes and paths) is shared by every profile.
+ */
+export type Profile = {
+  id: string;
+  /** Player-written, kept as written. Empty shows as "Untitled playthrough". */
+  name: string;
+  goal: string;
+  constraints: string;
+};
+
 export type PlayerDocument = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   language: Language;
   view: MapView;
+  activeProfile: string;
+  profiles: Profile[];
 };
 
 export type Documents = { map: MapDocument; player: PlayerDocument };

@@ -74,15 +74,65 @@ function checkMap(value: unknown): value is MapDocument {
 }
 
 function checkPlayer(value: unknown): value is PlayerDocument {
-  if (!hasExactKeys(value, ["schemaVersion", "language", "view"])) return false;
+  if (
+    !hasExactKeys(value, [
+      "schemaVersion",
+      "language",
+      "view",
+      "activeProfile",
+      "profiles",
+    ])
+  )
+    return false;
   const v = value as PlayerDocument;
+  const ids = new Set<string>();
   return (
-    v.schemaVersion === 1 &&
+    v.schemaVersion === 2 &&
     includes(LANGUAGES, v.language) &&
     hasExactKeys(v.view, ["layer", "x", "y", "zoom"]) &&
     includes(LAYERS, v.view.layer) &&
-    [v.view.x, v.view.y, v.view.zoom].every(isCoordinate)
+    [v.view.x, v.view.y, v.view.zoom].every(isCoordinate) &&
+    Array.isArray(v.profiles) &&
+    v.profiles.length > 0 &&
+    v.profiles.every((p) => {
+      const ok =
+        hasExactKeys(p, ["id", "name", "goal", "constraints"]) &&
+        typeof p.id === "string" &&
+        !ids.has(p.id) &&
+        [p.name, p.goal, p.constraints].every((t) => typeof t === "string");
+      ids.add(p.id);
+      return ok;
+    }) &&
+    ids.has(v.activeProfile)
   );
+}
+
+export const FIRST_PROFILE_ID = "profile-1";
+const firstProfile = () => ({
+  id: FIRST_PROFILE_ID,
+  name: "",
+  goal: "",
+  constraints: "",
+});
+
+/**
+ * Bring a document saved by an older version up to the current schema.
+ * Anything unrecognised is returned unchanged, so validation rejects it.
+ */
+export function upgradeDocument(name: DocumentName, value: unknown): unknown {
+  if (
+    name === "player" &&
+    hasExactKeys(value, ["schemaVersion", "language", "view"]) &&
+    (value as { schemaVersion: unknown }).schemaVersion === 1
+  )
+    // Version 1 had no profiles: everything so far becomes the first playthrough.
+    return {
+      ...(value as object),
+      schemaVersion: 2,
+      activeProfile: FIRST_PROFILE_ID,
+      profiles: [firstProfile()],
+    };
+  return value;
 }
 
 const checks: {
@@ -106,8 +156,10 @@ export function validDocument<N extends DocumentName>(
 export const initialDocuments = (): Documents => ({
   map: { schemaVersion: 1, nodes: [], edges: [] },
   player: {
-    schemaVersion: 1,
+    schemaVersion: 2,
     language: "en",
     view: { layer: "overworld", x: 5248, y: 5248, zoom: 3 },
+    activeProfile: FIRST_PROFILE_ID,
+    profiles: [firstProfile()],
   },
 });
