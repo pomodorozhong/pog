@@ -1,7 +1,7 @@
-import type { DocumentName, Documents } from "../domain/types";
+import type { DocumentKey, DocumentName, Documents } from "../domain/types";
 import { initialDocuments, validDocument } from "./schema";
 
-export const storageUrl = (name: DocumentName) => `/api/state/${name}`;
+export const storageUrl = (key: DocumentKey) => `/api/state/${key}`;
 export type LoadedDocument<N extends DocumentName> = {
   state: Documents[N];
   /** False when the saved file could not be read; edits then stay in memory. */
@@ -14,11 +14,12 @@ export type SaveResult = "saved" | "failed" | "conflict";
 // prevents this window from overwriting a save made by another window or server.
 export function createStorageClient<N extends DocumentName>(
   name: N,
+  key: DocumentKey,
   request: typeof fetch = fetch,
 ) {
   let revision: string | null = null;
   let canSave = false;
-  let saving = false;
+  let saving: Promise<void> | null = null;
   let pending: {
     raw: string;
     resolve: ((result: SaveResult) => void)[];
@@ -27,7 +28,7 @@ export function createStorageClient<N extends DocumentName>(
   async function write(raw: string): Promise<SaveResult> {
     if (!canSave) return "conflict";
     try {
-      const response = await request(storageUrl(name), {
+      const response = await request(storageUrl(key), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: `{"revision":${JSON.stringify(revision)},"state":${raw}}`,
@@ -48,22 +49,23 @@ export function createStorageClient<N extends DocumentName>(
   }
 
   async function flush() {
-    saving = true;
     while (pending) {
       const snapshot = pending;
       pending = null;
       const result = await write(snapshot.raw);
       snapshot.resolve.forEach((resolve) => resolve(result));
     }
-    saving = false;
+    saving = null;
   }
 
   return {
     async load(): Promise<LoadedDocument<N>> {
+      // A document opened again right after leaving it reads its last save.
+      await saving;
       canSave = false;
       let recovery: string | undefined;
       try {
-        const response = await request(storageUrl(name), {
+        const response = await request(storageUrl(key), {
           cache: "no-store",
           signal: AbortSignal.timeout(15000),
         });
@@ -92,7 +94,7 @@ export function createStorageClient<N extends DocumentName>(
           pending.raw = raw;
           pending.resolve.push(resolve);
         } else pending = { raw, resolve: [resolve] };
-        if (!saving) void flush();
+        saving ??= flush();
       });
     },
   };

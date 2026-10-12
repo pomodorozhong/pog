@@ -102,7 +102,8 @@ export type HistoryAction =
   | MapAction
   | { type: "undo" }
   | { type: "redo" }
-  | { type: "load"; doc: MapDocument };
+  /** Open a saved map, optionally with the undo history it had before. */
+  | { type: "load"; doc: MapDocument; history?: History };
 const HISTORY_LIMIT = 200;
 
 export function historyReducer(
@@ -111,7 +112,7 @@ export function historyReducer(
 ): History {
   switch (action.type) {
     case "load":
-      return { past: [], present: action.doc, future: [] };
+      return action.history ?? { past: [], present: action.doc, future: [] };
     case "undo":
       if (!history.past.length) return history;
       return {

@@ -1,6 +1,6 @@
 import envPaths from "env-paths";
 import { isAbsolute, join } from "node:path";
-import type { DocumentName } from "../src/domain/types.ts";
+import type { DocumentKey } from "../src/domain/types.ts";
 
 export function resolveStoragePaths(
   override = process.env.ROUTE_OF_GRACE_DATA_DIR,
@@ -17,6 +17,11 @@ export function resolveStoragePaths(
     );
   return {
     data,
-    document: (name: DocumentName) => join(data, `${name}.json`),
+    /** Keys are checked by `documentNameOf` first, so they stay inside `data`. */
+    document: (key: DocumentKey) => join(data, `${key}.json`),
+    /** The single map saved before each profile had its own. */
+    legacyMap: join(data, "map.json"),
+    /** Maps of deleted profiles, kept since they are player data. */
+    deletedMaps: join(data, "deleted", "maps"),
   };
 }

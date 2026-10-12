@@ -1,5 +1,14 @@
-import type { PlayerDocument } from "../domain/types";
+import { useState } from "react";
+import {
+  LAYERS,
+  type LayerId,
+  type MapDocument,
+  type PlayerDocument,
+} from "../domain/types";
 import type { Translate } from "../i18n/translation";
+import type { MapAction } from "../map/editing";
+import { LAYER_NAMES } from "../map/labels";
+import { importMap } from "./importMap";
 import {
   activeProfile,
   addProfile,
@@ -105,6 +114,94 @@ export function ProfilePanel({
           </button>
         )}
       </div>
+    </section>
+  );
+}
+
+/** Copy another playthrough's map annotations into the active one. */
+export function ImportFromProfile({
+  t,
+  player,
+  doc,
+  readMap,
+  edit,
+}: {
+  t: Translate;
+  player: PlayerDocument;
+  doc: MapDocument;
+  /** The saved map of a profile, or null when it can't be read. */
+  readMap(profile: string): Promise<MapDocument | null>;
+  edit(action: MapAction): void;
+}) {
+  const others = player.profiles.filter((p) => p.id !== player.activeProfile);
+  const [source, setSource] = useState("");
+  const [layer, setLayer] = useState<LayerId | "">("");
+  const [result, setResult] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  if (!others.length) return null;
+  const from = others.some((p) => p.id === source) ? source : others[0].id;
+
+  async function run() {
+    setBusy(true);
+    const map = await readMap(from);
+    setBusy(false);
+    if (!map) return setResult(t("That playthrough's map cannot be read."));
+    const copied = importMap(doc, map, layer || undefined);
+    if (copied.nodes || copied.edges) edit(copied.action);
+    setResult(
+      t("Copied {nodes} nodes and {paths} paths.", {
+        nodes: String(copied.nodes),
+        paths: String(copied.edges),
+      }),
+    );
+  }
+
+  return (
+    <section
+      className="space-y-2"
+      aria-label={t("Import from another playthrough")}
+    >
+      <h3 className="label">{t("Import from another playthrough")}</h3>
+      <p className="text-xs text-muted">
+        {t(
+          "Copies its nodes and paths onto this map. Nodes already here, and graces already placed, are kept.",
+        )}
+      </p>
+      <div className="flex gap-2">
+        <select
+          aria-label={t("Playthrough to import from")}
+          className="field min-w-0 flex-1"
+          value={from}
+          onChange={(e) => setSource(e.target.value)}
+        >
+          {others.map((p) => (
+            <option key={p.id} value={p.id}>
+              {profileName(t, p.name)}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label={t("Map layer")}
+          className="field min-w-0 flex-1"
+          value={layer}
+          onChange={(e) => setLayer(e.target.value as LayerId | "")}
+        >
+          <option value="">{t("All layers")}</option>
+          {LAYERS.map((id) => (
+            <option key={id} value={id}>
+              {t(LAYER_NAMES[id])}
+            </option>
+          ))}
+        </select>
+      </div>
+      <button className="chip" disabled={busy} onClick={() => void run()}>
+        {t("Import")}
+      </button>
+      {result && (
+        <p role="status" className="text-xs text-muted">
+          {result}
+        </p>
+      )}
     </section>
   );
 }

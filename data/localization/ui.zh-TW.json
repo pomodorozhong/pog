@@ -74,5 +74,12 @@
   "For example: no DLC, rune level 1, no Torrent": "例如：不含 DLC、盧恩等級 1、不騎靈馬",
   "New playthrough": "新增周目",
   "Delete playthrough": "刪除周目",
-  "Delete the playthrough “{name}”?": "要刪除周目「{name}」嗎？"
+  "Delete the playthrough “{name}”?": "要刪除周目「{name}」嗎？",
+  "Import from another playthrough": "從其他周目匯入",
+  "Copies its nodes and paths onto this map. Nodes already here, and graces already placed, are kept.": "將該周目的節點與路徑複製到此地圖。此地圖已有的節點與已放置的賜福會保留。",
+  "Playthrough to import from": "要匯入的周目",
+  "All layers": "所有圖層",
+  "Import": "匯入",
+  "Copied {nodes} nodes and {paths} paths.": "已複製 {nodes} 個節點、{paths} 條路徑。",
+  "That playthrough's map cannot be read.": "無法讀取該周目的地圖。"
 }

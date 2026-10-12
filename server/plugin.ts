@@ -3,7 +3,8 @@ import { stat } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { extname, join, normalize, sep } from "node:path";
 import type { Plugin } from "vite";
-import { DOCUMENT_NAMES, type DocumentName } from "../src/domain/types.ts";
+import type { DocumentKey } from "../src/domain/types.ts";
+import { documentNameOf } from "../src/storage/schema.ts";
 import { FileStore, MAX_SAVE_BYTES, StorageError } from "./store.ts";
 import { assertLocalRequest } from "./security.ts";
 
@@ -22,17 +23,15 @@ export function storageMiddleware(store = new FileStore()) {
     response: ServerResponse,
     next: () => void,
   ) => {
-    const match = /^\/api\/state\/([a-z]+)$/.exec(
-      request.url?.split("?")[0] ?? "",
-    );
+    const match = /^\/api\/state\/(.+)$/.exec(request.url?.split("?")[0] ?? "");
     if (!match) return next();
     try {
       assertLocalRequest(request);
-      if (!DOCUMENT_NAMES.includes(match[1] as DocumentName))
+      if (!documentNameOf(match[1]))
         throw new StorageError(404, "Unknown document.");
-      const name = match[1] as DocumentName;
+      const key = match[1] as DocumentKey;
       if (request.method === "GET")
-        return reply(response, 200, await store.read(name));
+        return reply(response, 200, await store.read(key));
       if (request.method !== "PUT")
         throw new StorageError(405, "Use GET or PUT.");
       if (request.headers["content-type"]?.split(";")[0] !== "application/json")
@@ -54,7 +53,7 @@ export function storageMiddleware(store = new FileStore()) {
       }
       if (!body || typeof body !== "object")
         throw new StorageError(400, "Invalid saved state.");
-      reply(response, 200, await store.write(name, body.state, body.revision));
+      reply(response, 200, await store.write(key, body.state, body.revision));
     } catch (error) {
       const failure =
         error instanceof StorageError

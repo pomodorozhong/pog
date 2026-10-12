@@ -3,6 +3,7 @@ import {
   LANGUAGES,
   LAYERS,
   NODE_KINDS,
+  type DocumentKey,
   type DocumentName,
   type Documents,
   type MapDocument,
@@ -98,6 +99,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
       const ok =
         hasExactKeys(p, ["id", "name", "goal", "constraints"]) &&
         typeof p.id === "string" &&
+        PROFILE_ID.test(p.id) &&
         !ids.has(p.id) &&
         [p.name, p.goal, p.constraints].every((t) => typeof t === "string");
       ids.add(p.id);
@@ -108,6 +110,16 @@ function checkPlayer(value: unknown): value is PlayerDocument {
 }
 
 export const FIRST_PROFILE_ID = "profile-1";
+const PROFILE_ID = /^[a-z0-9-]{1,64}$/;
+
+export const mapKey = (profile: string): DocumentKey => `maps/${profile}`;
+
+/** Which document a storage key holds, or null for anything else. */
+export function documentNameOf(key: string): DocumentName | null {
+  if (key === "player") return "player";
+  const match = /^maps\/(.+)$/.exec(key);
+  return match && PROFILE_ID.test(match[1]) ? "map" : null;
+}
 const firstProfile = () => ({
   id: FIRST_PROFILE_ID,
   name: "",

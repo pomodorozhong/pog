@@ -62,10 +62,11 @@ export type MapDocument = {
 export type MapView = { layer: LayerId; x: number; y: number; zoom: number };
 /**
  * One whole route: a playthrough with its own goal and constraints. Wishlist,
- * progress, position and the linked save slot join it in milestone 4. The map
- * (nodes and paths) is shared by every profile.
+ * progress, position and the linked save slot join it in milestone 4. Its map
+ * (nodes and paths) is a separate document, `maps/<id>`.
  */
 export type Profile = {
+  /** Lowercase letters, digits and dashes, since it names the profile's map file. */
   id: string;
   /** Player-written, kept as written. Empty shows as "Untitled playthrough". */
   name: string;
@@ -83,4 +84,5 @@ export type PlayerDocument = {
 
 export type Documents = { map: MapDocument; player: PlayerDocument };
 export type DocumentName = keyof Documents;
-export const DOCUMENT_NAMES: DocumentName[] = ["map", "player"];
+/** Where a document is saved: `player`, or `maps/<profile id>` for a profile's map. */
+export type DocumentKey = "player" | `maps/${string}`;

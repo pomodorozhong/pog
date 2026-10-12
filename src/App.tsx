@@ -19,13 +19,22 @@ import {
 } from "./domain/types";
 import { translate, type Translate } from "./i18n/translation";
 import { loadGameData, type GameData } from "./map/catalog";
-import { historyReducer, newId, type MapAction } from "./map/editing";
+import {
+  historyReducer,
+  newId,
+  type History,
+  type MapAction,
+} from "./map/editing";
 import { Inspector } from "./map/Inspector";
 import { EDGE_NAMES, LAYER_NAMES } from "./map/labels";
 import { MapCanvas, type Draft, type Selection } from "./map/MapCanvas";
 import { EDGE_STYLE } from "./map/style";
-import { ProfilePanel, ProfileSwitcher } from "./profiles/ProfilePanel";
-import { initialDocuments } from "./storage/schema";
+import {
+  ImportFromProfile,
+  ProfilePanel,
+  ProfileSwitcher,
+} from "./profiles/ProfilePanel";
+import { initialDocuments, mapKey } from "./storage/schema";
 import {
   usePersistentDocument,
   type SaveStatus,
@@ -54,22 +63,55 @@ export default function App() {
   const [edgeType, setEdgeType] = useState<EdgeType>("road");
   const [selection, setSelection] = useState<Selection>(null);
   const [draft, setDraft] = useState<Draft>(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
+  /** The profile whose map is in `history`. */
+  const [mapProfile, setMapProfile] = useState<string | null>(null);
   const views = useRef(new Map<LayerId, MapView>());
+  // Undo history of each profile's map, kept while switching between them.
+  const histories = useRef(new Map<string, History>());
+  const latestHistory = useRef(history);
+  useEffect(() => {
+    latestHistory.current = history;
+  }, [history]);
 
   const doc = history.present;
+  const activeProfileId = player?.activeProfile ?? null;
+  const mapLoaded = mapProfile !== null && mapProfile === activeProfileId;
   const mapSave = usePersistentDocument(
     "map",
+    activeProfileId === null ? null : mapKey(activeProfileId),
     mapLoaded ? doc : null,
-    (loaded) => {
-      dispatch({ type: "load", doc: loaded });
-      setMapLoaded(true);
+    (loaded, key) => {
+      if (mapProfile) histories.current.set(mapProfile, latestHistory.current);
+      const profile = key.slice("maps/".length);
+      const kept = histories.current.get(profile);
+      // Keep undo history only if the map wasn't changed elsewhere meanwhile.
+      const history =
+        kept && JSON.stringify(kept.present) === JSON.stringify(loaded)
+          ? { ...kept, present: loaded }
+          : undefined;
+      dispatch({ type: "load", doc: loaded, history });
+      setSelection(null);
+      setDraft(null);
+      setMapProfile(profile);
     },
   );
-  const playerSave = usePersistentDocument("player", player, (loaded) => {
-    views.current.set(loaded.view.layer, loaded.view);
-    setPlayer(loaded);
-  });
+  const readSavedMap = mapSave.read;
+  const readMap = useCallback(
+    async (profile: string) => {
+      const map = await readSavedMap(mapKey(profile));
+      return map.canSave ? map.state : null;
+    },
+    [readSavedMap],
+  );
+  const playerSave = usePersistentDocument(
+    "player",
+    "player",
+    player,
+    (loaded) => {
+      views.current.set(loaded.view.layer, loaded.view);
+      setPlayer(loaded);
+    },
+  );
 
   useEffect(() => {
     loadGameData().then(setData, () => setDataError(true));
@@ -396,7 +438,19 @@ export default function App() {
           showNode={showNode}
           deleteSelection={deleteSelection}
           recovery={mapSave.recovery ?? playerSave.recovery}
-          profile={<ProfilePanel t={t} player={player} setPlayer={setPlayer} />}
+          profile={
+            <>
+              <ProfilePanel t={t} player={player} setPlayer={setPlayer} />
+              <ImportFromProfile
+                key={player.activeProfile}
+                t={t}
+                player={player}
+                doc={doc}
+                readMap={readMap}
+                edit={edit}
+              />
+            </>
+          }
         />
       </div>
     </div>

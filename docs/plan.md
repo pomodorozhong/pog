@@ -60,7 +60,8 @@ Three kinds, kept separate:
 
 1. **Game data (generated):** `game-data/catalog.json`, `icons/`, `map/`. Never edited by hand, never committed.
 2. **Player-authored map data, one file per profile:** `maps/<profile id>.json` in the app data folder. Nodes (grace, junction, item, entrance) in native map pixels of their layer, and edges (typed polylines between nodes; only waygates join layers).
-   - **Today:** a single `map.json`. Moving to per-profile files makes the existing `map.json` the map of the first profile (`profile-1`), in milestone 4.
+   - **Upgrade:** the single `map.json` of earlier versions becomes the first profile's map (`profile-1`) the first time it is read.
+   - **Profile IDs** are lowercase letters, digits and dashes, since they name files.
    - **Deleting a profile** moves its map file into a `deleted/` folder instead of removing it, since it's player data.
 3. **Player state:** `player.json` in the app data folder: app settings (language, map view) plus the playthrough profiles and which one is active.
    - **Profile (built):** ID, name, goal, constraints (free text for now).
@@ -149,8 +150,8 @@ Original plan, kept for reference:
 The interface for these features stays plain and functional; only blockers are fixed until the redesign in milestone 5.
 
 - [x] **Playthrough profiles:** create, rename, switch (header) and delete; goal and constraints as free text. Version 1 player files upgrade into one untitled profile.
-- [ ] **Map per profile:** move `map.json` to `maps/<profile id>.json` (the existing map goes to `profile-1`); switching profiles loads that profile's map; undo history is per profile; a new profile starts empty; a deleted profile's map moves to `deleted/`.
-- [ ] **"Import from another profile":** pick a profile and, optionally, one layer; copy its nodes and paths into the active profile as one undo step. Graces already present (same grace ID) are reused instead of duplicated, so copied paths attach to them.
+- [x] **Map per profile:** move `map.json` to `maps/<profile id>.json` (the existing map goes to `profile-1`); switching profiles loads that profile's map; undo history is per profile; a new profile starts empty; a deleted profile's map moves to `deleted/`.
+- [x] **"Import from another profile":** pick a profile and, optionally, one layer; copy its nodes and paths into the active profile as one undo step. Graces already present (same grace ID) are reused instead of duplicated, so copied paths attach to them.
 - [ ] Wishlist per profile, with status (needed / acquired / skipped) and a note.
 - [ ] Bring in `seed/wishlist.json` as a profile's wishlist (copy it out of the handoff folder; official names replace the seed's). It was the "Great Stars Guard Counter" build, so it can start a profile with that name.
 - [ ] Progress per profile: discovered graces, picked-up items, beaten bosses, current position.
