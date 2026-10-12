@@ -19,6 +19,7 @@ import {
   type GameData,
 } from "./catalog";
 import type { MapAction } from "./editing";
+import { importGraces } from "./graces";
 import type { Selection } from "./MapCanvas";
 import { EDGE_NAMES, LAYER_NAMES, NODE_KIND_NAMES } from "./labels";
 import { EDGE_STYLE } from "./style";
@@ -70,7 +71,7 @@ export function Inspector(props: Props) {
       ) : edge ? (
         <EdgePanel {...props} edgeId={edge.id} key={edge.id} />
       ) : (
-        <Summary t={t} doc={doc} layer={layer} data={data} />
+        <Summary t={t} doc={doc} layer={layer} data={data} edit={props.edit} />
       )}
     </aside>
   );
@@ -88,7 +89,11 @@ function NodePanel({
 }: Props & { node: MapNode }) {
   const [query, setQuery] = useState("");
   const candidates = refCandidates(data, node.kind);
-  const results = searchCatalog(candidates, query);
+  const results = query
+    ? searchCatalog(candidates, query)
+    : !node.ref && node.kind === "grace"
+      ? nearbyGraces(data, node)
+      : [];
   const entry = node.ref ? data.byId.get(node.ref) : undefined;
   const connected = doc.edges.filter(
     (e) => e.from === node.id || e.to === node.id,
@@ -135,7 +140,11 @@ function NodePanel({
       {candidates.length > 0 && (
         <div className="space-y-1">
           <label className="label" htmlFor="ref-search">
-            {node.kind === "item" ? t("Item") : t("Place name")}
+            {node.kind === "item"
+              ? t("Item")
+              : node.kind === "grace"
+                ? t("Site of Grace")
+                : t("Place name")}
           </label>
           {entry && (
             <p className="flex items-center justify-between gap-2 text-sm">
@@ -153,6 +162,9 @@ function NodePanel({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
+          {!query && results.length > 0 && (
+            <p className="text-xs text-muted">{t("Nearby graces")}</p>
+          )}
           {results.length > 0 && (
             <ul className="max-h-64 overflow-y-auto rounded border border-line">
               {results.map((result) => (
@@ -321,17 +333,34 @@ function EdgePanel({
   );
 }
 
+/** The closest game graces to a hand-placed grace, nearest first. */
+function nearbyGraces(data: GameData, node: MapNode) {
+  return data.catalog.graces
+    .filter((g) => g.layer === node.layer)
+    .map((g) => ({ g, d: Math.hypot(g.x - node.x, g.y - node.y) }))
+    .filter(({ d }) => d < 400)
+    .sort((a, b) => a.d - b.d)
+    .slice(0, 5)
+    .map(({ g }) => g);
+}
+
 function Summary({
   t,
   doc,
   layer,
+  data,
+  edit,
 }: {
   t: Translate;
   doc: MapDocument;
   layer: LayerId;
   data: GameData;
+  edit(action: MapAction): void;
 }) {
   const here = doc.nodes.filter((n) => n.layer === layer);
+  const total = data.catalog.graces.filter((g) => g.layer === layer).length;
+  const plan = importGraces(data.catalog.graces, doc, layer);
+  const pending = plan.type === "batch" ? plan.actions.length : 0;
   return (
     <section className="space-y-4 text-sm">
       <h2 className="font-serif text-lg text-gold">{t(LAYER_NAMES[layer])}</h2>
@@ -342,6 +371,28 @@ function Summary({
             .length,
         })}
       </p>
+      {total > 0 && (
+        <div className="space-y-2">
+          <h3 className="label">{t("Sites of Grace")}</h3>
+          {pending > 0 ? (
+            <>
+              <p className="text-muted">
+                {t(
+                  "The game has {total} graces on this layer. Graces you placed by hand are linked to the nearest one and keep their position.",
+                  { total },
+                )}
+              </p>
+              <button className="chip" onClick={() => edit(plan)}>
+                {t("Add graces from the game ({count})", { count: pending })}
+              </button>
+            </>
+          ) : (
+            <p className="text-muted">
+              {t("Every grace on this layer is on the map.")}
+            </p>
+          )}
+        </div>
+      )}
       <div>
         <h3 className="label mb-1">{t("Path types")}</h3>
         <ul className="space-y-1">

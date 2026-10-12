@@ -105,8 +105,70 @@ def build_catalog(game: GameFiles, game_dir: Path) -> dict:
                 entries.append({"id": f"{kind}/{text_id}", "name": {"en": en, "zh-TW": zh}, "dlc": dlc})
         others[kind + "s"] = entries
 
-    log(f"catalog: {len(items)} items, {len(others['places'])} places, {len(others['npcs'])} npcs, {missing_zh} items without zh-TW")
-    return {"items": items, **others}
+    graces = build_graces(regulation, names)
+    log(f"catalog: {len(items)} items, {len(graces)} graces, {len(others['places'])} places, {len(others['npcs'])} npcs, {missing_zh} items without zh-TW")
+    return {"items": items, "graces": graces, **others}
+
+
+# Open-world map areas: 60 is the Lands Between, 61 the Realm of Shadow. Grid cells are 256 m.
+OPEN_WORLD = {60: False, 61: True}
+# World meters to full-resolution map pixels, the same for every map layer: one pixel per
+# meter, y flipped. Checked by eye against churches, forts and castles on all three maps.
+MAP_ORIGIN_X, MAP_ORIGIN_Z = 7040, 16512
+
+
+def build_graces(regulation: dict[str, bytes], names: dict) -> list[dict]:
+    """Every Site of Grace with its position in its open-world area (meters, x east, z north).
+
+    Graces inside legacy dungeons, caves and catacombs are stored in their own
+    map's coordinates; WorldMapLegacyConvParam rows translate between maps, and
+    following them leads to area 60 or 61.
+    """
+    links: dict[tuple, list] = {}
+    for row in read_param(regulation["WorldMapLegacyConvParam"], LAYOUTS["WorldMapLegacyConvParam"]).values():
+        src, dst = row["src"], row["dst"]
+        if src[:3] != dst[:3]:
+            links.setdefault(src[:3], []).append((src[3:], dst[:3], dst[3:]))
+            links.setdefault(dst[:3], []).append((dst[3:], src[:3], src[3:]))  # rows work both ways
+
+    def to_open_world(cell: tuple, pos: tuple, seen: frozenset = frozenset()):
+        if cell[0] in OPEN_WORLD:
+            return cell[0], cell[1] * 256 + pos[0], cell[2] * 256 + pos[2]
+        candidates = [link for link in links.get(cell, []) if link[1] not in seen]
+        # Prefer a direct link to the open world, then the conversion point nearest the grace.
+        candidates.sort(key=lambda l: (l[1][0] not in OPEN_WORLD, (l[0][0] - pos[0]) ** 2 + (l[0][2] - pos[2]) ** 2))
+        for src_pos, dst_cell, dst_pos in candidates:
+            moved = tuple(d + p - s for s, d, p in zip(src_pos, dst_pos, pos))
+            found = to_open_world(dst_cell, moved, seen | {cell})
+            if found:
+                return found
+        return None
+
+    graces, skipped = [], 0
+    for row_id, row in read_param(regulation["BonfireWarpParam"], LAYOUTS["BonfireWarpParam"]).items():
+        en, _ = lookup(names, "en", "PlaceName", row["textId1"])
+        cell = (row["areaNo"], row["gridXNo"], row["gridZNo"])
+        found = to_open_world(cell, (row["posX"], row["posY"], row["posZ"]))
+        if not en or not found:
+            skipped += 1
+            continue
+        area, x, z = found
+        zh, _ = lookup(names, "zh-TW", "PlaceName", row["textId1"])
+        dlc = OPEN_WORLD[area]
+        underground = bool(row["dispMask"] & 2)
+        graces.append({
+            "id": f"grace/{row_id}",
+            "name": {"en": en, "zh-TW": zh},
+            "dlc": dlc,
+            "layer": "dlc" if dlc else "underground" if underground else "overworld",
+            "x": round(x - MAP_ORIGIN_X),
+            "y": round(MAP_ORIGIN_Z - z),
+            "flag": row["eventflagId"],
+            "legacy": area != row["areaNo"],
+        })
+    if skipped:
+        log(f"graces: {skipped} rows skipped (no name or no route to the open world)")
+    return graces
 
 
 def tpf_image(data: bytes) -> Image.Image:

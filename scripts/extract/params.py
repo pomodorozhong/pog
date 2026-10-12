@@ -21,6 +21,23 @@ LAYOUTS = {
     "EquipParamAccessory": {"size": 96, "iconId": (38, "<H")},
     "EquipParamGoods": {"size": 176, "iconId": (48, "<H"), "goodsType": (62, "<B")},
     "EquipParamGem": {"size": 96, "iconId": (4, "<H")},
+    "BonfireWarpParam": {
+        "size": 236,
+        "eventflagId": (4, "<I"),
+        "dispMask": (30, "<B"),  # bit 0: shown on the surface map, bit 1: underground
+        "areaNo": (32, "<B"),
+        "gridXNo": (33, "<B"),
+        "gridZNo": (34, "<B"),
+        "posX": (36, "<f"),
+        "posY": (40, "<f"),
+        "posZ": (44, "<f"),
+        "textId1": (48, "<i"),
+    },
+    "WorldMapLegacyConvParam": {
+        "size": 48,
+        "src": (4, "<BBBx3f"),
+        "dst": (20, "<BBBx3f"),
+    },
 }
 
 
@@ -30,7 +47,7 @@ def read_regulation(path: Path) -> dict[str, bytes]:
     return {name.split("\\")[-1].removesuffix(".param"): raw for name, raw in read_bnd4(dcx_decompress(plain)).items()}
 
 
-def read_param(raw: bytes, layout: dict) -> dict[int, dict[str, int]]:
+def read_param(raw: bytes, layout: dict) -> dict[int, dict]:
     """Return {row id: {field: value}} for the fields named in the layout."""
     (count,) = struct.unpack_from("<H", raw, 0x0A)
     rows = [struct.unpack_from("<iiq", raw, 0x40 + i * 24)[::2] for i in range(count)]
@@ -38,6 +55,11 @@ def read_param(raw: bytes, layout: dict) -> dict[int, dict[str, int]]:
         raise ValueError(f"row size {rows[1][1] - rows[0][1]} != expected {layout['size']}")
     fields = {k: v for k, v in layout.items() if k != "size"}
     return {
-        row_id: {name: struct.unpack_from(fmt, raw, offset + field_offset)[0] for name, (field_offset, fmt) in fields.items()}
+        row_id: {name: unpack(fmt, raw, offset + field_offset) for name, (field_offset, fmt) in fields.items()}
         for row_id, offset in rows
     }
+
+
+def unpack(fmt: str, raw: bytes, offset: int):
+    values = struct.unpack_from(fmt, raw, offset)
+    return values[0] if len(values) == 1 else values

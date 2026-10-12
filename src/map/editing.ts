@@ -19,7 +19,9 @@ export type MapAction =
       id: string;
       changes: Partial<Pick<MapEdge, "type" | "note" | "points">>;
     }
-  | { type: "removeEdge"; id: string };
+  | { type: "removeEdge"; id: string }
+  /** Several edits as one undo step. */
+  | { type: "batch"; actions: MapAction[] };
 
 /** Apply one edit. Returns the same document when the edit would make it invalid. */
 export function applyMapAction(
@@ -83,6 +85,8 @@ export function applyMapAction(
     case "removeEdge":
       if (!doc.edges.some((e) => e.id === action.id)) return doc;
       return { ...doc, edges: doc.edges.filter((e) => e.id !== action.id) };
+    case "batch":
+      return action.actions.reduce(applyMapAction, doc);
   }
 }
 

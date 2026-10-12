@@ -1,6 +1,6 @@
 # Route of Grace: plan
 
-Updated 2026-10-12. Replaces the build order in the old project's handoff note, and adds what extracting the game data taught us.
+Updated 2026-10-13. Replaces the build order in the old project's handoff note, and adds what extracting the game data taught us.
 
 ## Goal
 
@@ -10,25 +10,26 @@ A map-based route planner for Elden Ring (base game and Shadow of the Erdtree). 
 
 ## Decisions
 
-| Topic | Decision |
-| --- | --- |
-| Route meaning | A real path drawn on the map, not an ordered list of places. |
-| Path data | The player draws paths in the editor. No automatic navmesh. |
-| Places | Graces come from the game data. Item pins come from the game data once item locations are extracted (milestone 5); until then the player places them. |
-| Names | Official in-game English and zh-TW names win over any other source. Player-written text is kept as written. |
-| Language | English and Traditional Chinese (zh-TW) for all interface text. |
-| Spoilers | Fine. Show missable and quest-lock warnings freely. |
-| Viewer mode | Required: a read-only URL used as an OBS browser source. |
-| DLC | In scope (separate map layers). |
-| Platform | Mac, game running in CrossOver. Everything runs natively on macOS. |
-| Live position | No. The player sets their position by hand (for example "at grace X"). |
-| Game assets | Generated locally by the extractor, never committed. Only the script is in git. |
+| Topic         | Decision                                                                                                                                              |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Route meaning | A real path drawn on the map, not an ordered list of places.                                                                                          |
+| Path data     | The player draws paths in the editor. No automatic navmesh.                                                                                           |
+| Places        | Graces come from the game data. Item pins come from the game data once item locations are extracted (milestone 5); until then the player places them. |
+| Names         | Official in-game English and zh-TW names win over any other source. Player-written text is kept as written.                                           |
+| Language      | English and Traditional Chinese (zh-TW) for all interface text.                                                                                       |
+| Spoilers      | Fine. Show missable and quest-lock warnings freely.                                                                                                   |
+| Viewer mode   | Required: a read-only URL used as an OBS browser source.                                                                                              |
+| DLC           | In scope (separate map layers).                                                                                                                       |
+| Platform      | Mac, game running in CrossOver. Everything runs natively on macOS.                                                                                    |
+| Live position | No. The player sets their position by hand (for example "at grace X").                                                                                |
+| Game assets   | Generated locally by the extractor, never committed. Only the script is in git.                                                                       |
 
 ## What the extraction taught us
 
 Everything below comes from the player's own install, read natively on macOS in about 100 seconds (see `scripts/extract/README.md`).
 
 **Already extracted (`game-data/`):**
+
 - **Catalog:** 3,714 items (weapons, armor, talismans, goods, Ashes of War), 674 of them DLC, plus 1,007 places and 483 NPCs. Every entry has official English and zh-TW names.
   - All 46 seed wishlist items are found. 5 of the seed's zh-TW names were community translations and are replaced by the official ones.
   - Place names repeat under several IDs (region name vs. area name), so search shows each name once.
@@ -37,14 +38,15 @@ Everything below comes from the player's own install, read natively on macOS in 
 - **Map tiles:** fully revealed Leaflet tile pyramids for 4 layers: `overworld` (M00), `underground` (M01), `dlc` (M10), `dlc-underground` (M11). The full-resolution layers are 10,496 px square (8,704 px for `dlc-underground`), zoom 0–6.
 
 **Available in the game data but not yet used:**
-- **`BonfireWarpParam`:** all 422 graces, each with its official name, its "discovered" event flag, and its world position. Graces at boss arenas are named after the boss.
-- **World-to-map transform:** for the overworld (map area 60), map pixel ≈ world meter (scale 1.0). The offset is roughly (7040, 16640), with y flipped. With that offset, 161 of 166 overworld graces land on land, but some are off by 100–200 px. The exact transform still needs calibrating (milestone 3).
-- **`WorldMapLegacyConvParam`:** converts positions inside legacy dungeons (Stormveil, Leyndell…) onto the overworld map.
+
+- **Graces (extracted in milestone 3):** 419 of the 422 `BonfireWarpParam` rows, with official names, "discovered" event flags and map pixel positions (3 rows are unnamed or unreachable). Graces at boss arenas are named after the boss.
+- **World-to-map transform (solved):** one transform fits every layer: map pixel = (world x − 7040, 16512 − world z), one pixel per meter. World x/z come from area 60 or 61 grid cells (`grid × 256 + position`). Graces inside legacy dungeons, caves and catacombs are moved into area 60/61 by following `WorldMapLegacyConvParam` rows, which work in both directions and sometimes chain (Deeproot → Leyndell sewers → Leyndell → overworld). Checked by eye on churches, forts and castles in the overworld, the underground and the DLC.
 - **`WorldMapPointParam`:** the game's own map markers, with positions and names.
 - **`ItemLotParam`:** what each pickup gives and its "picked up" event flag, but no position.
 - **Map layout files (`map/mapstudio/*.msb`):** readable for overworld cells (`m60_*`), DLC cells (`m61_*`) and legacy dungeons (`m10_*` etc.). Treasure entries there link item lots to world positions, so item locations can probably be extracted (milestone 5).
 
 **Gotchas worth remembering:**
+
 - Event flags (grace discovered, item picked up, boss beaten) tie these sources together. They are the natural keys for progress and prerequisites.
 - **Patches can change formats:** `regulation.bin` switched from Kraken to ZSTD compression in a recent patch. Param field offsets come from Paramdex and are checked against row size, so a layout change fails loudly. After a game patch, rerun `npm run extract`.
 - **Known gaps:** about 120 tiny archive files use an Oodle codec we don't decode, and 3 icons referenced by items don't exist. Neither affects the app.
@@ -64,46 +66,64 @@ Graces imported from game data are stored as ordinary nodes with a `ref` to thei
 ## Design
 
 ### Map
+
 Leaflet with `CRS.Simple` over the extracted tiles; one layer per map (built). Legacy dungeons stay single entrance nodes with step-by-step notes. The overworld map doesn't help inside them, though `WorldMapLegacyConvParam` can place their graces on the overworld.
 
 ### Path graph
+
 - **Nodes:** graces, junctions, item pins, dungeon entrances.
 - **Edges:** polylines typed `road`, `torrent`, `foot`, `one-way-drop`, `lift`, `waygate`, `spiritspring`, `requires-key`, `requires-flag`. The type sets cost and rules.
 - **Unexplored areas:** fall back to a straight line between points, shown as "path is a guess" until the player draws a real one.
 
 ### Routing
+
 - **Travel cost:** shortest path over the graph. Edge cost = length × the type's speed factor, plus fixed costs (lift, waygate). Fast travel to any discovered grace is a cheap jump, except where it's blocked (inside legacy dungeons before their grace).
 - **Visit order:** an ordering problem with prerequisites. Nearest neighbor plus 2-opt is enough for a few dozen targets.
 - **Rerouting:** when an item is wishlisted, fit it into the current route at the cheapest point and show the extra cost ("+4 min, best after the Liurnia grace") before committing.
 - **Views:** "Next stops" (the active route), "Blocked by X" ("beating Radahn unlocks 4 of your wishlist items"), "Don't miss" (quest-sensitive items).
 
 ### OBS viewer
+
 - **Base:** the old project's read-only viewer (WebSocket relay; operator publishes snapshots, viewers follow).
 - **URL options:** a separate URL with layouts (full map with route, corner minimap, "next 3 stops" strip), a transparent background, large text, and `?lang=zh-TW`.
 - **Updates:** live over WebSocket from the operator app, with an optional hotkey for "advance to next stop".
 
 ### Agent tools
+
 A local MCP server for Claude Code and Claude Desktop, changing the same documents the app reads. The app and the overlay update live. Starting tools: `search_items` (English or zh-TW), `add_to_wishlist`, `place_pin`, `get_route`, `estimate_detour`, `mark_done`. Tool definitions stay separate from transport, so a WebMCP adapter can come later.
 
 ## Build order
 
 ### 1. Extraction ✅
+
 Done: catalog, icons, map tiles, natively on macOS.
 
 ### 2. Map editor ✅
+
 Done: layers, node placement, typed path drawing, catalog linking with icons, undo/redo, English/zh-TW, local saving.
 
 Follow-ups:
+
 - [ ] End-to-end browser tests (Playwright; patterns in the old project's `tests/e2e`).
 - [ ] Try waygate linking between layers by hand; it is unit-tested only.
 - [ ] Keep the editor fast as the graph grows (hundreds of nodes redraw on every change today).
 
-### 3. Graces from game data (new)
-- [ ] Extract `BonfireWarpParam` into `catalog.json`: grace ID, name, layer, world position, discovered flag.
-- [ ] **Calibrate the world-to-map transform per layer.** Fit scale and offset by least squares from 3+ graces the player places by hand, then check against all graces. Use the cell grid (`areaNo`, `gridX`, `gridZ`) plus local position. Handle legacy dungeons through `WorldMapLegacyConvParam`, and underground and DLC layers separately.
-- [ ] Import graces as nodes in one click, skipping any already placed. Show uncalibrated layers as "positions approximate".
+### 3. Graces from game data ✅
+
+Done: graces in `catalog.json` (ID, names, layer, map position, discovered flag, legacy-dungeon marker); one-click import per layer that links hand-placed graces within 48 px and skips graces already linked or duplicated (Leyndell's ashen twins); nearby-grace suggestions for unlinked grace nodes. Calibration from player anchors turned out unnecessary because the transform is exact.
+
+Follow-ups:
+
+- [ ] `dlc-underground` has no graces: every DLC grace has display mask 0, so the surface/underground bit doesn't apply. Find out what the DLC underground map shows before importing anything there.
+
+Original plan, kept for reference:
+
+- [x] Extract `BonfireWarpParam` into `catalog.json`: grace ID, name, layer, world position, discovered flag.
+- [x] ~~**Calibrate the world-to-map transform per layer.**~~ Not needed; see above. Fit scale and offset by least squares from 3+ graces the player places by hand, then check against all graces. Use the cell grid (`areaNo`, `gridX`, `gridZ`) plus local position. Handle legacy dungeons through `WorldMapLegacyConvParam`, and underground and DLC layers separately.
+- [x] Import graces as nodes in one click, skipping any already placed.
 
 ### 4. Wishlist and routing
+
 - [ ] Bring in `seed/wishlist.json` (copy it out of the handoff folder; official names replace the seed's).
 - [ ] Player state: wishlist with status (needed / acquired / skipped), discovered graces, beaten bosses, current position.
 - [ ] **"Import progress from save" button.**
@@ -115,25 +135,28 @@ Follow-ups:
 - [ ] "Next stops" view, with the route drawn on the map.
 
 ### 5. Item locations from map layout files (spike, then build)
+
 - [ ] Parse ER MSB treasure entries: part position + item lot ID, per map cell.
 - [ ] Join item lot → item → world position → map pixel (milestone 3's transform).
 - [ ] If reliable, offer "place pin from game data" when wishlisting; otherwise keep manual pins. Shops, drops from enemies and quest rewards have no treasure position, so manual pins and notes stay necessary.
 
 ### 6. Local MCP server
+
 - [ ] The starting tool set above, sharing `map.json` and `player.json` with the app (through the same store and revision checks).
 - [ ] When adding a wishlist item, suggest region and requirements, and ask the player to confirm the pin.
 
 ### 7. OBS viewer
+
 - [ ] Copy in `server/viewer.ts` and `src/sync/*` from the old project. Replace `LiveSnapshot.ui` with map view state (center, zoom, layer, selected stop) and drop `scroll.ts`.
 - [ ] Layouts, transparent background, `?lang=`, hotkey to advance.
 
 ### 8. Prerequisites and missables
+
 - [ ] Requirement flags on edges and items, using game event flags where possible (boss beaten, grace discovered).
 - [ ] "Blocked by X" and "Don't miss" views.
 
 ## Risks and open questions
 
-- **Transform accuracy (milestone 3):** the scale-1 fit is close but not exact. If calibration from a few anchors isn't good enough everywhere, the game's own map menu data may hold the exact constants.
 - **MSB parsing (milestone 5):** not yet attempted. The ER format is documented by the modding community (SoulsFormats). Coverage is limited to world pickups.
 - **Reading progress from the save:** decided: a manual import button (milestone 4).
   - **Safety:** the app never writes the save; it copies the file, checks each slot's MD5, and parses the copy.

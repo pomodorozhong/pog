@@ -58,5 +58,11 @@
   "Changes cannot be saved to this computer": "變更無法儲存到這台電腦",
   "Saved data changed in another window. Reload before saving again.": "已儲存的資料在其他視窗中變更。請重新載入後再儲存。",
   "Saved data could not be loaded. Original data is preserved; changes stay in memory.": "無法載入已儲存的資料。原始資料已保留；變更僅保留在記憶體中。",
-  "Download original saved data": "下載原始儲存資料"
+  "Download original saved data": "下載原始儲存資料",
+  "Site of Grace": "賜福",
+  "Sites of Grace": "賜福",
+  "Nearby graces": "附近的賜福",
+  "The game has {total} graces on this layer. Graces you placed by hand are linked to the nearest one and keep their position.": "遊戲在此圖層有 {total} 個賜福。你手動放置的賜福會連結到最近的賜福，位置保持不變。",
+  "Add graces from the game ({count})": "從遊戲加入賜福（{count}）",
+  "Every grace on this layer is on the map.": "此圖層的賜福都已在地圖上。"
 }

@@ -10,8 +10,19 @@ export type CatalogItem = {
   goodsType?: number;
 };
 export type CatalogName = { id: string; name: Localized; dlc: boolean };
+/** A Site of Grace, positioned in native map pixels of its layer. */
+export type CatalogGrace = CatalogName & {
+  layer: LayerId;
+  x: number;
+  y: number;
+  /** Event flag set once the grace is discovered. */
+  flag: number;
+  /** Inside a legacy dungeon, cave or catacomb, projected onto the open-world map. */
+  legacy: boolean;
+};
 export type Catalog = {
   items: CatalogItem[];
+  graces: CatalogGrace[];
   places: CatalogName[];
   npcs: CatalogName[];
 };
@@ -42,7 +53,12 @@ export async function loadGameData(
     ),
   );
   const byId = new Map<string, CatalogItem | CatalogName>();
-  for (const entry of [...catalog.items, ...catalog.places, ...catalog.npcs])
+  for (const entry of [
+    ...catalog.items,
+    ...catalog.graces,
+    ...catalog.places,
+    ...catalog.npcs,
+  ])
     byId.set(entry.id, entry);
   const seen = new Set<string>();
   const uniquePlaces = (catalog as Catalog).places.filter(
@@ -62,7 +78,8 @@ export function refCandidates(
   kind: NodeKind,
 ): (CatalogItem | CatalogName)[] {
   if (kind === "item") return data.catalog.items;
-  if (kind === "grace" || kind === "entrance") return data.uniquePlaces;
+  if (kind === "grace") return data.catalog.graces;
+  if (kind === "entrance") return data.uniquePlaces;
   return [];
 }
 
