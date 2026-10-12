@@ -81,5 +81,18 @@
   "All layers": "所有圖層",
   "Import": "匯入",
   "Copied {nodes} nodes and {paths} paths.": "已複製 {nodes} 個節點、{paths} 條路徑。",
-  "That playthrough's map cannot be read.": "無法讀取該周目的地圖。"
+  "That playthrough's map cannot be read.": "無法讀取該周目的地圖。",
+  "Wishlist": "願望清單",
+  "Needed": "需要",
+  "Acquired": "已取得",
+  "Skipped": "略過",
+  "Status": "狀態",
+  "{needed} needed · {acquired} acquired · {skipped} skipped": "{needed} 個需要 · {acquired} 個已取得 · {skipped} 個略過",
+  "Add to wishlist": "加入願望清單",
+  "Add an item: search English or 中文": "加入道具：搜尋英文或中文",
+  "Show on map": "在地圖上顯示",
+  "Not on the map yet: place an item pin and link it.": "尚未在地圖上：請放置道具標記並連結此道具。",
+  "Remove": "移除",
+  "Starts with its wishlist of {count} items": "內含 {count} 項道具的願望清單",
+  "New “{name}” playthrough": "新增「{name}」周目"
 }

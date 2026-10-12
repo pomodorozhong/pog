@@ -1,0 +1,237 @@
+{
+  "name": "Great Stars Guard Counter",
+  "goal": "Rune level 80",
+  "constraints": "",
+  "wishlist": [
+    {
+      "item": "weapon/12180000",
+      "status": "needed",
+      "note": "Altus Plateau, carriage near Road of Iniquity Side Path. Needs: Reach Altus Plateau; 22 Strength and 12 Dexterity to wield."
+    },
+    {
+      "item": "weapon/11050000",
+      "status": "needed",
+      "note": "Weeping Peninsula, broken carriage south of Bridge of Sacrifice. Needs: 12 Strength and 8 Dexterity to wield."
+    },
+    {
+      "item": "weapon/64500000",
+      "status": "needed",
+      "note": "In a small stone mausoleum in Gravesite Plain, northeast of Scorched Ruins; loot the weapon beside a coffin. Needs: Shadow of the Erdtree DLC access. Normal access to the Realm of Shadow requires defeating Starscourge Radahn and Mohg, Lord of Blood in the base game."
+    },
+    {
+      "item": "weapon/12530000",
+      "status": "needed",
+      "note": "A one-time drop from the weapon-carrying enemy in the upper part of Prospect Town, Gravesite Plain. Needs: Shadow of the Erdtree DLC access. Normal access to the Realm of Shadow requires defeating Starscourge Radahn and Mohg, Lord of Blood in the base game."
+    },
+    {
+      "item": "weapon/3500000",
+      "status": "needed",
+      "note": "Trade the Remembrance of the Wild Boar Rider at Roundtable Hold after defeating Commander Gaius. Needs: Shadow of the Erdtree DLC access and victory over Commander Gaius."
+    },
+    {
+      "item": "weapon/15060000",
+      "status": "needed",
+      "note": "Guaranteed drop from the Scaly Misbegotten area boss at the end of Morne Tunnel, Weeping Peninsula. Needs: Reach Morne Tunnel and defeat its area boss."
+    },
+    {
+      "item": "weapon/3550000",
+      "status": "needed",
+      "note": "Defeat the Knight of the Solitary Gaol, also called the Blackgaol Knight, inside the Western Nameless Mausoleum on Gravesite Plain. Needs: Shadow of the Erdtree DLC access. Normal access to the Realm of Shadow requires defeating Starscourge Radahn and Mohg, Lord of Blood in the base game; 13 Dexterity to wield."
+    },
+    {
+      "item": "weapon/67500000",
+      "status": "needed",
+      "note": "Open the chest at the top of a tower on Castle Ensis battlements. Needs: Shadow of the Erdtree DLC access. Normal access to the Realm of Shadow requires defeating Starscourge Radahn and Mohg, Lord of Blood in the base game; 17 Dexterity to wield."
+    },
+    {
+      "item": "weapon/4000000",
+      "status": "needed",
+      "note": "Open the chest in the rear of the black carriage on the road northeast of Rotview Balcony in Caelid. Needs: Reach Caelid and the road northeast of Rotview Balcony; 31 Strength to wield one-handed; 21 Strength to wield two-handed."
+    },
+    {
+      "item": "weapon/11140000",
+      "status": "needed",
+      "note": "Farm the Battlemage wielding the club outside Sellia Hideaway in Caelid; Battlemages wielding it also appear before the boss fog in Academy Crystal Cave. Needs: Reach Caelid."
+    },
+    {
+      "item": "weapon/60510000",
+      "status": "needed",
+      "note": "After the battle in the Cleansing Chamber Anteroom of Enir-Ilim, loot Dane’s body near the forward door. Needs: Shadow of the Erdtree DLC access. Normal access to the Realm of Shadow requires defeating Starscourge Radahn and Mohg, Lord of Blood in the base game; Advance the DLC main route to Enir-Ilim and complete the battle at Cleansing Chamber Anteroom."
+    },
+    {
+      "item": "weapon/12520000",
+      "status": "needed",
+      "note": "Defeat the Black Knight at the Church of Consolation in Gravesite Plain. Needs: Shadow of the Erdtree DLC access. Normal access to the Realm of Shadow requires defeating Starscourge Radahn and Mohg, Lord of Blood in the base game; 17 Faith to wield."
+    },
+    {
+      "item": "weapon/31130000",
+      "status": "acquired",
+      "note": "Dropped by shield-bearing Godrick Soldiers, especially at Gatefront Ruins. Needs: 16 Strength to wield one-handed."
+    },
+    {
+      "item": "weapon/31280000",
+      "status": "acquired",
+      "note": "Soldier camp northeast of Warmaster's Shack in Limgrave. Needs: 10 Strength to wield."
+    },
+    {
+      "item": "weapon/62510000",
+      "status": "needed",
+      "note": "Storehouse, Back Section. Needs: Required attributes to wield: 17 Strength, 13 Dexterity, 15 Intelligence; Requires Shadow of the Erdtree access."
+    },
+    {
+      "item": "ash_of_war/60700",
+      "status": "needed",
+      "note": "Sword monument west of Impassable Greatbridge in Caelid. Needs: Whetstone Knife to apply at a grace."
+    },
+    {
+      "item": "ash_of_war/20800",
+      "status": "needed",
+      "note": "Moat east of Outer Wall Phantom Tree outside Leyndell. Needs: Reach Altus Plateau; Iron Whetblade to select Heavy affinity."
+    },
+    {
+      "item": "ash_of_war/30900",
+      "status": "needed",
+      "note": "Warmaster's Shack. Needs: Whetstone Knife to apply at a grace."
+    },
+    {
+      "item": "ash_of_war/30000",
+      "status": "needed",
+      "note": "Liurnia of the Lakes, northeast of East Gate Bridge Trestle. Needs: Whetstone Knife needed to apply at a Site of Grace."
+    },
+    {
+      "item": "ash_of_war/30100",
+      "status": "needed",
+      "note": "Weeping Peninsula, road near Castle Morne Rampart at night. Needs: Nighttime; defeat Night's Cavalry; Whetstone Knife needed to apply at a Site of Grace."
+    },
+    {
+      "item": "talisman/2200",
+      "status": "needed",
+      "note": "Stormveil Castle, in a locked room reached from the courtyard/cliffside route. Needs: Reach Stormveil Castle."
+    },
+    {
+      "item": "talisman/8040",
+      "status": "needed",
+      "note": "Temple Town Ruins, chest in the highest building. Needs: Requires Shadow of the Erdtree access."
+    },
+    {
+      "item": "talisman/1231",
+      "status": "needed",
+      "note": "Crumbling Farum Azula, beyond Dragon Temple Lift. Needs: Progress Iron Fist Alexander's quest to Crumbling Farum Azula; 2 Stonesword Key for Dragon Temple Lift."
+    },
+    {
+      "item": "talisman/1150",
+      "status": "acquired",
+      "note": "Summonwater Village cellar, Limgrave. Needs: 1 Stonesword Key."
+    },
+    {
+      "item": "talisman/7030",
+      "status": "needed",
+      "note": "Ellac River, waterfall cave near the northern end of the river below the Castle Front route. Needs: Reach Ellac River; Shadow of the Erdtree access."
+    },
+    {
+      "item": "talisman/4100",
+      "status": "needed",
+      "note": "Altus Plateau, black carriage east of Erdtree-Gazing Hill. Needs: Reach Altus Plateau."
+    },
+    {
+      "item": "talisman/8090",
+      "status": "needed",
+      "note": "Soldier camp southwest of Taylew's Ruined Forge in Ancient Ruins Base. Needs: Reach Ancient Ruins Base; Shadow of the Erdtree access."
+    },
+    {
+      "item": "talisman/4001",
+      "status": "needed",
+      "note": "Sainted Hero's Grave in Altus Plateau. Needs: Reach Altus Plateau; 1 Stonesword Key."
+    },
+    {
+      "item": "talisman/4003",
+      "status": "needed",
+      "note": "Elphael, Brace of the Haligtree, near Drainage Channel. Needs: Reach the Haligtree and Elphael."
+    },
+    {
+      "item": "talisman/2090",
+      "status": "needed",
+      "note": "Volcano Manor dungeon, imp-sealed room beyond the Temple of Eiglay route. Needs: Reach Volcano Manor dungeon; 2 Stonesword Key."
+    },
+    {
+      "item": "talisman/5050",
+      "status": "needed",
+      "note": "Deathtouched Catacombs in Limgrave. Needs: Defeat the dungeon boss."
+    },
+    {
+      "item": "talisman/1032",
+      "status": "needed",
+      "note": "Dragonbarrow arena north of the Deep Siofra Well lift. Needs: Reach the arena via Siofra River; 2 Stonesword Key for the lift; Win three duels."
+    },
+    {
+      "item": "armor/1500000",
+      "status": "needed",
+      "note": "Roundtable Hold. Needs: Access Roundtable Hold."
+    },
+    {
+      "item": "armor/1500100",
+      "status": "needed",
+      "note": "Roundtable Hold. Needs: Access Roundtable Hold."
+    },
+    {
+      "item": "armor/1500200",
+      "status": "needed",
+      "note": "Roundtable Hold. Needs: Access Roundtable Hold."
+    },
+    {
+      "item": "armor/1500300",
+      "status": "needed",
+      "note": "Roundtable Hold. Needs: Access Roundtable Hold."
+    },
+    {
+      "item": "goods/250",
+      "status": "acquired",
+      "note": "Third Church of Marika, eastern Limgrave."
+    },
+    {
+      "item": "goods/11010",
+      "status": "needed",
+      "note": "Northwestern Minor Erdtree in Caelid, east of Smoldering Church. Needs: Defeat the tree boss."
+    },
+    {
+      "item": "goods/11009",
+      "status": "needed",
+      "note": "Minor Erdtree, Weeping Peninsula."
+    },
+    {
+      "item": "goods/11026",
+      "status": "needed",
+      "note": "Minor Erdtree in northeastern Dragonbarrow, west of Farum Greatbridge. Needs: Defeat the tree boss."
+    },
+    {
+      "item": "goods/2011070",
+      "status": "needed",
+      "note": "Gravesite Plain, near Scorched Ruins. Needs: Reach Gravesite Plain; Shadow of the Erdtree access."
+    },
+    {
+      "item": "goods/11011",
+      "status": "needed",
+      "note": "Minor Erdtree in northeastern Dragonbarrow, west of Farum Greatbridge. Needs: Defeat the tree boss."
+    },
+    {
+      "item": "goods/11008",
+      "status": "needed",
+      "note": "Minor Erdtree, Weeping Peninsula."
+    },
+    {
+      "item": "goods/8590",
+      "status": "acquired",
+      "note": "Cellar chest in Gatefront Ruins, Limgrave."
+    },
+    {
+      "item": "goods/8970",
+      "status": "needed",
+      "note": "Stormveil Castle, imp-sealed armory near the courtyard. Needs: 1 Stonesword Key."
+    },
+    {
+      "item": "weapon/33060000",
+      "status": "needed",
+      "note": "Demi-Human Forest Ruins in Weeping Peninsula. Needs: 6 Strength and 10 Intelligence to wield."
+    }
+  ]
+}

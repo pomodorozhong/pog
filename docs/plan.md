@@ -152,8 +152,8 @@ The interface for these features stays plain and functional; only blockers are f
 - [x] **Playthrough profiles:** create, rename, switch (header) and delete; goal and constraints as free text. Version 1 player files upgrade into one untitled profile.
 - [x] **Map per profile:** move `map.json` to `maps/<profile id>.json` (the existing map goes to `profile-1`); switching profiles loads that profile's map; undo history is per profile; a new profile starts empty; a deleted profile's map moves to `deleted/`.
 - [x] **"Import from another profile":** pick a profile and, optionally, one layer; copy its nodes and paths into the active profile as one undo step. Graces already present (same grace ID) are reused instead of duplicated, so copied paths attach to them.
-- [ ] Wishlist per profile, with status (needed / acquired / skipped) and a note.
-- [ ] Bring in `seed/wishlist.json` as a profile's wishlist (copy it out of the handoff folder; official names replace the seed's). It was the "Great Stars Guard Counter" build, so it can start a profile with that name.
+- [x] Wishlist per profile, with status (needed / acquired / skipped) and a note.
+- [x] Bring in `seed/wishlist.json` as a profile's wishlist (copy it out of the handoff folder; official names replace the seed's). It was the "Great Stars Guard Counter" build, so it can start a profile with that name.
 - [ ] Progress per profile: discovered graces, picked-up items, beaten bosses, current position.
 - [ ] **"Import progress from save" button.**
   - Read the character's event flags from the game save (read-only) and mark discovered graces, picked-up items and beaten bosses in the active profile.

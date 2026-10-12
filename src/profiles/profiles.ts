@@ -1,17 +1,32 @@
 import type { PlayerDocument, Profile } from "../domain/types";
 import { newId } from "../map/editing";
+import greatStars from "../../seed/great-stars-guard-counter.json" with { type: "json" };
+
+/** A ready-made playthrough: everything a profile has except its ID. */
+export type ProfileTemplate = Omit<Profile, "id">;
+
+/** The "Great Stars Guard Counter" build from the old project. */
+export const TEMPLATES = [greatStars as ProfileTemplate];
+
+const emptyProfile: ProfileTemplate = {
+  name: "",
+  goal: "",
+  constraints: "",
+  wishlist: [],
+};
 
 export const activeProfile = (player: PlayerDocument): Profile =>
   player.profiles.find((p) => p.id === player.activeProfile) ??
   player.profiles[0];
 
-/** Start a new, empty playthrough and switch to it. */
-export function addProfile(player: PlayerDocument): PlayerDocument {
+/** Start a new playthrough, empty or from a template, and switch to it. */
+export function addProfile(
+  player: PlayerDocument,
+  template = emptyProfile,
+): PlayerDocument {
   const profile: Profile = {
+    ...structuredClone(template),
     id: newId("profile"),
-    name: "",
-    goal: "",
-    constraints: "",
   };
   return {
     ...player,

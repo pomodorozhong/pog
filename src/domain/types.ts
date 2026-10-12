@@ -60,10 +60,22 @@ export type MapDocument = {
 };
 
 export type MapView = { layer: LayerId; x: number; y: number; zoom: number };
+export const WISHLIST_STATUSES = ["needed", "acquired", "skipped"] as const;
+export type WishlistStatus = (typeof WISHLIST_STATUSES)[number];
+
+/** An item the player wants in this playthrough. */
+export type WishlistItem = {
+  /** Catalog id of the item, such as "weapon/1000000". Unique within a wishlist. */
+  item: string;
+  status: WishlistStatus;
+  /** Player-written, kept as written. */
+  note: string;
+};
+
 /**
- * One whole route: a playthrough with its own goal and constraints. Wishlist,
- * progress, position and the linked save slot join it in milestone 4. Its map
- * (nodes and paths) is a separate document, `maps/<id>`.
+ * One whole route: a playthrough with its own goal, constraints and wishlist.
+ * Progress, position and the linked save slot join it later in milestone 4.
+ * Its map (nodes and paths) is a separate document, `maps/<id>`.
  */
 export type Profile = {
   /** Lowercase letters, digits and dashes, since it names the profile's map file. */
@@ -72,10 +84,11 @@ export type Profile = {
   name: string;
   goal: string;
   constraints: string;
+  wishlist: WishlistItem[];
 };
 
 export type PlayerDocument = {
-  schemaVersion: 2;
+  schemaVersion: 3;
   language: Language;
   view: MapView;
   activeProfile: string;

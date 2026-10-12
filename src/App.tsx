@@ -35,6 +35,7 @@ import {
   ProfileSwitcher,
 } from "./profiles/ProfilePanel";
 import { initialDocuments, mapKey } from "./storage/schema";
+import { PinWishlist, WishlistPanel } from "./wishlist/WishlistPanel";
 import {
   usePersistentDocument,
   type SaveStatus,
@@ -441,6 +442,15 @@ export default function App() {
           profile={
             <>
               <ProfilePanel t={t} player={player} setPlayer={setPlayer} />
+              <WishlistPanel
+                t={t}
+                language={language}
+                data={data}
+                player={player}
+                setPlayer={setPlayer}
+                doc={doc}
+                showNode={showNode}
+              />
               <ImportFromProfile
                 key={player.activeProfile}
                 t={t}
@@ -451,6 +461,14 @@ export default function App() {
               />
             </>
           }
+          pinWishlist={(item) => (
+            <PinWishlist
+              t={t}
+              player={player}
+              setPlayer={setPlayer}
+              item={item}
+            />
+          )}
         />
       </div>
     </div>

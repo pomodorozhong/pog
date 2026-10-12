@@ -3,11 +3,13 @@ import {
   LANGUAGES,
   LAYERS,
   NODE_KINDS,
+  WISHLIST_STATUSES,
   type DocumentKey,
   type DocumentName,
   type Documents,
   type MapDocument,
   type PlayerDocument,
+  type WishlistItem,
 } from "../domain/types.ts";
 
 function hasExactKeys(
@@ -74,6 +76,21 @@ function checkMap(value: unknown): value is MapDocument {
   });
 }
 
+function checkWishlist(value: unknown): value is WishlistItem[] {
+  if (!Array.isArray(value)) return false;
+  const items = new Set<string>();
+  return value.every((w) => {
+    const ok =
+      hasExactKeys(w, ["item", "status", "note"]) &&
+      typeof w.item === "string" &&
+      !items.has(w.item) &&
+      includes(WISHLIST_STATUSES, w.status) &&
+      typeof w.note === "string";
+    items.add(w.item);
+    return ok;
+  });
+}
+
 function checkPlayer(value: unknown): value is PlayerDocument {
   if (
     !hasExactKeys(value, [
@@ -88,7 +105,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
   const v = value as PlayerDocument;
   const ids = new Set<string>();
   return (
-    v.schemaVersion === 2 &&
+    v.schemaVersion === 3 &&
     includes(LANGUAGES, v.language) &&
     hasExactKeys(v.view, ["layer", "x", "y", "zoom"]) &&
     includes(LAYERS, v.view.layer) &&
@@ -97,11 +114,12 @@ function checkPlayer(value: unknown): value is PlayerDocument {
     v.profiles.length > 0 &&
     v.profiles.every((p) => {
       const ok =
-        hasExactKeys(p, ["id", "name", "goal", "constraints"]) &&
+        hasExactKeys(p, ["id", "name", "goal", "constraints", "wishlist"]) &&
         typeof p.id === "string" &&
         PROFILE_ID.test(p.id) &&
         !ids.has(p.id) &&
-        [p.name, p.goal, p.constraints].every((t) => typeof t === "string");
+        [p.name, p.goal, p.constraints].every((t) => typeof t === "string") &&
+        checkWishlist(p.wishlist);
       ids.add(p.id);
       return ok;
     }) &&
@@ -125,6 +143,7 @@ const firstProfile = () => ({
   name: "",
   goal: "",
   constraints: "",
+  wishlist: [],
 });
 
 /**
@@ -132,19 +151,31 @@ const firstProfile = () => ({
  * Anything unrecognised is returned unchanged, so validation rejects it.
  */
 export function upgradeDocument(name: DocumentName, value: unknown): unknown {
+  if (name !== "player" || !value || typeof value !== "object") return value;
+  let v = value as { schemaVersion: unknown; profiles?: unknown };
   if (
-    name === "player" &&
-    hasExactKeys(value, ["schemaVersion", "language", "view"]) &&
-    (value as { schemaVersion: unknown }).schemaVersion === 1
+    v.schemaVersion === 1 &&
+    hasExactKeys(v, ["schemaVersion", "language", "view"])
   )
     // Version 1 had no profiles: everything so far becomes the first playthrough.
     return {
-      ...(value as object),
-      schemaVersion: 2,
+      ...v,
+      schemaVersion: 3,
       activeProfile: FIRST_PROFILE_ID,
       profiles: [firstProfile()],
     };
-  return value;
+  if (v.schemaVersion === 2 && Array.isArray(v.profiles))
+    // Version 2 profiles had no wishlist.
+    v = {
+      ...v,
+      schemaVersion: 3,
+      profiles: v.profiles.map((p: unknown) =>
+        p && typeof p === "object" && !("wishlist" in p)
+          ? { ...p, wishlist: [] }
+          : p,
+      ),
+    };
+  return v;
 }
 
 const checks: {
@@ -168,7 +199,7 @@ export function validDocument<N extends DocumentName>(
 export const initialDocuments = (): Documents => ({
   map: { schemaVersion: 1, nodes: [], edges: [] },
   player: {
-    schemaVersion: 2,
+    schemaVersion: 3,
     language: "en",
     view: { layer: "overworld", x: 5248, y: 5248, zoom: 3 },
     activeProfile: FIRST_PROFILE_ID,

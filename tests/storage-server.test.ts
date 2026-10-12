@@ -102,7 +102,13 @@ describe("file store", () => {
       ...player,
       profiles: [
         ...player.profiles,
-        { id: "profile-2", name: "", goal: "", constraints: "" },
+        {
+          id: "profile-2",
+          name: "",
+          goal: "",
+          constraints: "",
+          wishlist: [],
+        },
       ],
     };
     const saved = await store().write("player", two, null);

@@ -13,6 +13,7 @@ import {
   activeProfile,
   addProfile,
   removeProfile,
+  TEMPLATES,
   updateProfile,
 } from "./profiles";
 
@@ -92,10 +93,22 @@ export function ProfilePanel({
           onChange={(e) => update({ constraints: e.target.value })}
         />
       </label>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button className="chip" onClick={() => setPlayer(addProfile(player))}>
           {t("New playthrough")}
         </button>
+        {TEMPLATES.map((template) => (
+          <button
+            key={template.name}
+            className="chip"
+            title={t("Starts with its wishlist of {count} items", {
+              count: template.wishlist.length,
+            })}
+            onClick={() => setPlayer(addProfile(player, template))}
+          >
+            {t("New “{name}” playthrough", { name: template.name })}
+          </button>
+        ))}
         {player.profiles.length > 1 && (
           <button
             className="chip chip--danger"
