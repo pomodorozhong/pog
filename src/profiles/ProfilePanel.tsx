@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  EDGE_TYPES,
   LAYERS,
   type LayerId,
   type MapDocument,
@@ -7,7 +8,7 @@ import {
 } from "../domain/types";
 import type { Translate } from "../i18n/translation";
 import type { MapAction } from "../map/editing";
-import { LAYER_NAMES } from "../map/labels";
+import { EDGE_NAMES, LAYER_NAMES } from "../map/labels";
 import { importMap } from "./importMap";
 import {
   activeProfile,
@@ -93,6 +94,45 @@ export function ProfilePanel({
           onChange={(e) => update({ constraints: e.target.value })}
         />
       </label>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={profile.rules.dlc}
+          onChange={(e) =>
+            update({ rules: { ...profile.rules, dlc: e.target.checked } })
+          }
+        />
+        {t("Includes Shadow of the Erdtree")}
+      </label>
+      <fieldset className="space-y-1">
+        <legend className="text-xs text-muted">
+          {t("Paths the route avoids")}
+        </legend>
+        <div className="flex flex-wrap gap-1">
+          {EDGE_TYPES.map((type) => {
+            const avoided = profile.rules.avoid.includes(type);
+            return (
+              <button
+                key={type}
+                className="chip text-xs"
+                aria-pressed={avoided}
+                onClick={() =>
+                  update({
+                    rules: {
+                      ...profile.rules,
+                      avoid: avoided
+                        ? profile.rules.avoid.filter((a) => a !== type)
+                        : [...profile.rules.avoid, type],
+                    },
+                  })
+                }
+              >
+                {t(EDGE_NAMES[type])}
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
       <div className="flex flex-wrap gap-2">
         <button className="chip" onClick={() => setPlayer(addProfile(player))}>
           {t("New playthrough")}

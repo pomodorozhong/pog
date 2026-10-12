@@ -188,17 +188,25 @@ export function PinWishlist({
   player,
   setPlayer,
   item,
-}: Omit<Props, "data" | "language"> & { item: string }) {
+  estimate,
+}: Omit<Props, "data" | "language"> & {
+  item: string;
+  /** What adding this pin would cost the route, already worded. */
+  estimate: string;
+}) {
   const profile = activeProfile(player);
   const entry = profile.wishlist.find((w) => w.item === item);
   if (!entry)
     return (
-      <button
-        className="chip"
-        onClick={() => setPlayer(addToWishlist(player, profile.id, item))}
-      >
-        {t("Add to wishlist")}
-      </button>
+      <div className="space-y-1">
+        <button
+          className="chip"
+          onClick={() => setPlayer(addToWishlist(player, profile.id, item))}
+        >
+          {t("Add to wishlist")}
+        </button>
+        <p className="text-xs text-muted">{estimate}</p>
+      </div>
     );
   return (
     <label className="block space-y-1">

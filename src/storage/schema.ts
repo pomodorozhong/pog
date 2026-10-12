@@ -10,6 +10,7 @@ import {
   type MapDocument,
   type PlayerDocument,
   type Progress,
+  type RouteRules,
   type SaveLink,
   type WishlistItem,
 } from "../domain/types.ts";
@@ -108,6 +109,18 @@ function checkProgress(value: unknown): value is Progress {
   );
 }
 
+function checkRules(value: unknown): value is RouteRules {
+  if (!hasExactKeys(value, ["avoid", "dlc"])) return false;
+  const v = value as RouteRules;
+  return (
+    Array.isArray(v.avoid) &&
+    v.avoid.every(
+      (t, i) => includes(EDGE_TYPES, t) && v.avoid.indexOf(t) === i,
+    ) &&
+    typeof v.dlc === "boolean"
+  );
+}
+
 function checkSaveLink(value: unknown): value is SaveLink | null {
   if (value === null) return true;
   if (!hasExactKeys(value, ["steamId", "slot", "name"])) return false;
@@ -136,7 +149,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
   const v = value as PlayerDocument;
   const ids = new Set<string>();
   return (
-    v.schemaVersion === 5 &&
+    v.schemaVersion === 6 &&
     includes(LANGUAGES, v.language) &&
     hasExactKeys(v.view, ["layer", "x", "y", "zoom"]) &&
     includes(LAYERS, v.view.layer) &&
@@ -150,6 +163,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
           "name",
           "goal",
           "constraints",
+          "rules",
           "wishlist",
           "progress",
           "save",
@@ -158,6 +172,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
         PROFILE_ID.test(p.id) &&
         !ids.has(p.id) &&
         [p.name, p.goal, p.constraints].every((t) => typeof t === "string") &&
+        checkRules(p.rules) &&
         checkWishlist(p.wishlist) &&
         checkProgress(p.progress) &&
         checkSaveLink(p.save);
@@ -169,7 +184,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
 }
 
 export const FIRST_PROFILE_ID = "profile-1";
-const PLAYER_VERSION = 5;
+const PLAYER_VERSION = 6;
 const PROFILE_ID = /^[a-z0-9-]{1,64}$/;
 
 export const mapKey = (profile: string): DocumentKey => `maps/${profile}`;
@@ -185,6 +200,7 @@ const firstProfile = () => ({
   name: "",
   goal: "",
   constraints: "",
+  rules: { avoid: [], dlc: true },
   wishlist: [],
   progress: { flags: [], position: null },
   save: null,
@@ -209,10 +225,13 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
       profiles: [firstProfile()],
     };
   if (
-    (v.schemaVersion === 2 || v.schemaVersion === 3 || v.schemaVersion === 4) &&
+    typeof v.schemaVersion === "number" &&
+    v.schemaVersion >= 2 &&
+    v.schemaVersion < PLAYER_VERSION &&
     Array.isArray(v.profiles)
   ) {
-    // Later versions added the wishlist (3), progress (4) and save link (5).
+    // Later versions added the wishlist (3), progress (4), save link (5) and
+    // routing rules (6).
     const added = firstProfile();
     v = {
       ...v,
@@ -221,6 +240,7 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
         p && typeof p === "object"
           ? {
               ...p,
+              rules: "rules" in p ? p.rules : added.rules,
               wishlist: "wishlist" in p ? p.wishlist : added.wishlist,
               progress: "progress" in p ? p.progress : added.progress,
               save: "save" in p ? p.save : added.save,

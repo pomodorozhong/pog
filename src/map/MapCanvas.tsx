@@ -16,6 +16,7 @@ import {
   type GameData,
   type MapLayerInfo,
 } from "./catalog";
+import type { RouteLine } from "../routing/order";
 import { edgeLine, isOneWay } from "./editing";
 import { enableGestures } from "./gestures";
 import { EDGE_STYLE, NODE_SYMBOL } from "./style";
@@ -47,6 +48,10 @@ type Props = MapCanvasHandlers & {
   undiscovered: Set<string>;
   /** The node the player is at, or null. */
   position: string | null;
+  /** The planned route, drawn over the paths. */
+  route: RouteLine[];
+  /** Route stop numbers, by node. */
+  stops: Map<string, number>;
 };
 
 const LABEL_ZOOM = 4;
@@ -162,6 +167,8 @@ export function MapCanvas(props: Props) {
     data,
     undiscovered,
     position,
+    route,
+    stops,
   } = props;
   useEffect(() => {
     const group = overlay.current!;
@@ -204,6 +211,18 @@ export function MapCanvas(props: Props) {
         );
     }
 
+    for (const line of route) {
+      if (line.layer !== layer) continue;
+      L.polyline(line.points.map(toLatLng), {
+        color: "#7fd1ff",
+        weight: 7,
+        opacity: line.guess ? 0.6 : 0.75,
+        dashArray: line.guess ? "2 10" : undefined,
+        lineCap: "round",
+        interactive: false,
+      }).addTo(group);
+    }
+
     if (draft) {
       const from = byId.get(draft.from);
       if (from?.layer === layer)
@@ -234,10 +253,14 @@ export function MapCanvas(props: Props) {
         undiscovered.has(node.id) && "is-undiscovered",
         position === node.id && "is-position",
       ];
+      const stop = stops.get(node.id);
       const marker = L.marker(toLatLng([node.x, node.y]), {
         icon: L.divIcon({
           className: classes.filter(Boolean).join(" "),
-          html: image,
+          html:
+            stop === undefined
+              ? image
+              : `${image}<span class="stop-badge">${stop}</span>`,
           iconSize: undefined,
         }),
         draggable: editable,
@@ -274,6 +297,8 @@ export function MapCanvas(props: Props) {
     layer,
     undiscovered,
     position,
+    route,
+    stops,
   ]);
 
   // Pan to a node selected elsewhere (for example the far end of a waygate).

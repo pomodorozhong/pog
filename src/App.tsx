@@ -37,6 +37,11 @@ import {
 import { NodeProgress, ProgressPanel } from "./progress/ProgressPanel";
 import { undiscoveredGraces } from "./progress/progress";
 import { activeProfile } from "./profiles/profiles";
+import { displayName } from "./map/catalog";
+import { detour, routeLines } from "./routing/order";
+import { RoutePanel } from "./routing/RoutePanel";
+import { formatDuration } from "./routing/format";
+import { usePlannedRoute } from "./routing/usePlannedRoute";
 import { initialDocuments, mapKey } from "./storage/schema";
 import { PinWishlist, WishlistPanel } from "./wishlist/WishlistPanel";
 import {
@@ -133,7 +138,17 @@ export default function App() {
   const layer = player?.view.layer ?? "overworld";
   const edit = useCallback((action: MapAction) => dispatch(action), []);
 
-  const progress = player ? activeProfile(player).progress : null;
+  const profile = player ? activeProfile(player) : null;
+  const progress = profile?.progress ?? null;
+  const plan = usePlannedRoute(data, doc, profile);
+  const route = useMemo(
+    () => (plan ? routeLines(doc, plan.route.legs) : []),
+    [doc, plan],
+  );
+  const stops = useMemo(
+    () => new Map(plan?.route.order.map((id, i) => [id, i + 1])),
+    [plan],
+  );
   const undiscovered = useMemo(
     () =>
       data && progress
@@ -245,6 +260,22 @@ export default function App() {
     },
     [nodeById, player, layer],
   );
+
+  /** What visiting a node would add to the planned route, in words. */
+  const detourText = (node: string) => {
+    if (!plan) return t("Set your position to estimate the detour.");
+    const cost = detour(plan.times, plan.start, plan.route.order, node);
+    if (!cost) return t("The route can't reach this pin.");
+    const after = cost.after && nodeById.get(cost.after);
+    return after
+      ? t("Adds {time} to the route, best after {stop}.", {
+          time: formatDuration(t, cost.seconds),
+          stop: displayName(data, after, language) || t("a junction"),
+        })
+      : t("Adds {time} to the route, best as the first stop.", {
+          time: formatDuration(t, cost.seconds),
+        });
+  };
 
   const deleteSelection = useCallback(() => {
     if (!selection) return;
@@ -436,6 +467,8 @@ export default function App() {
             data={data}
             undiscovered={undiscovered}
             position={progress?.position ?? null}
+            route={route}
+            stops={stops}
           />
           <p className="pointer-events-none absolute bottom-2 left-2 z-[500] max-w-[70%] rounded bg-ink/85 px-2 py-1 text-xs text-muted">
             {t(toolHint(tool, draft !== null))}
@@ -463,6 +496,14 @@ export default function App() {
                 player={player}
                 setPlayer={setPlayer}
                 doc={doc}
+                showNode={showNode}
+              />
+              <RoutePanel
+                t={t}
+                language={language}
+                data={data}
+                doc={doc}
+                plan={plan}
                 showNode={showNode}
               />
               <WishlistPanel
@@ -499,6 +540,7 @@ export default function App() {
                   player={player}
                   setPlayer={setPlayer}
                   item={node.ref}
+                  estimate={detourText(node.id)}
                 />
               )}
             </>

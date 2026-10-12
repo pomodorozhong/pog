@@ -160,10 +160,10 @@ The interface for these features stays plain and functional; only blockers are f
   - The first import asks for the character slot and links it to the profile (Steam ID, slot index, character name); later imports reuse the link. If the slot now holds a character with a different name, ask instead of importing.
   - Show what changed before applying it.
   - The save is `drive_c/users/crossover/AppData/Roaming/EldenRing/<Steam ID>/ER0000.sl2` in the bottle: an unencrypted BND4 with 10 character slots, each behind an MD5 checksum.
-- [ ] Structured constraints as routing needs them (allowed path types, DLC in or out).
-- [ ] Edge costs per type; Dijkstra with fast travel to the profile's discovered graces; straight-line guesses for gaps.
-- [ ] Visit order (nearest neighbor + 2-opt) and the detour estimate.
-- [ ] "Next stops" view, with the route drawn on the map.
+- [x] Structured constraints as routing needs them (allowed path types, DLC in or out).
+- [x] Edge costs per type; Dijkstra with fast travel to the profile's discovered graces; straight-line guesses for gaps.
+- [x] Visit order (nearest neighbor + 2-opt) and the detour estimate.
+- [x] "Next stops" view, with the route drawn on the map.
 
 ### 5. UI redesign
 

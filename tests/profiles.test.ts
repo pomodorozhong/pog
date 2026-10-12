@@ -11,7 +11,11 @@ import {
   removeProfile,
   updateProfile,
 } from "../src/profiles/profiles";
-import { initialDocuments, validDocument } from "../src/storage/schema";
+import {
+  initialDocuments,
+  upgradeDocument,
+  validDocument,
+} from "../src/storage/schema";
 
 describe("playthrough profiles", () => {
   it("adds, edits and removes profiles, always keeping one active", () => {
@@ -53,5 +57,40 @@ describe("playthrough profiles", () => {
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
+  });
+});
+
+describe("routing rules", () => {
+  const player = initialDocuments().player;
+  const withRules = (rules: unknown) => ({
+    ...player,
+    profiles: [{ ...player.profiles[0], rules }],
+  });
+
+  it("accepts known path types once each", () => {
+    expect(
+      validDocument("player", withRules({ avoid: ["torrent"], dlc: false })),
+    ).toBe(true);
+    expect(
+      validDocument("player", withRules({ avoid: ["teleport"], dlc: true })),
+    ).toBe(false);
+    expect(
+      validDocument(
+        "player",
+        withRules({ avoid: ["torrent", "torrent"], dlc: true }),
+      ),
+    ).toBe(false);
+  });
+
+  it("gives version 5 profiles the default rules", () => {
+    const profile: Record<string, unknown> = { ...player.profiles[0] };
+    delete profile.rules;
+    expect(
+      upgradeDocument("player", {
+        ...player,
+        schemaVersion: 5,
+        profiles: [profile],
+      }),
+    ).toEqual(player);
   });
 });

@@ -83,6 +83,14 @@ export type Progress = {
   position: string | null;
 };
 
+/** Constraints routing follows. The free-text constraints stay as a note beside them. */
+export type RouteRules = {
+  /** Path types this playthrough doesn't use, such as "torrent". */
+  avoid: EdgeType[];
+  /** Whether Shadow of the Erdtree is part of this playthrough. */
+  dlc: boolean;
+};
+
 /** The game save character a playthrough imports its progress from. */
 export type SaveLink = {
   steamId: string;
@@ -104,13 +112,14 @@ export type Profile = {
   name: string;
   goal: string;
   constraints: string;
+  rules: RouteRules;
   wishlist: WishlistItem[];
   progress: Progress;
   save: SaveLink | null;
 };
 
 export type PlayerDocument = {
-  schemaVersion: 5;
+  schemaVersion: 6;
   language: Language;
   view: MapView;
   activeProfile: string;

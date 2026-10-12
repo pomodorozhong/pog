@@ -58,6 +58,21 @@ export function undiscoveredGraces(
   );
 }
 
+/** Graces on the map that this progress has discovered: fast travel targets. */
+export function discoveredGraces(
+  data: GameData,
+  nodes: MapNode[],
+  progress: Progress,
+): string[] {
+  const flags = new Set(progress.flags);
+  return nodes
+    .filter((n) => {
+      const flag = graceFlag(data, n);
+      return flag !== undefined && flags.has(flag);
+    })
+    .map((n) => n.id);
+}
+
 /** How many of the game's graces this progress has discovered. */
 export function discoveredCount(data: GameData, progress: Progress) {
   const flags = new Set(progress.flags);
