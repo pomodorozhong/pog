@@ -1,0 +1,159 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0b1311;
+  --color-panel: #111c19;
+  --color-text: #eee9db;
+  --color-gold: #d8b36b;
+  --color-sage: #a6c69b;
+  --color-line: #2b4037;
+  --color-muted: #a7b6ac;
+  --color-danger: #e07a5f;
+  --font-serif:
+    "Iowan Old Style", "Palatino Linotype", Palatino, "PingFang TC",
+    "Microsoft JhengHei", serif;
+  --font-sans:
+    system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--color-ink);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+@layer components {
+  .chip {
+    @apply rounded border border-line px-2 py-1 text-sm hover:border-gold disabled:opacity-40 disabled:hover:border-line;
+  }
+  .chip[aria-pressed="true"] {
+    @apply border-gold bg-gold/15 text-gold;
+  }
+  .chip--danger {
+    @apply border-danger/60 text-danger hover:border-danger;
+  }
+  .chip kbd {
+    @apply ml-1 font-sans text-xs text-muted;
+  }
+  .field {
+    @apply rounded border border-line bg-ink px-2 py-1 text-text;
+  }
+  .label {
+    @apply text-xs tracking-wide text-muted uppercase;
+  }
+  .link {
+    @apply text-gold hover:underline;
+  }
+  .swatch {
+    @apply inline-block h-1 w-5 rounded align-middle;
+  }
+}
+
+.map-canvas {
+  position: absolute;
+  inset: 0;
+  background: #000;
+}
+.tool-select .map-canvas {
+  cursor: default;
+}
+.tool-path .map-canvas,
+.tool-grace .map-canvas,
+.tool-junction .map-canvas,
+.tool-item .map-canvas,
+.tool-entrance .map-canvas {
+  cursor: crosshair;
+}
+
+/* Map nodes */
+.map-node {
+  display: grid;
+  place-items: center;
+  width: 22px !important;
+  height: 22px !important;
+  margin: -11px 0 0 -11px !important;
+  border-radius: 50%;
+  border: 2px solid var(--color-ink);
+  background: var(--color-gold);
+  color: var(--color-ink);
+  font-size: 13px;
+  line-height: 1;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.6);
+}
+.leaflet-marker-pane .map-node img {
+  position: static;
+  width: 26px !important;
+  height: 26px !important;
+  object-fit: contain;
+}
+.map-node--grace {
+  background: #f1d98f;
+  box-shadow: 0 0 10px 2px rgb(241 217 143 / 0.7);
+}
+.map-node--junction {
+  width: 12px !important;
+  height: 12px !important;
+  margin: -6px 0 0 -6px !important;
+  background: var(--color-sage);
+}
+.map-node--item {
+  width: 30px !important;
+  height: 30px !important;
+  margin: -15px 0 0 -15px !important;
+  border-radius: 6px;
+  /* Most item icons are dark metal or cloth; parchment keeps them readable. */
+  background: radial-gradient(circle, #f3e9cf 40%, #cbb98e);
+  border-color: var(--color-gold);
+  color: var(--color-gold);
+}
+.map-node--entrance {
+  border-radius: 3px;
+  background: #c9b28d;
+}
+.map-node.has-portal {
+  outline: 2px dashed #b48ce0;
+  outline-offset: 3px;
+}
+.map-node.is-selected {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+.map-node.is-draft-start {
+  outline: 3px dashed var(--color-text);
+  outline-offset: 2px;
+}
+
+.edge-arrow span {
+  display: block;
+  font-size: 16px;
+  line-height: 16px;
+  text-shadow: 0 0 2px #000;
+}
+
+/* Labels only show once zoomed in, except when selected or hovered. */
+.leaflet-tooltip.node-label {
+  display: none;
+  padding: 1px 6px;
+  border: 1px solid var(--color-line);
+  background: rgb(11 19 17 / 0.85);
+  color: var(--color-text);
+  font-family: var(--font-serif);
+  font-size: 13px;
+  box-shadow: none;
+}
+.leaflet-tooltip.node-label::before {
+  display: none;
+}
+.show-labels .leaflet-tooltip.node-label,
+.leaflet-tooltip.node-label--junction {
+  display: block;
+}
+.leaflet-container {
+  font: inherit;
+}
