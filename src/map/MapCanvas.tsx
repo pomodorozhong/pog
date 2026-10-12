@@ -43,6 +43,10 @@ type Props = MapCanvasHandlers & {
   editable: boolean;
   language: Language;
   data: GameData;
+  /** Graces on the map not yet discovered in this playthrough. */
+  undiscovered: Set<string>;
+  /** The node the player is at, or null. */
+  position: string | null;
 };
 
 const LABEL_ZOOM = 4;
@@ -148,7 +152,17 @@ export function MapCanvas(props: Props) {
   }, [layer, info]);
 
   // Redraw nodes, edges and the path being drawn.
-  const { nodes, edges, selection, draft, editable, language, data } = props;
+  const {
+    nodes,
+    edges,
+    selection,
+    draft,
+    editable,
+    language,
+    data,
+    undiscovered,
+    position,
+  } = props;
   useEffect(() => {
     const group = overlay.current!;
     group.clearLayers();
@@ -217,6 +231,8 @@ export function MapCanvas(props: Props) {
         selected && "is-selected",
         portalEnds.has(node.id) && "has-portal",
         draft?.from === node.id && "is-draft-start",
+        undiscovered.has(node.id) && "is-undiscovered",
+        position === node.id && "is-position",
       ];
       const marker = L.marker(toLatLng([node.x, node.y]), {
         icon: L.divIcon({
@@ -247,7 +263,18 @@ export function MapCanvas(props: Props) {
           className: `node-label node-label--${node.kind}`,
         });
     }
-  }, [nodes, edges, selection, draft, editable, language, data, layer]);
+  }, [
+    nodes,
+    edges,
+    selection,
+    draft,
+    editable,
+    language,
+    data,
+    layer,
+    undiscovered,
+    position,
+  ]);
 
   // Pan to a node selected elsewhere (for example the far end of a waygate).
   useEffect(() => {

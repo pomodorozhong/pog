@@ -154,8 +154,8 @@ The interface for these features stays plain and functional; only blockers are f
 - [x] **"Import from another profile":** pick a profile and, optionally, one layer; copy its nodes and paths into the active profile as one undo step. Graces already present (same grace ID) are reused instead of duplicated, so copied paths attach to them.
 - [x] Wishlist per profile, with status (needed / acquired / skipped) and a note.
 - [x] Bring in `seed/wishlist.json` as a profile's wishlist (copy it out of the handoff folder; official names replace the seed's). It was the "Great Stars Guard Counter" build, so it can start a profile with that name.
-- [ ] Progress per profile: discovered graces, picked-up items, beaten bosses, current position.
-- [ ] **"Import progress from save" button.**
+- [x] Progress per profile: discovered graces, picked-up items, beaten bosses, current position. (Stored as event flags; only graces have flags in the game data so far, so items and bosses wait for the save import's flag data.)
+- [x] **"Import progress from save" button.** Graces only, until item and boss flags are extracted. Uses the community's event-flag block table (`eventflag_bst.txt`), which `npm run extract` downloads at a pinned commit.
   - Read the character's event flags from the game save (read-only) and mark discovered graces, picked-up items and beaten bosses in the active profile.
   - The first import asks for the character slot and links it to the profile (Steam ID, slot index, character name); later imports reuse the link. If the slot now holds a character with a different name, ask instead of importing.
   - Show what changed before applying it.
@@ -201,7 +201,7 @@ After milestone 4, when every main screen exists (map editor, profiles, wishlist
 - **MSB parsing (milestone 6):** not yet attempted. The ER format is documented by the modding community (SoulsFormats). Coverage is limited to world pickups.
 - **Reading progress from the save:** decided: a manual import button (milestone 4).
   - **Safety:** the app never writes the save; it copies the file, checks each slot's MD5, and parses the copy.
-  - **Hardest part:** finding the event-flag block inside a slot, which sits after variable-length sections. Community save editors document the layout.
+  - **Hardest part (solved):** finding the event-flag block inside a slot, which sits after variable-length sections (`server/save.ts`, following er-save-manager's documentation). A flag's byte comes from a block table that was reverse-engineered by the community and can't be read from the game files.
   - **Live updates:** possible later by watching the file and re-importing when the game saves. A read caught mid-write fails the MD5 check and is retried. Not planned yet.
 - **Keeping profile maps in sync:** each profile has its own map, so a path fixed in one profile isn't fixed in the others. "Import from another profile" covers starting a playthrough; if re-syncing later becomes a chore, add a merge that brings over only what's new.
 - **Hand-drawn paths stay ongoing work:** keep the editor fast (click to add waypoints, choose the type, undo).

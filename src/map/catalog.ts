@@ -38,6 +38,8 @@ export type GameData = {
   byId: Map<string, CatalogItem | CatalogName>;
   /** Places with the same English name appear under several ids; search shows each name once. */
   uniquePlaces: CatalogName[];
+  /** The "discovered" event flag of each grace, by catalog id. */
+  graceFlags: Map<string, number>;
 };
 
 export async function loadGameData(
@@ -64,7 +66,10 @@ export async function loadGameData(
   const uniquePlaces = (catalog as Catalog).places.filter(
     (p) => !seen.has(p.name.en) && seen.add(p.name.en),
   );
-  return { catalog, layers, byId, uniquePlaces };
+  const graceFlags = new Map(
+    (catalog as Catalog).graces.map((g) => [g.id, g.flag]),
+  );
+  return { catalog, layers, byId, uniquePlaces, graceFlags };
 }
 
 export const iconUrl = (icon: number) => `/game-data/icons/${icon}.webp`;

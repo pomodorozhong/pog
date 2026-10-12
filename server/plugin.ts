@@ -5,6 +5,7 @@ import { extname, join, normalize, sep } from "node:path";
 import type { Plugin } from "vite";
 import type { DocumentKey } from "../src/domain/types.ts";
 import { documentNameOf } from "../src/storage/schema.ts";
+import { SaveError, SaveReader } from "./save.ts";
 import { FileStore, MAX_SAVE_BYTES, StorageError } from "./store.ts";
 import { assertLocalRequest } from "./security.ts";
 
@@ -67,6 +68,64 @@ export function storageMiddleware(store = new FileStore()) {
   };
 }
 
+async function readJson(request: IncomingMessage, limit: number) {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of request) {
+    const bytes = Buffer.from(chunk);
+    size += bytes.length;
+    if (size > limit) throw new SaveError(413, "Request too large.");
+    chunks.push(bytes);
+  }
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    throw new SaveError(400, "Invalid JSON.");
+  }
+}
+
+// Reads the game's save for the progress import. Read-only: the save is never written.
+export function saveMiddleware(reader: SaveReader) {
+  return async (
+    request: IncomingMessage,
+    response: ServerResponse,
+    next: () => void,
+  ) => {
+    const url = request.url?.split("?")[0] ?? "";
+    if (!url.startsWith("/api/save/")) return next();
+    try {
+      assertLocalRequest(request);
+      if (url === "/api/save/slots" && request.method === "GET")
+        return reply(response, 200, { saves: await reader.list() });
+      if (url === "/api/save/flags" && request.method === "POST") {
+        if (
+          request.headers["content-type"]?.split(";")[0] !== "application/json"
+        )
+          throw new SaveError(415, "Use application/json.");
+        const body = await readJson(request, 1024 * 1024);
+        if (
+          typeof body?.steamId !== "string" ||
+          !Array.isArray(body.flags) ||
+          !body.flags.every(Number.isSafeInteger)
+        )
+          throw new SaveError(400, "Invalid request.");
+        return reply(
+          response,
+          200,
+          await reader.flags(body.steamId, body.slot, body.flags),
+        );
+      }
+      throw new SaveError(404, "Unknown request.");
+    } catch (error) {
+      const failure =
+        error instanceof SaveError || error instanceof StorageError
+          ? error
+          : new SaveError(503, "The save cannot be read.");
+      reply(response, failure.status, { error: failure.message });
+    }
+  };
+}
+
 const CONTENT_TYPES: Record<string, string> = {
   ".json": "application/json; charset=utf-8",
   ".jpg": "image/jpeg",
@@ -106,14 +165,19 @@ export function gameDataMiddleware(root: string) {
 export function localServerPlugin(gameDataRoot: string): Plugin {
   const storage = storageMiddleware();
   const gameData = gameDataMiddleware(gameDataRoot);
+  const save = saveMiddleware(
+    new SaveReader(undefined, join(gameDataRoot, "eventflag_bst.txt")),
+  );
   return {
     name: "route-of-grace-local-server",
     configureServer(server) {
       server.middlewares.use(storage);
+      server.middlewares.use(save);
       server.middlewares.use(gameData);
     },
     configurePreviewServer(server) {
       server.middlewares.use(storage);
+      server.middlewares.use(save);
       server.middlewares.use(gameData);
     },
   };

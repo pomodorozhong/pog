@@ -2,8 +2,8 @@ import type { PlayerDocument, Profile } from "../domain/types";
 import { newId } from "../map/editing";
 import greatStars from "../../seed/great-stars-guard-counter.json" with { type: "json" };
 
-/** A ready-made playthrough: everything a profile has except its ID. */
-export type ProfileTemplate = Omit<Profile, "id">;
+/** A ready-made playthrough: what a profile starts with, before any progress. */
+export type ProfileTemplate = Omit<Profile, "id" | "progress" | "save">;
 
 /** The "Great Stars Guard Counter" build from the old project. */
 export const TEMPLATES = [greatStars as ProfileTemplate];
@@ -27,6 +27,8 @@ export function addProfile(
   const profile: Profile = {
     ...structuredClone(template),
     id: newId("profile"),
+    progress: { flags: [], position: null },
+    save: null,
   };
   return {
     ...player,

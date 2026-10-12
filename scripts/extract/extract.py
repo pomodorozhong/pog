@@ -10,6 +10,7 @@ game assets and must stay out of git.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import json
 import math
@@ -17,6 +18,7 @@ import os
 import re
 import sys
 import time
+import urllib.request
 from pathlib import Path
 
 from PIL import Image
@@ -246,6 +248,28 @@ def build_pyramid(layer_dir: Path, max_zoom: int) -> None:
             canvas.resize((TILE, TILE), Image.LANCZOS).save(path, quality=88)
 
 
+# Where each block of 1000 event flags sits in a save slot. The community
+# reverse-engineered it from the running game; it isn't in the game files.
+# Pinned to one commit of ER-Save-Lib and checked, since that repo has no
+# license and is downloaded rather than copied into this one.
+FLAG_TABLE_URL = (
+    "https://raw.githubusercontent.com/ClayAmore/ER-Save-Lib/"
+    "d54d9282527dfa55a6adea6b0b3d77564aff726b/src/res/eventflag_bst.txt"
+)
+FLAG_TABLE_SHA256 = "d3cd15912bf2c4ff7c67a1f3ec2aff78ec887e4d8e435e3cab036f80cb8f4c82"
+
+
+def download_flag_table(out: Path) -> None:
+    if out.exists() and hashlib.sha256(out.read_bytes()).hexdigest() == FLAG_TABLE_SHA256:
+        return
+    log("downloading the event flag table for the save import")
+    with urllib.request.urlopen(FLAG_TABLE_URL, timeout=60) as response:
+        data = response.read()
+    if hashlib.sha256(data).hexdigest() != FLAG_TABLE_SHA256:
+        raise RuntimeError("the downloaded event flag table doesn't match its pinned checksum")
+    out.write_bytes(data)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--game-dir", type=Path, default=Path(os.environ.get("ROUTE_OF_GRACE_GAME_DIR", DEFAULT_GAME_DIR)))
@@ -264,6 +288,7 @@ def main() -> int:
     game = GameFiles(args.game_dir, REPO / ".cache" / "bhd")
 
     args.out.mkdir(parents=True, exist_ok=True)
+    download_flag_table(args.out / "eventflag_bst.txt")
     catalog = build_catalog(game, args.game_dir)
     if not args.skip_icons:
         extract_icons(game, {item["icon"] for item in catalog["items"] if item["icon"]}, args.out / "icons", args.icon_size)

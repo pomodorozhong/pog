@@ -38,8 +38,8 @@ type Props = {
   recovery?: string;
   /** Shown above the layer summary when nothing is selected. */
   profile: ReactNode;
-  /** Wishlist control for the item an item pin is linked to. */
-  pinWishlist(item: string): ReactNode;
+  /** Playthrough controls for the selected node: progress and wishlist. */
+  nodeControls(node: MapNode): ReactNode;
 };
 
 export function Inspector(props: Props) {
@@ -99,7 +99,7 @@ function NodePanel({
   edit,
   select,
   deleteSelection,
-  pinWishlist,
+  nodeControls,
 }: Props & { node: MapNode }) {
   const [query, setQuery] = useState("");
   const candidates = refCandidates(data, node.kind);
@@ -215,7 +215,7 @@ function NodePanel({
         </div>
       )}
 
-      {node.kind === "item" && node.ref && pinWishlist(node.ref)}
+      {nodeControls(node)}
 
       <label className="block space-y-1">
         <span className="label">{t("Your note")}</span>

@@ -72,10 +72,30 @@ export type WishlistItem = {
   note: string;
 };
 
+/** How far the player has got in this playthrough. */
+export type Progress = {
+  /**
+   * Game event flags known to be set: graces discovered (each catalog grace
+   * has its flag), and later items picked up and bosses beaten. Sorted.
+   */
+  flags: number[];
+  /** The node on this profile's map where the player is, or null. */
+  position: string | null;
+};
+
+/** The game save character a playthrough imports its progress from. */
+export type SaveLink = {
+  steamId: string;
+  /** 0–9. */
+  slot: number;
+  /** The character's name when linked, to notice a slot reused by another character. */
+  name: string;
+};
+
 /**
- * One whole route: a playthrough with its own goal, constraints and wishlist.
- * Progress, position and the linked save slot join it later in milestone 4.
- * Its map (nodes and paths) is a separate document, `maps/<id>`.
+ * One whole route: a playthrough with its own goal, constraints, wishlist,
+ * progress and linked save slot. Its map (nodes and paths) is a separate
+ * document, `maps/<id>`.
  */
 export type Profile = {
   /** Lowercase letters, digits and dashes, since it names the profile's map file. */
@@ -85,10 +105,12 @@ export type Profile = {
   goal: string;
   constraints: string;
   wishlist: WishlistItem[];
+  progress: Progress;
+  save: SaveLink | null;
 };
 
 export type PlayerDocument = {
-  schemaVersion: 3;
+  schemaVersion: 5;
   language: Language;
   view: MapView;
   activeProfile: string;

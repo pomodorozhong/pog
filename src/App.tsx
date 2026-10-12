@@ -34,6 +34,9 @@ import {
   ProfilePanel,
   ProfileSwitcher,
 } from "./profiles/ProfilePanel";
+import { NodeProgress, ProgressPanel } from "./progress/ProgressPanel";
+import { undiscoveredGraces } from "./progress/progress";
+import { activeProfile } from "./profiles/profiles";
 import { initialDocuments, mapKey } from "./storage/schema";
 import { PinWishlist, WishlistPanel } from "./wishlist/WishlistPanel";
 import {
@@ -129,6 +132,15 @@ export default function App() {
 
   const layer = player?.view.layer ?? "overworld";
   const edit = useCallback((action: MapAction) => dispatch(action), []);
+
+  const progress = player ? activeProfile(player).progress : null;
+  const undiscovered = useMemo(
+    () =>
+      data && progress
+        ? undiscoveredGraces(data, doc.nodes, progress)
+        : new Set<string>(),
+    [data, doc.nodes, progress],
+  );
 
   const nodeById = useMemo(
     () => new Map(doc.nodes.map((n) => [n.id, n])),
@@ -422,6 +434,8 @@ export default function App() {
             editable={tool === "select"}
             language={language}
             data={data}
+            undiscovered={undiscovered}
+            position={progress?.position ?? null}
           />
           <p className="pointer-events-none absolute bottom-2 left-2 z-[500] max-w-[70%] rounded bg-ink/85 px-2 py-1 text-xs text-muted">
             {t(toolHint(tool, draft !== null))}
@@ -442,6 +456,15 @@ export default function App() {
           profile={
             <>
               <ProfilePanel t={t} player={player} setPlayer={setPlayer} />
+              <ProgressPanel
+                t={t}
+                language={language}
+                data={data}
+                player={player}
+                setPlayer={setPlayer}
+                doc={doc}
+                showNode={showNode}
+              />
               <WishlistPanel
                 t={t}
                 language={language}
@@ -461,13 +484,24 @@ export default function App() {
               />
             </>
           }
-          pinWishlist={(item) => (
-            <PinWishlist
-              t={t}
-              player={player}
-              setPlayer={setPlayer}
-              item={item}
-            />
+          nodeControls={(node) => (
+            <>
+              <NodeProgress
+                t={t}
+                data={data}
+                player={player}
+                setPlayer={setPlayer}
+                node={node}
+              />
+              {node.kind === "item" && node.ref && (
+                <PinWishlist
+                  t={t}
+                  player={player}
+                  setPlayer={setPlayer}
+                  item={node.ref}
+                />
+              )}
+            </>
           )}
         />
       </div>

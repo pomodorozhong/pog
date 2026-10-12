@@ -13,6 +13,7 @@ The default game folder is the "Elden Ring" CrossOver bottle. Use `--game-dir` o
 
 - `catalog.json`: `items` (weapons, armor, talismans, goods, Ashes of War), `graces`, `places` and `npcs`, each with official `en` and `zh-TW` names, a `dlc` flag, and for items the param ID and icon ID. Weapon infusion and upgrade variants are left out. Graces also carry their map `layer`, `x`/`y` in full-resolution map pixels, the "discovered" event `flag`, and `legacy` when they sit inside a dungeon and were projected onto the open-world map.
 - `icons/<iconId>.webp`: item icons (256 px by default; `--icon-size`).
+- `eventflag_bst.txt`: where each block of 1000 event flags sits in a save slot, for the save import. It isn't in the game files: it's downloaded from [ER-Save-Lib](https://github.com/ClayAmore/ER-Save-Lib) at a pinned commit and checked against its SHA-256 (the only network access).
 - `map/<layer>/{z}/{x}/{y}.jpg`: Leaflet tile pyramids for `overworld`, `underground`, `dlc` and `dlc-underground`, fully revealed, with the map in the top-left corner. `map/index.json` gives each layer's size and maximum zoom.
 
 ## How it works

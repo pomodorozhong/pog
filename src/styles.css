@@ -116,6 +116,18 @@ body {
   border-radius: 3px;
   background: #c9b28d;
 }
+/* Graces not discovered in this playthrough yet: unlit. */
+.map-node--grace.is-undiscovered {
+  background: #8d8673;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.6);
+}
+/* Where the player is. */
+.map-node.is-position {
+  box-shadow:
+    0 0 0 3px var(--color-ink),
+    0 0 0 6px #7fd1ff,
+    0 0 14px 6px rgb(127 209 255 / 0.6);
+}
 .map-node.has-portal {
   outline: 2px dashed #b48ce0;
   outline-offset: 3px;

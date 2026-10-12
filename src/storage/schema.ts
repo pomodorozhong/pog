@@ -9,6 +9,8 @@ import {
   type Documents,
   type MapDocument,
   type PlayerDocument,
+  type Progress,
+  type SaveLink,
   type WishlistItem,
 } from "../domain/types.ts";
 
@@ -91,6 +93,35 @@ function checkWishlist(value: unknown): value is WishlistItem[] {
   });
 }
 
+function checkProgress(value: unknown): value is Progress {
+  if (!hasExactKeys(value, ["flags", "position"])) return false;
+  const v = value as Progress;
+  return (
+    Array.isArray(v.flags) &&
+    v.flags.every(
+      (flag, i) =>
+        Number.isSafeInteger(flag) &&
+        flag >= 0 &&
+        (i === 0 || flag > v.flags[i - 1]),
+    ) &&
+    (v.position === null || typeof v.position === "string")
+  );
+}
+
+function checkSaveLink(value: unknown): value is SaveLink | null {
+  if (value === null) return true;
+  if (!hasExactKeys(value, ["steamId", "slot", "name"])) return false;
+  const v = value as SaveLink;
+  return (
+    typeof v.steamId === "string" &&
+    /^\d{1,20}$/.test(v.steamId) &&
+    Number.isInteger(v.slot) &&
+    v.slot >= 0 &&
+    v.slot < 10 &&
+    typeof v.name === "string"
+  );
+}
+
 function checkPlayer(value: unknown): value is PlayerDocument {
   if (
     !hasExactKeys(value, [
@@ -105,7 +136,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
   const v = value as PlayerDocument;
   const ids = new Set<string>();
   return (
-    v.schemaVersion === 3 &&
+    v.schemaVersion === 5 &&
     includes(LANGUAGES, v.language) &&
     hasExactKeys(v.view, ["layer", "x", "y", "zoom"]) &&
     includes(LAYERS, v.view.layer) &&
@@ -114,12 +145,22 @@ function checkPlayer(value: unknown): value is PlayerDocument {
     v.profiles.length > 0 &&
     v.profiles.every((p) => {
       const ok =
-        hasExactKeys(p, ["id", "name", "goal", "constraints", "wishlist"]) &&
+        hasExactKeys(p, [
+          "id",
+          "name",
+          "goal",
+          "constraints",
+          "wishlist",
+          "progress",
+          "save",
+        ]) &&
         typeof p.id === "string" &&
         PROFILE_ID.test(p.id) &&
         !ids.has(p.id) &&
         [p.name, p.goal, p.constraints].every((t) => typeof t === "string") &&
-        checkWishlist(p.wishlist);
+        checkWishlist(p.wishlist) &&
+        checkProgress(p.progress) &&
+        checkSaveLink(p.save);
       ids.add(p.id);
       return ok;
     }) &&
@@ -128,6 +169,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
 }
 
 export const FIRST_PROFILE_ID = "profile-1";
+const PLAYER_VERSION = 5;
 const PROFILE_ID = /^[a-z0-9-]{1,64}$/;
 
 export const mapKey = (profile: string): DocumentKey => `maps/${profile}`;
@@ -144,6 +186,8 @@ const firstProfile = () => ({
   goal: "",
   constraints: "",
   wishlist: [],
+  progress: { flags: [], position: null },
+  save: null,
 });
 
 /**
@@ -160,21 +204,31 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
     // Version 1 had no profiles: everything so far becomes the first playthrough.
     return {
       ...v,
-      schemaVersion: 3,
+      schemaVersion: PLAYER_VERSION,
       activeProfile: FIRST_PROFILE_ID,
       profiles: [firstProfile()],
     };
-  if (v.schemaVersion === 2 && Array.isArray(v.profiles))
-    // Version 2 profiles had no wishlist.
+  if (
+    (v.schemaVersion === 2 || v.schemaVersion === 3 || v.schemaVersion === 4) &&
+    Array.isArray(v.profiles)
+  ) {
+    // Later versions added the wishlist (3), progress (4) and save link (5).
+    const added = firstProfile();
     v = {
       ...v,
-      schemaVersion: 3,
+      schemaVersion: PLAYER_VERSION,
       profiles: v.profiles.map((p: unknown) =>
-        p && typeof p === "object" && !("wishlist" in p)
-          ? { ...p, wishlist: [] }
+        p && typeof p === "object"
+          ? {
+              ...p,
+              wishlist: "wishlist" in p ? p.wishlist : added.wishlist,
+              progress: "progress" in p ? p.progress : added.progress,
+              save: "save" in p ? p.save : added.save,
+            }
           : p,
       ),
     };
+  }
   return v;
 }
 
@@ -199,7 +253,7 @@ export function validDocument<N extends DocumentName>(
 export const initialDocuments = (): Documents => ({
   map: { schemaVersion: 1, nodes: [], edges: [] },
   player: {
-    schemaVersion: 3,
+    schemaVersion: PLAYER_VERSION,
     language: "en",
     view: { layer: "overworld", x: 5248, y: 5248, zoom: 3 },
     activeProfile: FIRST_PROFILE_ID,
