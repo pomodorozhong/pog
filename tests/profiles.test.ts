@@ -104,6 +104,7 @@ describe("the shared grace filter", () => {
     expect(player.hideUnusedGraces).toBe(false);
     const legacy: Record<string, unknown> = { ...player, schemaVersion: 7 };
     delete legacy.hideUnusedGraces;
+    delete legacy.graceNames;
     expect(upgradeDocument("player", legacy)).toEqual(player);
     expect(validDocument("player", legacy)).toBe(false);
     expect(
@@ -125,5 +126,21 @@ describe("the shared grace filter", () => {
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
+  });
+});
+
+describe("grace name settings", () => {
+  it("upgrades version 8 to Automatic without changing the filter or profiles", () => {
+    const player = {
+      ...addProfile(initialDocuments().player),
+      hideUnusedGraces: true,
+    };
+    const legacy: Record<string, unknown> = { ...player, schemaVersion: 8 };
+    delete legacy.graceNames;
+    expect(upgradeDocument("player", legacy)).toEqual(player);
+    expect(player.graceNames).toBe("auto");
+    expect(
+      validDocument("player", { ...player, graceNames: "sometimes" }),
+    ).toBe(false);
   });
 });

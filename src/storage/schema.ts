@@ -1,5 +1,6 @@
 import {
   EDGE_TYPES,
+  GRACE_NAME_MODES,
   LANGUAGES,
   LAYERS,
   NODE_KINDS,
@@ -159,6 +160,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
       "view",
       "stepSize",
       "hideUnusedGraces",
+      "graceNames",
       "activeProfile",
       "profiles",
     ])
@@ -171,6 +173,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
     includes(LANGUAGES, v.language) &&
     includes(STEP_SIZES, v.stepSize) &&
     typeof v.hideUnusedGraces === "boolean" &&
+    includes(GRACE_NAME_MODES, v.graceNames) &&
     hasExactKeys(v.view, ["layer", "x", "y", "zoom"]) &&
     includes(LAYERS, v.view.layer) &&
     [v.view.x, v.view.y, v.view.zoom].every(isCoordinate) &&
@@ -204,7 +207,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
 }
 
 export const FIRST_PROFILE_ID = "profile-1";
-const PLAYER_VERSION = 8;
+const PLAYER_VERSION = 9;
 const MAP_VERSION = 2;
 const DEFAULT_STEP_SIZE = "medium";
 const PROFILE_ID = /^[a-z0-9-]{1,64}$/;
@@ -240,6 +243,7 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
     profiles?: unknown;
     stepSize?: unknown;
     hideUnusedGraces?: unknown;
+    graceNames?: unknown;
   };
   if (
     v.schemaVersion === 1 &&
@@ -251,6 +255,7 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
       schemaVersion: PLAYER_VERSION,
       stepSize: DEFAULT_STEP_SIZE,
       hideUnusedGraces: false,
+      graceNames: "auto",
       activeProfile: FIRST_PROFILE_ID,
       profiles: [firstProfile()],
     };
@@ -261,13 +266,14 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
     Array.isArray(v.profiles)
   ) {
     // Later versions added the wishlist (3), progress (4), save link (5),
-    // routing rules (6), step number size (7) and grace filter (8).
+    // routing rules (6), step number size (7), grace filter (8) and names (9).
     const added = firstProfile();
     v = {
       ...v,
       schemaVersion: PLAYER_VERSION,
       stepSize: "stepSize" in v ? v.stepSize : DEFAULT_STEP_SIZE,
       hideUnusedGraces: "hideUnusedGraces" in v ? v.hideUnusedGraces : false,
+      graceNames: "graceNames" in v ? v.graceNames : "auto",
       profiles: v.profiles.map((p: unknown) =>
         p && typeof p === "object"
           ? {
@@ -366,6 +372,7 @@ export const initialDocuments = (): Documents => ({
     view: { layer: "overworld", x: 5248, y: 5248, zoom: 3 },
     stepSize: DEFAULT_STEP_SIZE,
     hideUnusedGraces: false,
+    graceNames: "auto",
     activeProfile: FIRST_PROFILE_ID,
     profiles: [firstProfile()],
   },

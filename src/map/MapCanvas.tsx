@@ -2,6 +2,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type {
+  GraceNameMode,
   LayerId,
   Language,
   MapEdge,
@@ -47,6 +48,7 @@ type Props = MapCanvasHandlers & {
   /** Draw path mode, including choosing the first pin. */
   drawing: boolean;
   hideUnusedGraces: boolean;
+  graceNames: GraceNameMode;
   language: Language;
   data: GameData;
   /** Graces on the map not yet discovered in this playthrough. */
@@ -64,6 +66,7 @@ type Props = MapCanvasHandlers & {
 };
 
 const LABEL_ZOOM = 4;
+const GRACE_LABEL_ZOOM = 6;
 /** How far step numbers pinned to the screen edge stay from it, in pixels. */
 const STEP_INSET = 24;
 
@@ -73,7 +76,7 @@ export function MapCanvas(props: Props) {
   const overlay = useRef<L.LayerGroup | null>(null);
   const rubberBand = useRef<L.Polyline | null>(null);
   const labels = useRef<
-    { marker: L.Marker; always: boolean; showWhenZoomed: boolean }[]
+    { marker: L.Marker; always: boolean; minZoom: number | null }[]
   >([]);
   /** Step numbers on the map, with the stretches of their path on this layer. */
   const steps = useRef<{ marker: L.Marker; runs: Point[][] }[]>([]);
@@ -89,10 +92,10 @@ export function MapCanvas(props: Props) {
     map.current &&
     placeSteps(map.current, steps.current, latest.current.info.maxZoom);
   const updateLabels = () => {
-    const zoomed = map.current!.getZoom() >= LABEL_ZOOM;
-    for (const { marker, always, showWhenZoomed } of labels.current) {
+    const zoom = map.current!.getZoom();
+    for (const { marker, always, minZoom } of labels.current) {
       const tooltip = marker.getTooltip()!;
-      const permanent = always || (showWhenZoomed && zoomed);
+      const permanent = always || (minZoom !== null && zoom >= minZoom);
       if (tooltip.options.permanent !== permanent)
         marker.unbindTooltip().bindTooltip(tooltip.getContent()!, {
           ...tooltip.options,
@@ -197,6 +200,7 @@ export function MapCanvas(props: Props) {
     editable,
     drawing,
     hideUnusedGraces,
+    graceNames,
     language,
     data,
     undiscovered,
@@ -359,19 +363,24 @@ export function MapCanvas(props: Props) {
           position === node.id ||
           stops.has(node.id) ||
           routeNodes.has(node.id);
-        // Graces crowd even ordinary close-zoom views; their names stay on
-        // hover unless the pin matters right now. Other named pins can still
-        // show their names when zoomed in.
-        const showWhenZoomed =
-          node.kind !== "junction" && node.kind !== "grace";
+        const minZoom =
+          node.kind === "grace"
+            ? graceNames === "hover"
+              ? null
+              : graceNames === "always"
+                ? 0
+                : GRACE_LABEL_ZOOM
+            : node.kind === "junction"
+              ? null
+              : LABEL_ZOOM;
         marker.bindTooltip(escapeHtml(name), {
           permanent:
-            always || (showWhenZoomed && map.current!.getZoom() >= LABEL_ZOOM),
+            always || (minZoom !== null && map.current!.getZoom() >= minZoom),
           direction: "right",
           offset: [10, 0],
           className: `node-label node-label--${node.kind}`,
         });
-        labels.current.push({ marker, always, showWhenZoomed });
+        labels.current.push({ marker, always, minZoom });
       }
     }
   }, [
@@ -382,6 +391,7 @@ export function MapCanvas(props: Props) {
     editable,
     drawing,
     hideUnusedGraces,
+    graceNames,
     language,
     data,
     layer,

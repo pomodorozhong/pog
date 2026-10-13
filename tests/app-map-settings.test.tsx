@@ -104,6 +104,19 @@ it("persists one filter across profiles and reloads, while routing still uses hi
     name: "Hide graces without paths",
   });
   expect(toggle).toHaveAttribute("aria-pressed", "false");
+  expect(toggle.closest('[role="toolbar"]')).toBeNull();
+  const details = screen.getByRole("button", { name: "Details" });
+  expect(details).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(details);
+  expect(
+    screen.getByRole("region", { name: "Map details" }),
+  ).not.toContainElement(toggle);
+  const names = screen.getByRole("combobox", { name: "Grace names" });
+  expect(names).toHaveValue("auto");
+  fireEvent.change(names, { target: { value: "hover" } });
+  expect(canvas.props!.graceNames).toBe("hover");
+  fireEvent.keyDown(names, { key: "Escape" });
+  expect(details).toHaveAttribute("aria-expanded", "false");
   expect(screen.getByText(/fast travel to Grace 2/)).toBeInTheDocument();
   expect(canvas.props!.routeNodes.has("grace/2")).toBe(true);
   fireEvent.click(toggle);
@@ -123,6 +136,7 @@ it("persists one filter across profiles and reloads, while routing still uses hi
   ).toHaveAttribute("aria-pressed", "true");
   await waitFor(() => {
     expect(documents.player.hideUnusedGraces).toBe(true);
+    expect(documents.player.graceNames).toBe("hover");
     expect(documents.player.activeProfile).toBe(second);
   });
   first.unmount();
@@ -130,10 +144,17 @@ it("persists one filter across profiles and reloads, while routing still uses hi
   expect(
     await screen.findByRole("button", { name: "Hide graces without paths" }),
   ).toHaveAttribute("aria-pressed", "true");
+  fireEvent.click(screen.getByRole("button", { name: "Details" }));
+  expect(screen.getByRole("combobox", { name: "Grace names" })).toHaveValue(
+    "hover",
+  );
   fireEvent.change(screen.getByRole("combobox", { name: "Language" }), {
     target: { value: "zh-TW" },
   });
   expect(
     screen.getByRole("button", { name: "隱藏沒有路徑經過的賜福" }),
   ).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("combobox", { name: "賜福名稱" })).toHaveValue(
+    "hover",
+  );
 });

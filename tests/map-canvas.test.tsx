@@ -81,6 +81,7 @@ describe("cross-layer waygate numbers", () => {
           editable={false}
           drawing={false}
           hideUnusedGraces={false}
+          graceNames="auto"
           language="en"
           data={data}
           undiscovered={new Set()}
@@ -131,6 +132,7 @@ const canvasProps = (): ComponentProps<typeof MapCanvas> => ({
   editable: true,
   drawing: false,
   hideUnusedGraces: false,
+  graceNames: "auto",
   language: "en",
   data,
   undiscovered: new Set(),
@@ -197,7 +199,7 @@ describe("grace visibility", () => {
 });
 
 describe("grace names", () => {
-  it("keeps ordinary grace names on hover at every zoom and important names visible", () => {
+  it("shows ordinary grace names only at very close zoom and important names at every zoom", () => {
     const props = canvasProps();
     const { container, rerender } = render(
       <MapCanvas
@@ -222,11 +224,32 @@ describe("grace names", () => {
     fireEvent.mouseOver(unused);
     expect(labels()).toContain("unused");
     fireEvent.mouseOut(unused);
-    act(() => leaflet.current!.setZoom(8, { animate: false }));
+    act(() => leaflet.current!.setZoom(5, { animate: false }));
     expect(labels()).toEqual(["start", "middle", "end"]);
+    act(() => leaflet.current!.setZoom(6, { animate: false }));
+    expect(labels()).toHaveLength(4);
     rerender(<MapCanvas {...props} />);
-    expect(labels()).toEqual([]);
+    expect(labels()).toHaveLength(4);
     act(() => leaflet.current!.setZoom(3, { animate: false }));
     expect(labels()).toEqual([]);
+  });
+
+  it("applies the detail choice immediately while preserving important names", () => {
+    const props = { ...canvasProps(), position: "grace/1" };
+    const { container, rerender } = render(<MapCanvas {...props} />);
+    const labels = () =>
+      [...container.querySelectorAll(".node-label--grace")].map(
+        (element) => element.textContent,
+      );
+    expect(labels()).toEqual(["start"]);
+    rerender(<MapCanvas {...props} graceNames="always" />);
+    expect(labels()).toHaveLength(4);
+    act(() => leaflet.current!.setZoom(8, { animate: false }));
+    rerender(<MapCanvas {...props} graceNames="hover" />);
+    expect(labels()).toEqual(["start"]);
+    fireEvent.mouseOver(container.querySelectorAll(".map-node--grace")[3]);
+    expect(labels()).toContain("unused");
+    rerender(<MapCanvas {...props} />);
+    expect(labels()).toHaveLength(4);
   });
 });
