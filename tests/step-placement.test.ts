@@ -82,4 +82,25 @@ describe("step number placement", () => {
       ]),
     ).toEqual([20, 0]);
   });
+
+  it("places a number at an isolated on-screen portal endpoint", () => {
+    expect(placeStep([[[50, 40]]], box)).toEqual({
+      point: [50, 40],
+      pinned: false,
+    });
+  });
+
+  it("prefers an on-screen portal endpoint to an off-screen one", () => {
+    expect(placeStep([[[300, 400]], [[50, 40]]], box)).toEqual({
+      point: [50, 40],
+      pinned: false,
+    });
+  });
+
+  it("pins an isolated off-screen portal endpoint to the screen edge", () => {
+    expect(placeStep([[[300, 40]]], box)).toEqual({
+      point: [100, 40],
+      pinned: true,
+    });
+  });
 });

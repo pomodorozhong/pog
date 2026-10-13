@@ -202,7 +202,15 @@ export function MapCanvas(props: Props) {
         }
       });
       const runs = edgeRuns(edge, byId, layer);
-      if (!runs.length) continue;
+      // A waygate may have only isolated endpoints on this layer. Its number
+      // still belongs here, even though the jump itself has no drawn line.
+      const stepRuns = runs.length
+        ? runs
+        : edge.nodes.flatMap((id): Point[][] => {
+            const node = byId.get(id);
+            return node?.layer === layer ? [[[node.x, node.y]]] : [];
+          });
+      if (!stepRuns.length) continue;
       const selected = selection?.kind === "edge" && selection.id === edge.id;
       const highlighted = highlight === edge.id;
       const style = EDGE_STYLE[edge.type];
@@ -239,7 +247,7 @@ export function MapCanvas(props: Props) {
           );
       }
       // One step number per path, placed by placeSteps.
-      const marker = L.marker(toLatLng(runs[0][0]), {
+      const marker = L.marker(toLatLng(stepRuns[0][0]), {
         icon: L.divIcon({
           className: highlighted ? "path-step is-highlighted" : "path-step",
           html: `<span>${edge.step}</span>`,
@@ -250,7 +258,7 @@ export function MapCanvas(props: Props) {
       })
         .on("click", select)
         .addTo(group);
-      steps.current.push({ marker, runs });
+      steps.current.push({ marker, runs: stepRuns });
     }
     placeAllSteps();
 
@@ -398,7 +406,15 @@ function placeSteps(
       }),
     );
     const { point, pinned } = placeStep(onScreen, box);
-    marker.setLatLng(instance.containerPointToLatLng(point));
+    // Put an isolated portal's number beside its pin so both remain clickable.
+    const besidePortal = !pinned && onScreen.every((run) => run.length === 1);
+    const labelPoint: Point = besidePortal
+      ? [
+          Math.min(point[0] + STEP_INSET, box.right),
+          Math.max(point[1] - STEP_INSET, box.top),
+        ]
+      : point;
+    marker.setLatLng(instance.containerPointToLatLng(labelPoint));
     marker.getElement()?.classList.toggle("is-pinned", pinned);
   }
 }

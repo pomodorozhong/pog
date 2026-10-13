@@ -47,7 +47,8 @@ function clip(a: Point, b: Point, box: Box): [Point, Point] | null {
 /**
  * Where to show a path's step number on screen. Halfway along the longest
  * stretch of the path inside `box`; when none of it is inside, on the edge
- * of `box` nearest the path's middle, so the number stays in view.
+ * of `box` nearest the path's middle, so the number stays in view. Isolated
+ * portal endpoints are single-point lines; prefer one that is on screen.
  */
 export function placeStep(
   lines: Point[][],
@@ -56,6 +57,18 @@ export function placeStep(
   let best: Point[] | null = null;
   let bestLength = -1;
   for (const line of lines) {
+    if (line.length === 1) {
+      const [x, y] = line[0];
+      if (
+        bestLength < 0 &&
+        x >= box.left &&
+        x <= box.right &&
+        y >= box.top &&
+        y <= box.bottom
+      )
+        [best, bestLength] = [line, 0];
+      continue;
+    }
     // Clipped pieces form one visible stretch while each starts where the
     // last ended; a piece that leaves the box ends early, which breaks it.
     let run: Point[] = [];
