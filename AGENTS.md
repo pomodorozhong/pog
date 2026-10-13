@@ -22,7 +22,7 @@ Work is tracked in GitHub issues; `.agents/next-steps.md` ranks them. Read it, c
 ## Interface
 
 - All interface text supports English and Traditional Chinese (zh-TW). Write English in the code and add the zh-TW string to `data/localization/ui.zh-TW.json`.
-- The viewer (`?mode=viewer`, not built yet) is read-only and mirrors the operator's screen (same layout, open modals, scroll position, map view) for use as an OBS browser source.
+- The viewer (`?mode=viewer`, not built yet) mirrors the operator's screen (same layout, open modals, scroll position, map view) for use as an OBS browser source. It accepts no input and never sends updates back, so state only flows from the operator to viewers.
 - When adding a wishlist item, suggest its region and requirements, and ask the player to confirm the exact pin.
 
 ## Checks

@@ -116,7 +116,7 @@ Everything here runs for the active profile.
 
 ### OBS viewer
 
-A read-only page that mirrors the operator's screen: the same layout, open modals, scroll position and map view. There are no separate viewer layouts; what the operator sees is what the stream shows.
+A read-only page that mirrors the operator's screen: the same layout, open modals, scroll position and map view. There are no separate viewer layouts; what the operator sees is what the stream shows. With `?mode=viewer` in the URL the page ignores all input and never sends updates back, so state only flows one way (operator → viewers).
 
 - **Base:** the old project's read-only viewer (WebSocket relay; the operator app publishes state snapshots, viewers follow live).
 
