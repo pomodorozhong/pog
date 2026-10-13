@@ -1,6 +1,5 @@
-import type { MapDocument, MapEdge, MapNode } from "../domain/types";
+import type { MapDocument, MapNode } from "../domain/types";
 import type { CatalogGrace } from "./catalog";
-import type { MapAction } from "./editing";
 
 /**
  * Game graces are game data, like the map tiles: every profile's map shows
@@ -46,29 +45,3 @@ export const withGameGraces = (
   doc: MapDocument,
   graces: MapNode[],
 ): MapDocument => ({ ...doc, nodes: [...graces, ...doc.nodes] });
-
-/**
- * The edits that replace a hand-placed grace with a game grace, as one batch:
- * the node goes, and its paths end at the game grace instead.
- */
-export function replaceWithGrace(
-  doc: MapDocument,
-  nodeId: string,
-  graceId: string,
-): MapAction {
-  const rewired = doc.edges
-    .filter((e) => e.from === nodeId || e.to === nodeId)
-    .map((e): MapEdge => ({
-      ...e,
-      from: e.from === nodeId ? graceId : e.from,
-      to: e.to === nodeId ? graceId : e.to,
-    }))
-    .filter((e) => e.from !== e.to);
-  return {
-    type: "batch",
-    actions: [
-      { type: "removeNode", id: nodeId },
-      ...rewired.map((edge): MapAction => ({ type: "addEdge", edge })),
-    ],
-  };
-}

@@ -1,13 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { MapDocument, MapEdge, MapNode } from "../src/domain/types";
 import type { CatalogGrace } from "../src/map/catalog";
-import { applyMapAction, historyReducer } from "../src/map/editing";
-import {
-  gameGraceNodes,
-  replaceWithGrace,
-  withGameGraces,
-} from "../src/map/graces";
-import { upgradeDocument, validDocument } from "../src/storage/schema";
+import { applyMapAction } from "../src/map/editing";
+import { gameGraceNodes, withGameGraces } from "../src/map/graces";
+import { validDocument } from "../src/storage/schema";
 
 const grace = (
   id: number,
@@ -39,7 +35,7 @@ const edge = (
   type: MapEdge["type"] = "road",
 ): MapEdge => ({ id, from, to, type, points: [], note: "" });
 const doc = (nodes: MapNode[] = [], edges: MapEdge[] = []): MapDocument => ({
-  schemaVersion: 2,
+  schemaVersion: 1,
   nodes,
   edges,
 });
@@ -114,54 +110,13 @@ describe("game graces", () => {
       }),
     ).toBe(start);
   });
-
-  it("replace a hand-placed grace in one undo step, keeping its paths", () => {
-    const start = doc(
-      [node("hand", 120, 110, "grace"), node("j", 1, 2)],
-      [edge("e", "j", "hand"), edge("loop", "hand", "grace/1")],
-    );
-    const history = historyReducer(
-      { past: [], present: start, future: [] },
-      replaceWithGrace(start, "hand", "grace/1"),
-      fixed,
-    );
-    expect(history.present.nodes.map((n) => n.id)).toEqual(["j"]);
-    expect(history.present.edges).toEqual([edge("e", "j", "grace/1")]);
-    expect(historyReducer(history, { type: "undo" }).present).toBe(start);
-  });
 });
 
-describe("map upgrade from version 1", () => {
-  it("drops stored grace copies and ends their paths at the grace id", () => {
-    const old = {
-      schemaVersion: 1,
-      nodes: [
-        node("copy-1", 100, 100, "grace", "grace/1"),
-        node("copy-2", 500, 500, "grace", "grace/2"),
-        node("hand", 120, 110, "grace"),
-        node("j", 1, 2),
-      ],
-      edges: [
-        edge("a", "copy-1", "j"),
-        edge("b", "j", "hand"),
-        edge("c", "copy-1", "copy-2"),
-      ],
-    };
-    const upgraded = upgradeDocument("map", old);
-    expect(validDocument("map", upgraded)).toBe(true);
-    expect(upgraded).toEqual(
-      doc(
-        [node("hand", 120, 110, "grace"), node("j", 1, 2)],
-        [
-          edge("a", "grace/1", "j"),
-          edge("b", "j", "hand"),
-          edge("c", "grace/1", "grace/2"),
-        ],
-      ),
+describe("a stored map", () => {
+  it("holds no graces: none as a node, none taking a grace's id", () => {
+    expect(validDocument("map", doc([node("hand", 1, 2, "grace")]))).toBe(
+      false,
     );
-  });
-
-  it("rejects a stored node that takes a game grace's id", () => {
     expect(validDocument("map", doc([node("grace/1", 1, 2)]))).toBe(false);
   });
 });

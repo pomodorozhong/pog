@@ -59,7 +59,7 @@ export type MapEdge = {
 
 /** A profile's own nodes and paths. Game graces are not stored here. */
 export type MapDocument = {
-  schemaVersion: 2;
+  schemaVersion: 1;
   nodes: MapNode[];
   edges: MapEdge[];
 };

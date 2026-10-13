@@ -38,7 +38,7 @@ describe("travel cost", () => {
 describe("shortest paths", () => {
   // a — b — c along a road, d far away, e in the DLC.
   const map: MapDocument = {
-    schemaVersion: 2,
+    schemaVersion: 1,
     nodes: [
       node("a", 0),
       node("b", 1400),

@@ -13,7 +13,7 @@ const node = (id: string, layer: MapNode["layer"] = "overworld"): MapNode => ({
   ref: null,
 });
 const doc = (...nodes: MapNode[]): MapDocument => ({
-  schemaVersion: 2,
+  schemaVersion: 1,
   nodes,
   edges: [],
 });

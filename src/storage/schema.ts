@@ -51,6 +51,8 @@ function checkMap(value: unknown): value is MapDocument {
       !hasExactKeys(n, ["id", "layer", "x", "y", "kind", "label", "ref"]) ||
       typeof n.id !== "string" ||
       GRACE_ID.test(n.id) ||
+      // Graces are game data, shown on every map; a map stores none.
+      n.kind === "grace" ||
       layerOf.has(n.id) ||
       !includes(LAYERS, n.layer) ||
       !isCoordinate(n.x) ||
@@ -197,7 +199,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
 
 export const FIRST_PROFILE_ID = "profile-1";
 const PLAYER_VERSION = 6;
-const MAP_VERSION = 2;
+const MAP_VERSION = 1;
 const PROFILE_ID = /^[a-z0-9-]{1,64}$/;
 
 export const mapKey = (profile: string): DocumentKey => `maps/${profile}`;
@@ -224,8 +226,7 @@ const firstProfile = () => ({
  * Anything unrecognised is returned unchanged, so validation rejects it.
  */
 export function upgradeDocument(name: DocumentName, value: unknown): unknown {
-  if (!value || typeof value !== "object") return value;
-  if (name === "map") return upgradeMap(value);
+  if (name !== "player" || !value || typeof value !== "object") return value;
   let v = value as { schemaVersion: unknown; profiles?: unknown };
   if (
     v.schemaVersion === 1 &&
@@ -264,48 +265,6 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
     };
   }
   return v;
-}
-
-/**
- * Version 1 stored a copy of each game grace the player added, as a node
- * linked to it. Version 2 shows game graces without storing them: the copies
- * go, and their paths end at the grace id instead. A position set on a copy
- * no longer matches a node, so it reads as not set until the player sets it.
- */
-function upgradeMap(value: object): unknown {
-  const v = value as {
-    schemaVersion: unknown;
-    nodes?: unknown;
-    edges?: unknown;
-  };
-  if (
-    v.schemaVersion !== 1 ||
-    !Array.isArray(v.nodes) ||
-    !Array.isArray(v.edges)
-  )
-    return value;
-  const copies = new Map<string, string>();
-  for (const n of v.nodes)
-    if (
-      n?.kind === "grace" &&
-      typeof n.ref === "string" &&
-      GRACE_ID.test(n.ref)
-    )
-      copies.set(n.id, n.ref);
-  const end = (id: unknown) =>
-    typeof id === "string" ? (copies.get(id) ?? id) : id;
-  return {
-    ...v,
-    schemaVersion: MAP_VERSION,
-    nodes: v.nodes.filter((n) => !copies.has(n?.id)),
-    edges: v.edges
-      .map((e) =>
-        e && typeof e === "object"
-          ? { ...e, from: end(e.from), to: end(e.to) }
-          : e,
-      )
-      .filter((e) => !(e && typeof e === "object" && e.from === e.to)),
-  };
 }
 
 const checks: {

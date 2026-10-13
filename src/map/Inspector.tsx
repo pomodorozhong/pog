@@ -19,7 +19,7 @@ import {
   type GameData,
 } from "./catalog";
 import type { MapAction } from "./editing";
-import { isGameGrace, replaceWithGrace } from "./graces";
+import { isGameGrace } from "./graces";
 import type { Selection } from "./MapCanvas";
 import { EDGE_NAMES, LAYER_NAMES, NODE_KIND_NAMES } from "./labels";
 import { EDGE_STYLE } from "./style";
@@ -99,23 +99,13 @@ function NodePanel({
   // Game graces are game data: they can be visited and joined by paths, not edited.
   const fixed = isGameGrace(node.id);
   const candidates = fixed ? [] : refCandidates(data, node.kind);
-  const results = query
-    ? searchCatalog(candidates, query)
-    : !node.ref && node.kind === "grace"
-      ? nearbyGraces(data, node)
-      : [];
+  const results = query ? searchCatalog(candidates, query) : [];
   const entry = node.ref ? data.byId.get(node.ref) : undefined;
   const connected = doc.edges.filter(
     (e) => e.from === node.id || e.to === node.id,
   );
   const update = (changes: Partial<MapNode>) =>
     edit({ type: "updateNode", id: node.id, changes });
-  // A hand-placed grace is replaced by the game grace it stands for.
-  const pick = (id: string) => {
-    if (node.kind !== "grace") return update({ ref: id });
-    edit(replaceWithGrace(doc, node.id, id));
-    select({ kind: "node", id });
-  };
   const other = language === "en" ? "zh-TW" : "en";
 
   return (
@@ -146,9 +136,7 @@ function NodePanel({
               update({ kind: e.target.value as NodeKind, ref: null })
             }
           >
-            {NODE_KINDS.filter(
-              (kind) => kind !== "grace" || node.kind === "grace",
-            ).map((kind) => (
+            {NODE_KINDS.filter((kind) => kind !== "grace").map((kind) => (
               <option key={kind} value={kind}>
                 {t(NODE_KIND_NAMES[kind])}
               </option>
@@ -160,11 +148,7 @@ function NodePanel({
       {candidates.length > 0 && (
         <div className="space-y-1">
           <label className="label" htmlFor="ref-search">
-            {node.kind === "item"
-              ? t("Item")
-              : node.kind === "grace"
-                ? t("Site of Grace")
-                : t("Place name")}
+            {node.kind === "item" ? t("Item") : t("Place name")}
           </label>
           {entry && (
             <p className="flex items-center justify-between gap-2 text-sm">
@@ -182,9 +166,6 @@ function NodePanel({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          {!query && results.length > 0 && (
-            <p className="text-xs text-muted">{t("Nearby graces")}</p>
-          )}
           {results.length > 0 && (
             <ul className="max-h-64 overflow-y-auto rounded border border-line">
               {results.map((result) => (
@@ -192,7 +173,7 @@ function NodePanel({
                   <button
                     className="flex w-full items-center gap-2 px-2 py-1 text-left hover:bg-ink"
                     onClick={() => {
-                      pick(result.id);
+                      update({ ref: result.id });
                       setQuery("");
                     }}
                   >
@@ -357,17 +338,6 @@ function EdgePanel({
       </div>
     </section>
   );
-}
-
-/** The closest game graces to a hand-placed grace, nearest first. */
-function nearbyGraces(data: GameData, node: MapNode) {
-  return data.catalog.graces
-    .filter((g) => g.layer === node.layer)
-    .map((g) => ({ g, d: Math.hypot(g.x - node.x, g.y - node.y) }))
-    .filter(({ d }) => d < 400)
-    .sort((a, b) => a.d - b.d)
-    .slice(0, 5)
-    .map(({ g }) => g);
 }
 
 function Summary({
