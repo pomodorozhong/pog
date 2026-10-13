@@ -83,7 +83,6 @@ export function refCandidates(
   kind: NodeKind,
 ): (CatalogItem | CatalogName)[] {
   if (kind === "item") return data.catalog.items;
-  if (kind === "grace") return data.catalog.graces;
   if (kind === "entrance") return data.uniquePlaces;
   return [];
 }

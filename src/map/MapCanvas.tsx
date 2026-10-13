@@ -20,6 +20,7 @@ import type { RouteLine } from "../routing/order";
 import { edgeLine, isOneWay } from "./editing";
 import { enableGestures } from "./gestures";
 import { EDGE_STYLE, NODE_SYMBOL } from "./style";
+import { isGameGrace } from "./graces";
 
 export type Selection = { kind: "node" | "edge"; id: string } | null;
 export type Draft = { from: string; points: Point[] } | null;
@@ -263,7 +264,7 @@ export function MapCanvas(props: Props) {
               : `${image}<span class="stop-badge">${stop}</span>`,
           iconSize: undefined,
         }),
-        draggable: editable,
+        draggable: editable && !isGameGrace(node.id),
         keyboard: false,
         riseOnHover: true,
       })

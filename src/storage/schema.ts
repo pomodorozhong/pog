@@ -33,11 +33,14 @@ const isCoordinate = (value: unknown) =>
 const includes = <T>(list: readonly T[], value: unknown) =>
   list.includes(value as T);
 
+/** A game grace's catalog id, which paths use to end at it. */
+const GRACE_ID = /^grace\/\d+$/;
+
 function checkMap(value: unknown): value is MapDocument {
   if (!hasExactKeys(value, ["schemaVersion", "nodes", "edges"])) return false;
   const v = value as MapDocument;
   if (
-    v.schemaVersion !== 1 ||
+    v.schemaVersion !== MAP_VERSION ||
     !Array.isArray(v.nodes) ||
     !Array.isArray(v.edges)
   )
@@ -47,6 +50,9 @@ function checkMap(value: unknown): value is MapDocument {
     if (
       !hasExactKeys(n, ["id", "layer", "x", "y", "kind", "label", "ref"]) ||
       typeof n.id !== "string" ||
+      GRACE_ID.test(n.id) ||
+      // Graces are game data, shown on every map; a map stores none.
+      n.kind === "grace" ||
       layerOf.has(n.id) ||
       !includes(LAYERS, n.layer) ||
       !isCoordinate(n.x) ||
@@ -59,16 +65,24 @@ function checkMap(value: unknown): value is MapDocument {
     layerOf.set(n.id, n.layer);
   }
   const edgeIds = new Set<string>();
+  const end = (id: unknown) =>
+    typeof id === "string" && (layerOf.has(id) || GRACE_ID.test(id));
   return v.edges.every((e) => {
+    // A game grace's layer is game data, so only paths between two of the
+    // profile's own nodes are checked for joining layers here.
+    const joinsLayers =
+      layerOf.has(e.from) &&
+      layerOf.has(e.to) &&
+      layerOf.get(e.from) !== layerOf.get(e.to);
     const ok =
       hasExactKeys(e, ["id", "from", "to", "type", "points", "note"]) &&
       typeof e.id === "string" &&
       !edgeIds.has(e.id) &&
-      layerOf.has(e.from) &&
-      layerOf.has(e.to) &&
+      end(e.from) &&
+      end(e.to) &&
       e.from !== e.to &&
       includes(EDGE_TYPES, e.type) &&
-      (layerOf.get(e.from) === layerOf.get(e.to) || e.type === "waygate") &&
+      (!joinsLayers || e.type === "waygate") &&
       Array.isArray(e.points) &&
       e.points.every(
         (p) => Array.isArray(p) && p.length === 2 && p.every(isCoordinate),
@@ -185,6 +199,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
 
 export const FIRST_PROFILE_ID = "profile-1";
 const PLAYER_VERSION = 6;
+const MAP_VERSION = 1;
 const PROFILE_ID = /^[a-z0-9-]{1,64}$/;
 
 export const mapKey = (profile: string): DocumentKey => `maps/${profile}`;
@@ -271,7 +286,7 @@ export function validDocument<N extends DocumentName>(
 }
 
 export const initialDocuments = (): Documents => ({
-  map: { schemaVersion: 1, nodes: [], edges: [] },
+  map: { schemaVersion: MAP_VERSION, nodes: [], edges: [] },
   player: {
     schemaVersion: PLAYER_VERSION,
     language: "en",
