@@ -113,6 +113,7 @@ export default function App() {
   const [edgeType, setEdgeType] = useState<EdgeType>("road");
   const [selection, setSelection] = useState<Selection>(null);
   const [draft, setDraft] = useState<Draft>(null);
+  const [highlight, setHighlight] = useState<string | null>(null);
   /** The profile whose map is in `history`. */
   const [mapProfile, setMapProfile] = useState<string | null>(null);
   const views = useRef(new Map<LayerId, MapView>());
@@ -483,6 +484,7 @@ export default function App() {
             position={progress?.position ?? null}
             route={route}
             stops={stops}
+            highlight={highlight}
           />
           <p className="pointer-events-none absolute bottom-2 left-2 z-[500] max-w-[70%] rounded bg-ink/85 px-2 py-1 text-xs text-muted">
             {t(toolHint(tool, draft !== null))}
@@ -498,6 +500,7 @@ export default function App() {
           edit={edit}
           select={setSelection}
           showNode={showNode}
+          highlight={setHighlight}
           deleteSelection={deleteSelection}
           recovery={mapSave.recovery ?? playerSave.recovery}
           profile={

@@ -47,7 +47,7 @@
   "Paths ({count})": "路徑（{count}）",
   "From": "起點",
   "To": "終點",
-  "{count} waypoints": "{count} 個路徑點",
+  "{count} bends": "{count} 個轉折點",
   "Straighten": "拉直",
   "Delete node": "刪除節點",
   "Delete path": "刪除路徑",
@@ -138,5 +138,11 @@
   "An unnamed point where paths meet or turn": "路徑交會或轉彎的無名地點",
   "Where an item is picked up, linked to the item": "拾取道具的地點，連結到該道具",
   "A dungeon entrance, linked to a game place": "地城入口，連結到遊戲中的地點",
-  "Each click drops a junction and draws a path to it": "每次點選都會放下路口並畫出通往該處的路徑"
+  "Each click drops a junction and draws a path to it": "每次點選都會放下路口並畫出通往該處的路徑",
+  "Step {step}": "第 {step} 步",
+  "Move…": "移動…",
+  "Move path": "移動路徑",
+  "Move step {step} to…": "將第 {step} 步移到…",
+  "Done": "完成",
+  "Put here": "放在這裡"
 }

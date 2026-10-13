@@ -1,4 +1,10 @@
-import { useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import {
   EDGE_TYPES,
   NODE_KINDS,
@@ -6,6 +12,7 @@ import {
   type Language,
   type LayerId,
   type MapDocument,
+  type MapEdge,
   type MapNode,
   type NodeKind,
 } from "../domain/types";
@@ -18,7 +25,7 @@ import {
   searchCatalog,
   type GameData,
 } from "./catalog";
-import type { MapAction } from "./editing";
+import { inStepOrder, type MapAction } from "./editing";
 import { isGameGrace } from "./graces";
 import type { Selection } from "./MapCanvas";
 import { EDGE_NAMES, LAYER_NAMES, NODE_KIND_NAMES } from "./labels";
@@ -34,6 +41,8 @@ type Props = {
   edit(action: MapAction): void;
   select(selection: Selection): void;
   showNode(id: string): void;
+  /** Point out a path on the map, or stop (null). */
+  highlight(id: string | null): void;
   deleteSelection(): void;
   recovery?: string;
   /** Shown above the layer summary when nothing is selected. */
@@ -257,16 +266,10 @@ function NodePanel({
   );
 }
 
-function EdgePanel({
-  t,
-  language,
-  data,
-  doc,
-  edgeId,
-  edit,
-  showNode,
-  deleteSelection,
-}: Props & { edgeId: string }) {
+function EdgePanel(props: Props & { edgeId: string }) {
+  const { t, language, data, doc, edgeId, edit, showNode, deleteSelection } =
+    props;
+  const [moving, setMoving] = useState(false);
   const edge = doc.edges.find((e) => e.id === edgeId)!;
   const ends = [edge.from, edge.to].map((id) =>
     doc.nodes.find((n) => n.id === id)!,
@@ -278,11 +281,20 @@ function EdgePanel({
     points?: [number, number][];
   }) => edit({ type: "updateEdge", id: edge.id, changes });
 
+  if (moving)
+    return <MoveList {...props} edge={edge} close={() => setMoving(false)} />;
   return (
     <section className="space-y-4" aria-label={t("Selected path")}>
-      <h2 className="font-serif text-lg text-gold">
-        {t(EDGE_NAMES[edge.type])}
-      </h2>
+      <header className="flex items-baseline justify-between gap-2">
+        <h2 className="font-serif text-lg text-gold">
+          {t("Step {step}", { step: edge.step })} · {t(EDGE_NAMES[edge.type])}
+        </h2>
+        {doc.edges.length > 1 && (
+          <button className="chip" onClick={() => setMoving(true)}>
+            {t("Move…")}
+          </button>
+        )}
+      </header>
       <ol className="space-y-1 text-sm">
         {ends.map((end, index) => (
           <li key={end.id}>
@@ -324,7 +336,7 @@ function EdgePanel({
         />
       </label>
       <p className="text-xs text-muted">
-        {t("{count} waypoints", { count: edge.points.length })}
+        {t("{count} bends", { count: edge.points.length })}
       </p>
       <div className="flex gap-2">
         {edge.points.length > 0 && (
@@ -335,6 +347,121 @@ function EdgePanel({
         <button className="chip chip--danger" onClick={deleteSelection}>
           {t("Delete path")}
         </button>
+      </div>
+    </section>
+  );
+}
+
+/** Choose a path's new step from the list of paths in walking order. */
+function MoveList({
+  t,
+  language,
+  data,
+  doc,
+  layer,
+  edge,
+  edit,
+  highlight,
+  close,
+}: Props & { edge: MapEdge; close(): void }) {
+  const list = useRef<HTMLDivElement>(null);
+  const ordered = inStepOrder(doc.edges);
+  const at = ordered.findIndex((e) => e.id === edge.id);
+  const nodes = new Map(doc.nodes.map((n) => [n.id, n]));
+  const name = (id: string) => {
+    const node = nodes.get(id);
+    return node
+      ? displayName(data, node, language) || t(NODE_KIND_NAMES[node.kind])
+      : "";
+  };
+  useEffect(() => {
+    list.current
+      ?.querySelector("[aria-current]")
+      ?.scrollIntoView({ block: "center" });
+    return () => highlight(null);
+  }, [highlight]);
+
+  // Slot k sits before the k-th path. The two slots next to this path would leave it where it is.
+  const slot = (k: number) =>
+    k === at || k === at + 1 ? null : (
+      <li key={`slot-${k}`}>
+        <button
+          className="move-slot"
+          data-move-item
+          onClick={() => {
+            edit({ type: "moveEdge", id: edge.id, step: k <= at ? k + 1 : k });
+            close();
+          }}
+        >
+          {t("Put here")}
+        </button>
+      </li>
+    );
+  // Arrow keys step through the paths and slots; Esc closes without moving.
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      return close();
+    }
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    const items = [
+      ...list.current!.querySelectorAll<HTMLElement>("[data-move-item]"),
+    ];
+    const index = items.indexOf(document.activeElement as HTMLElement);
+    const next = index + (event.key === "ArrowDown" ? 1 : -1);
+    items[Math.min(Math.max(next, 0), items.length - 1)]?.focus();
+  };
+
+  return (
+    <section
+      className="flex min-h-0 flex-col gap-3"
+      aria-label={t("Move path")}
+      onKeyDown={onKeyDown}
+    >
+      <header className="flex items-baseline justify-between gap-2">
+        <h2 className="font-serif text-lg text-gold">
+          {t("Move step {step} to…", { step: edge.step })}
+        </h2>
+        <button className="chip" onClick={close}>
+          {t("Done")}
+        </button>
+      </header>
+      <div ref={list} className="min-h-0 overflow-y-auto">
+        <ol
+          className="space-y-0.5 text-sm"
+          onMouseLeave={() => highlight(null)}
+        >
+          {ordered.map((e, k) => [
+            slot(k),
+            <li
+              key={e.id}
+              tabIndex={0}
+              data-move-item
+              aria-current={e.id === edge.id ? "true" : undefined}
+              className={`move-row ${e.id === edge.id ? "is-moving" : ""}`}
+              onMouseEnter={() => highlight(e.id)}
+              onFocus={() => highlight(e.id)}
+            >
+              <span className="w-7 shrink-0 text-right text-muted">
+                {e.step}
+              </span>
+              <span
+                className="swatch shrink-0"
+                style={{ background: EDGE_STYLE[e.type].color }}
+              />
+              <span className="min-w-0 flex-1 truncate">
+                {name(e.from)} → {name(e.to)}
+              </span>
+              {nodes.get(e.from)?.layer !== layer && (
+                <span className="shrink-0 text-xs text-muted">
+                  {t(LAYER_NAMES[nodes.get(e.from)!.layer])}
+                </span>
+              )}
+            </li>,
+          ])}
+          {slot(ordered.length)}
+        </ol>
       </div>
     </section>
   );

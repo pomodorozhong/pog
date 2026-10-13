@@ -91,6 +91,7 @@ Leaflet with `CRS.Simple` over the extracted tiles; one layer per map. The edito
 - **Nodes:** graces, junctions, item pins, dungeon entrances.
 - **Edges:** polylines typed `road`, `torrent`, `foot`, `one-way-drop`, `lift`, `waygate`, `spiritspring`, `requires-key`, `requires-flag`. The type sets cost and rules.
 - **Drawing:** each click in Draw path mode drops a junction, ends the current path there and starts the next one from it. Junctions double as bends: a curved path is a chain of short paths. (Paths drawn before this keep their bends.)
+- **Steps:** paths are numbered in the order the player will walk them, like a guide's steps, and the number shows halfway along each path. Steps run 1..N across the whole map with no gaps or repeats: a new path goes last, removing one closes the gap, and imported paths follow the last step in their own order. "Move…" on a selected path lists every path in order to put it anywhere. Steps are the player's own order, separate from the planned route's stop numbers.
 - **Unexplored areas:** fall back to a straight line between points, shown as "path is a guess" until the player draws a real one. Guesses only bridge unconnected pieces, so they never undercut drawn paths.
 
 ### Profiles

@@ -53,6 +53,16 @@ body {
   .swatch {
     @apply inline-block h-1 w-5 rounded align-middle;
   }
+  /* The Move… list: paths in walking order, with slots to put a path in. */
+  .move-row {
+    @apply flex items-center gap-2 rounded px-1 py-1 outline-none hover:bg-ink focus-visible:bg-ink;
+  }
+  .move-row.is-moving {
+    @apply bg-gold/15 text-gold;
+  }
+  .move-slot {
+    @apply w-full rounded border border-dashed border-line/60 py-0.5 text-xs text-muted hover:border-gold hover:text-gold focus-visible:border-gold focus-visible:text-gold;
+  }
 }
 
 .map-canvas {
@@ -153,6 +163,27 @@ body {
   font: 700 11px/18px var(--font-sans);
   text-align: center;
   box-shadow: 0 0 0 2px var(--color-ink);
+}
+/* A path's step in the player's walk, centred halfway along it. */
+.path-step span {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  min-width: 16px;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: var(--color-ink);
+  color: var(--color-text);
+  font: 700 10px/16px var(--font-sans);
+  text-align: center;
+  box-shadow: 0 0 0 1px rgb(238 233 219 / 0.5);
+  cursor: pointer;
+}
+.path-step.is-highlighted span {
+  background: #ffd84a;
+  color: var(--color-ink);
+  font-size: 13px;
+  line-height: 20px;
+  min-width: 22px;
 }
 .map-node.has-portal {
   outline: 2px dashed #b48ce0;

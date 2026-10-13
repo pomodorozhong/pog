@@ -54,6 +54,8 @@ type Props = MapCanvasHandlers & {
   route: RouteLine[];
   /** Route stop numbers, by node. */
   stops: Map<string, number>;
+  /** A path to point out, for example while choosing where to move a path. */
+  highlight: string | null;
 };
 
 const LABEL_ZOOM = 4;
@@ -173,6 +175,7 @@ export function MapCanvas(props: Props) {
     position,
     route,
     stops,
+    highlight,
   } = props;
   useEffect(() => {
     const group = overlay.current!;
@@ -191,9 +194,19 @@ export function MapCanvas(props: Props) {
       }
       if (from.layer !== layer) continue;
       const selected = selection?.kind === "edge" && selection.id === edge.id;
+      const highlighted = highlight === edge.id;
       const style = EDGE_STYLE[edge.type];
-      const line = edgeLine(edge, from, to).map(toLatLng);
-      if (selected)
+      const points = edgeLine(edge, from, to);
+      const line = points.map(toLatLng);
+      if (highlighted)
+        L.polyline(line, {
+          color: "#ffd84a",
+          weight: style.weight + 10,
+          opacity: 0.85,
+          lineCap: "round",
+          interactive: false,
+        }).addTo(group);
+      else if (selected)
         L.polyline(line, {
           color: "#fff",
           weight: style.weight + 6,
@@ -213,6 +226,21 @@ export function MapCanvas(props: Props) {
           line[line.length - 1],
           style.color,
         );
+      // The path's step, halfway along it.
+      L.marker(toLatLng(halfway(points)), {
+        icon: L.divIcon({
+          className: highlighted ? "path-step is-highlighted" : "path-step",
+          html: `<span>${edge.step}</span>`,
+          iconSize: [0, 0],
+        }),
+        keyboard: false,
+        zIndexOffset: highlighted ? 1000 : 0,
+      })
+        .on("click", (event) => {
+          L.DomEvent.stop(event);
+          latest.current.onEdgeClick(edge.id);
+        })
+        .addTo(group);
     }
 
     for (const line of route) {
@@ -295,6 +323,7 @@ export function MapCanvas(props: Props) {
     position,
     route,
     stops,
+    highlight,
   ]);
 
   // Pan to a node selected elsewhere (for example the far end of a waygate).
@@ -330,6 +359,22 @@ function addArrow(
       iconSize: [16, 16],
     }),
   }).addTo(group);
+}
+
+/** The point halfway along a line, by length. */
+function halfway(line: Point[]): Point {
+  const lengths = line
+    .slice(1)
+    .map(([x, y], i) => Math.hypot(x - line[i][0], y - line[i][1]));
+  let left = lengths.reduce((sum, l) => sum + l, 0) / 2;
+  for (const [i, l] of lengths.entries()) {
+    if (left <= l && l > 0) {
+      const [[ax, ay], [bx, by]] = [line[i], line[i + 1]];
+      return [ax + ((bx - ax) * left) / l, ay + ((by - ay) * left) / l];
+    }
+    left -= l;
+  }
+  return line[0];
 }
 
 const escapeHtml = (text: string) =>
