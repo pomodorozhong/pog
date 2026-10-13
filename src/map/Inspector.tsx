@@ -19,7 +19,7 @@ import {
   type GameData,
 } from "./catalog";
 import type { MapAction } from "./editing";
-import { importGraces } from "./graces";
+import { isGameGrace, replaceWithGrace } from "./graces";
 import type { Selection } from "./MapCanvas";
 import { EDGE_NAMES, LAYER_NAMES, NODE_KIND_NAMES } from "./labels";
 import { EDGE_STYLE } from "./style";
@@ -43,7 +43,7 @@ type Props = {
 };
 
 export function Inspector(props: Props) {
-  const { t, doc, selection, data, layer } = props;
+  const { t, doc, selection, layer } = props;
   const node =
     selection?.kind === "node"
       ? doc.nodes.find((n) => n.id === selection.id)
@@ -77,13 +77,7 @@ export function Inspector(props: Props) {
       ) : (
         <>
           {props.profile}
-          <Summary
-            t={t}
-            doc={doc}
-            layer={layer}
-            data={data}
-            edit={props.edit}
-          />
+          <Summary t={t} doc={doc} layer={layer} />
         </>
       )}
     </aside>
@@ -102,7 +96,9 @@ function NodePanel({
   nodeControls,
 }: Props & { node: MapNode }) {
   const [query, setQuery] = useState("");
-  const candidates = refCandidates(data, node.kind);
+  // Game graces are game data: they can be visited and joined by paths, not edited.
+  const fixed = isGameGrace(node.id);
+  const candidates = fixed ? [] : refCandidates(data, node.kind);
   const results = query
     ? searchCatalog(candidates, query)
     : !node.ref && node.kind === "grace"
@@ -114,6 +110,12 @@ function NodePanel({
   );
   const update = (changes: Partial<MapNode>) =>
     edit({ type: "updateNode", id: node.id, changes });
+  // A hand-placed grace is replaced by the game grace it stands for.
+  const pick = (id: string) => {
+    if (node.kind !== "grace") return update({ ref: id });
+    edit(replaceWithGrace(doc, node.id, id));
+    select({ kind: "node", id });
+  };
   const other = language === "en" ? "zh-TW" : "en";
 
   return (
@@ -134,22 +136,26 @@ function NodePanel({
         </div>
       </header>
 
-      <label className="block space-y-1">
-        <span className="label">{t("Kind")}</span>
-        <select
-          className="field w-full"
-          value={node.kind}
-          onChange={(e) =>
-            update({ kind: e.target.value as NodeKind, ref: null })
-          }
-        >
-          {NODE_KINDS.map((kind) => (
-            <option key={kind} value={kind}>
-              {t(NODE_KIND_NAMES[kind])}
-            </option>
-          ))}
-        </select>
-      </label>
+      {!fixed && (
+        <label className="block space-y-1">
+          <span className="label">{t("Kind")}</span>
+          <select
+            className="field w-full"
+            value={node.kind}
+            onChange={(e) =>
+              update({ kind: e.target.value as NodeKind, ref: null })
+            }
+          >
+            {NODE_KINDS.filter(
+              (kind) => kind !== "grace" || node.kind === "grace",
+            ).map((kind) => (
+              <option key={kind} value={kind}>
+                {t(NODE_KIND_NAMES[kind])}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       {candidates.length > 0 && (
         <div className="space-y-1">
@@ -186,7 +192,7 @@ function NodePanel({
                   <button
                     className="flex w-full items-center gap-2 px-2 py-1 text-left hover:bg-ink"
                     onClick={() => {
-                      update({ ref: result.id });
+                      pick(result.id);
                       setQuery("");
                     }}
                   >
@@ -217,15 +223,17 @@ function NodePanel({
 
       {nodeControls(node)}
 
-      <label className="block space-y-1">
-        <span className="label">{t("Your note")}</span>
-        <input
-          className="field w-full"
-          value={node.label}
-          placeholder={t("Shown when no name is linked")}
-          onChange={(e) => update({ label: e.target.value })}
-        />
-      </label>
+      {!fixed && (
+        <label className="block space-y-1">
+          <span className="label">{t("Your note")}</span>
+          <input
+            className="field w-full"
+            value={node.label}
+            placeholder={t("Shown when no name is linked")}
+            onChange={(e) => update({ label: e.target.value })}
+          />
+        </label>
+      )}
 
       <div className="space-y-1">
         <h3 className="label">
@@ -259,9 +267,11 @@ function NodePanel({
       <p className="text-xs text-muted">
         {t(LAYER_NAMES[node.layer])} · {node.x}, {node.y}
       </p>
-      <button className="chip chip--danger" onClick={deleteSelection}>
-        {t("Delete node")}
-      </button>
+      {!fixed && (
+        <button className="chip chip--danger" onClick={deleteSelection}>
+          {t("Delete node")}
+        </button>
+      )}
     </section>
   );
 }
@@ -364,51 +374,24 @@ function Summary({
   t,
   doc,
   layer,
-  data,
-  edit,
 }: {
   t: Translate;
   doc: MapDocument;
   layer: LayerId;
-  data: GameData;
-  edit(action: MapAction): void;
 }) {
-  const here = doc.nodes.filter((n) => n.layer === layer);
-  const total = data.catalog.graces.filter((g) => g.layer === layer).length;
-  const plan = importGraces(data.catalog.graces, doc, layer);
-  const pending = plan.type === "batch" ? plan.actions.length : 0;
+  // The player's own nodes; game graces are on every map.
+  const here = doc.nodes.filter((n) => n.layer === layer && !isGameGrace(n.id));
+  const ids = new Set(here.map((n) => n.id));
   return (
     <section className="space-y-4 text-sm">
       <h2 className="font-serif text-lg text-gold">{t(LAYER_NAMES[layer])}</h2>
       <p className="text-muted">
         {t("{nodes} nodes and {edges} paths on this layer.", {
           nodes: here.length,
-          edges: doc.edges.filter((e) => here.some((n) => n.id === e.from))
+          edges: doc.edges.filter((e) => ids.has(e.from) || ids.has(e.to))
             .length,
         })}
       </p>
-      {total > 0 && (
-        <div className="space-y-2">
-          <h3 className="label">{t("Sites of Grace")}</h3>
-          {pending > 0 ? (
-            <>
-              <p className="text-muted">
-                {t(
-                  "The game has {total} graces on this layer. Graces you placed by hand are linked to the nearest one and keep their position.",
-                  { total },
-                )}
-              </p>
-              <button className="chip" onClick={() => edit(plan)}>
-                {t("Add graces from the game ({count})", { count: pending })}
-              </button>
-            </>
-          ) : (
-            <p className="text-muted">
-              {t("Every grace on this layer is on the map.")}
-            </p>
-          )}
-        </div>
-      )}
       <div>
         <h3 className="label mb-1">{t("Path types")}</h3>
         <ul className="space-y-1">

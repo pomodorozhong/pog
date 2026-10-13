@@ -23,11 +23,21 @@ export type MapAction =
   /** Several edits as one undo step. */
   | { type: "batch"; actions: MapAction[] };
 
-/** Apply one edit. Returns the same document when the edit would make it invalid. */
+/** Nodes a path can end at without being stored in the document: the game graces. */
+export type FixedNodes = ReadonlyMap<string, MapNode>;
+const NO_FIXED_NODES: FixedNodes = new Map();
+
+/**
+ * Apply one edit. Returns the same document when the edit would make it invalid.
+ * Fixed nodes can be path ends, but can't be moved or removed.
+ */
 export function applyMapAction(
   doc: MapDocument,
   action: MapAction,
+  fixed: FixedNodes = NO_FIXED_NODES,
 ): MapDocument {
+  const find = (id: string) =>
+    doc.nodes.find((n) => n.id === id) ?? fixed.get(id);
   switch (action.type) {
     case "addNode":
       return { ...doc, nodes: [...doc.nodes, action.node] };
@@ -55,8 +65,8 @@ export function applyMapAction(
       };
     case "addEdge": {
       const { edge } = action;
-      const from = doc.nodes.find((n) => n.id === edge.from);
-      const to = doc.nodes.find((n) => n.id === edge.to);
+      const from = find(edge.from);
+      const to = find(edge.to);
       if (!from || !to || from.id === to.id) return doc;
       if (from.layer !== to.layer && edge.type !== "waygate") return doc;
       return {
@@ -72,9 +82,7 @@ export function applyMapAction(
       if (!edge) return doc;
       const updated = { ...edge, ...action.changes };
       const layers = new Set(
-        doc.nodes
-          .filter((n) => n.id === edge.from || n.id === edge.to)
-          .map((n) => n.layer),
+        [find(edge.from), find(edge.to)].map((n) => n?.layer).filter(Boolean),
       );
       if (layers.size > 1 && updated.type !== "waygate") return doc;
       return {
@@ -86,7 +94,10 @@ export function applyMapAction(
       if (!doc.edges.some((e) => e.id === action.id)) return doc;
       return { ...doc, edges: doc.edges.filter((e) => e.id !== action.id) };
     case "batch":
-      return action.actions.reduce(applyMapAction, doc);
+      return action.actions.reduce(
+        (next, each) => applyMapAction(next, each, fixed),
+        doc,
+      );
   }
 }
 
@@ -109,6 +120,7 @@ const HISTORY_LIMIT = 200;
 export function historyReducer(
   history: History,
   action: HistoryAction,
+  fixed?: FixedNodes,
 ): History {
   switch (action.type) {
     case "load":
@@ -128,7 +140,7 @@ export function historyReducer(
         future: history.future.slice(1),
       };
     default: {
-      const next = applyMapAction(history.present, action);
+      const next = applyMapAction(history.present, action, fixed);
       if (next === history.present) return history;
       return {
         past: [...history.past, history.present].slice(-HISTORY_LIMIT),

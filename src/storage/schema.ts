@@ -33,11 +33,14 @@ const isCoordinate = (value: unknown) =>
 const includes = <T>(list: readonly T[], value: unknown) =>
   list.includes(value as T);
 
+/** A game grace's catalog id, which paths use to end at it. */
+const GRACE_ID = /^grace\/\d+$/;
+
 function checkMap(value: unknown): value is MapDocument {
   if (!hasExactKeys(value, ["schemaVersion", "nodes", "edges"])) return false;
   const v = value as MapDocument;
   if (
-    v.schemaVersion !== 1 ||
+    v.schemaVersion !== MAP_VERSION ||
     !Array.isArray(v.nodes) ||
     !Array.isArray(v.edges)
   )
@@ -47,6 +50,7 @@ function checkMap(value: unknown): value is MapDocument {
     if (
       !hasExactKeys(n, ["id", "layer", "x", "y", "kind", "label", "ref"]) ||
       typeof n.id !== "string" ||
+      GRACE_ID.test(n.id) ||
       layerOf.has(n.id) ||
       !includes(LAYERS, n.layer) ||
       !isCoordinate(n.x) ||
@@ -59,16 +63,24 @@ function checkMap(value: unknown): value is MapDocument {
     layerOf.set(n.id, n.layer);
   }
   const edgeIds = new Set<string>();
+  const end = (id: unknown) =>
+    typeof id === "string" && (layerOf.has(id) || GRACE_ID.test(id));
   return v.edges.every((e) => {
+    // A game grace's layer is game data, so only paths between two of the
+    // profile's own nodes are checked for joining layers here.
+    const joinsLayers =
+      layerOf.has(e.from) &&
+      layerOf.has(e.to) &&
+      layerOf.get(e.from) !== layerOf.get(e.to);
     const ok =
       hasExactKeys(e, ["id", "from", "to", "type", "points", "note"]) &&
       typeof e.id === "string" &&
       !edgeIds.has(e.id) &&
-      layerOf.has(e.from) &&
-      layerOf.has(e.to) &&
+      end(e.from) &&
+      end(e.to) &&
       e.from !== e.to &&
       includes(EDGE_TYPES, e.type) &&
-      (layerOf.get(e.from) === layerOf.get(e.to) || e.type === "waygate") &&
+      (!joinsLayers || e.type === "waygate") &&
       Array.isArray(e.points) &&
       e.points.every(
         (p) => Array.isArray(p) && p.length === 2 && p.every(isCoordinate),
@@ -185,6 +197,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
 
 export const FIRST_PROFILE_ID = "profile-1";
 const PLAYER_VERSION = 6;
+const MAP_VERSION = 2;
 const PROFILE_ID = /^[a-z0-9-]{1,64}$/;
 
 export const mapKey = (profile: string): DocumentKey => `maps/${profile}`;
@@ -211,7 +224,8 @@ const firstProfile = () => ({
  * Anything unrecognised is returned unchanged, so validation rejects it.
  */
 export function upgradeDocument(name: DocumentName, value: unknown): unknown {
-  if (name !== "player" || !value || typeof value !== "object") return value;
+  if (!value || typeof value !== "object") return value;
+  if (name === "map") return upgradeMap(value);
   let v = value as { schemaVersion: unknown; profiles?: unknown };
   if (
     v.schemaVersion === 1 &&
@@ -252,6 +266,48 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
   return v;
 }
 
+/**
+ * Version 1 stored a copy of each game grace the player added, as a node
+ * linked to it. Version 2 shows game graces without storing them: the copies
+ * go, and their paths end at the grace id instead. A position set on a copy
+ * no longer matches a node, so it reads as not set until the player sets it.
+ */
+function upgradeMap(value: object): unknown {
+  const v = value as {
+    schemaVersion: unknown;
+    nodes?: unknown;
+    edges?: unknown;
+  };
+  if (
+    v.schemaVersion !== 1 ||
+    !Array.isArray(v.nodes) ||
+    !Array.isArray(v.edges)
+  )
+    return value;
+  const copies = new Map<string, string>();
+  for (const n of v.nodes)
+    if (
+      n?.kind === "grace" &&
+      typeof n.ref === "string" &&
+      GRACE_ID.test(n.ref)
+    )
+      copies.set(n.id, n.ref);
+  const end = (id: unknown) =>
+    typeof id === "string" ? (copies.get(id) ?? id) : id;
+  return {
+    ...v,
+    schemaVersion: MAP_VERSION,
+    nodes: v.nodes.filter((n) => !copies.has(n?.id)),
+    edges: v.edges
+      .map((e) =>
+        e && typeof e === "object"
+          ? { ...e, from: end(e.from), to: end(e.to) }
+          : e,
+      )
+      .filter((e) => !(e && typeof e === "object" && e.from === e.to)),
+  };
+}
+
 const checks: {
   [N in DocumentName]: (value: unknown) => value is Documents[N];
 } = {
@@ -271,7 +327,7 @@ export function validDocument<N extends DocumentName>(
 }
 
 export const initialDocuments = (): Documents => ({
-  map: { schemaVersion: 1, nodes: [], edges: [] },
+  map: { schemaVersion: MAP_VERSION, nodes: [], edges: [] },
   player: {
     schemaVersion: PLAYER_VERSION,
     language: "en",

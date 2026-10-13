@@ -41,7 +41,11 @@ export type MapNode = {
   ref: string | null;
 };
 
-/** A drawn path between two nodes. Only waygates may join different layers. */
+/**
+ * A drawn path between two nodes. Either end can be a game grace by its
+ * catalog id ("grace/<row>"), which the map shows without storing. Only
+ * waygates may join different layers.
+ */
 export type MapEdge = {
   id: string;
   from: string;
@@ -53,8 +57,9 @@ export type MapEdge = {
   note: string;
 };
 
+/** A profile's own nodes and paths. Game graces are not stored here. */
 export type MapDocument = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   nodes: MapNode[];
   edges: MapEdge[];
 };

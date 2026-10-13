@@ -23,8 +23,10 @@ import {
   historyReducer,
   newId,
   type History,
+  type HistoryAction,
   type MapAction,
 } from "./map/editing";
+import { gameGraceNodes, withGameGraces } from "./map/graces";
 import { Inspector } from "./map/Inspector";
 import { EDGE_NAMES, LAYER_NAMES } from "./map/labels";
 import { MapCanvas, type Draft, type Selection } from "./map/MapCanvas";
@@ -52,7 +54,6 @@ import {
 export type Tool = "select" | NodeKind | "path";
 const TOOLS: { tool: Tool; label: string; key: string }[] = [
   { tool: "select", label: "Select", key: "v" },
-  { tool: "grace", label: "Grace", key: "g" },
   { tool: "junction", label: "Junction", key: "j" },
   { tool: "item", label: "Item pin", key: "i" },
   { tool: "entrance", label: "Entrance", key: "e" },
@@ -62,7 +63,21 @@ const TOOLS: { tool: Tool; label: string; key: string }[] = [
 export default function App() {
   const [data, setData] = useState<GameData | null>(null);
   const [dataError, setDataError] = useState(false);
-  const [history, dispatch] = useReducer(historyReducer, {
+  // Game graces show on every profile's map without being stored in it.
+  const graces = useMemo(
+    () => (data ? gameGraceNodes(data.catalog.graces) : []),
+    [data],
+  );
+  const fixedNodes = useMemo(
+    () => new Map(graces.map((n) => [n.id, n])),
+    [graces],
+  );
+  const reducer = useCallback(
+    (history: History, action: HistoryAction) =>
+      historyReducer(history, action, fixedNodes),
+    [fixedNodes],
+  );
+  const [history, dispatch] = useReducer(reducer, {
     past: [],
     present: initialDocuments().map,
     future: [],
@@ -82,7 +97,10 @@ export default function App() {
     latestHistory.current = history;
   }, [history]);
 
+  /** The profile's own nodes and paths, as saved. */
   const doc = history.present;
+  /** What the map shows and routes over: the profile's map plus game graces. */
+  const map = useMemo(() => withGameGraces(doc, graces), [doc, graces]);
   const activeProfileId = player?.activeProfile ?? null;
   const mapLoaded = mapProfile !== null && mapProfile === activeProfileId;
   const mapSave = usePersistentDocument(
@@ -140,10 +158,10 @@ export default function App() {
 
   const profile = player ? activeProfile(player) : null;
   const progress = profile?.progress ?? null;
-  const plan = usePlannedRoute(data, doc, profile);
+  const plan = usePlannedRoute(data, map, profile);
   const route = useMemo(
-    () => (plan ? routeLines(doc, plan.route.legs) : []),
-    [doc, plan],
+    () => (plan ? routeLines(map, plan.route.legs) : []),
+    [map, plan],
   );
   const stops = useMemo(
     () => new Map(plan?.route.order.map((id, i) => [id, i + 1])),
@@ -152,14 +170,14 @@ export default function App() {
   const undiscovered = useMemo(
     () =>
       data && progress
-        ? undiscoveredGraces(data, doc.nodes, progress)
+        ? undiscoveredGraces(data, map.nodes, progress)
         : new Set<string>(),
-    [data, doc.nodes, progress],
+    [data, map.nodes, progress],
   );
 
   const nodeById = useMemo(
-    () => new Map(doc.nodes.map((n) => [n.id, n])),
-    [doc.nodes],
+    () => new Map(map.nodes.map((n) => [n.id, n])),
+    [map.nodes],
   );
 
   const finishPath = useCallback(
@@ -458,8 +476,8 @@ export default function App() {
             layer={layer}
             info={data.layers[layer]}
             view={player.view}
-            nodes={doc.nodes}
-            edges={doc.edges}
+            nodes={map.nodes}
+            edges={map.edges}
             selection={selection}
             draft={draft}
             editable={tool === "select"}
@@ -478,7 +496,7 @@ export default function App() {
           t={t}
           language={language}
           data={data}
-          doc={doc}
+          doc={map}
           selection={selection}
           layer={layer}
           edit={edit}
@@ -495,14 +513,14 @@ export default function App() {
                 data={data}
                 player={player}
                 setPlayer={setPlayer}
-                doc={doc}
+                doc={map}
                 showNode={showNode}
               />
               <RoutePanel
                 t={t}
                 language={language}
                 data={data}
-                doc={doc}
+                doc={map}
                 plan={plan}
                 showNode={showNode}
               />
@@ -512,14 +530,14 @@ export default function App() {
                 data={data}
                 player={player}
                 setPlayer={setPlayer}
-                doc={doc}
+                doc={map}
                 showNode={showNode}
               />
               <ImportFromProfile
                 key={player.activeProfile}
                 t={t}
                 player={player}
-                doc={doc}
+                doc={map}
                 readMap={readMap}
                 edit={edit}
               />

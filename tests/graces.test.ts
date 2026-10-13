@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { MapDocument, MapNode } from "../src/domain/types";
+import type { MapDocument, MapEdge, MapNode } from "../src/domain/types";
 import type { CatalogGrace } from "../src/map/catalog";
 import { applyMapAction, historyReducer } from "../src/map/editing";
-import { importGraces } from "../src/map/graces";
-import { validDocument } from "../src/storage/schema";
+import {
+  gameGraceNodes,
+  replaceWithGrace,
+  withGameGraces,
+} from "../src/map/graces";
+import { upgradeDocument, validDocument } from "../src/storage/schema";
 
 const grace = (
   id: number,
@@ -21,81 +25,143 @@ const grace = (
   flag: 70000 + id,
   legacy: false,
 });
-const node = (id: string, x: number, y: number, ref: string | null = null) =>
-  ({
-    id,
-    layer: "overworld",
-    x,
-    y,
-    kind: "grace",
-    label: "",
-    ref,
-  }) satisfies MapNode;
-const doc = (...nodes: MapNode[]): MapDocument => ({
-  schemaVersion: 1,
+const node = (
+  id: string,
+  x: number,
+  y: number,
+  kind: MapNode["kind"] = "junction",
+  ref: string | null = null,
+): MapNode => ({ id, layer: "overworld", x, y, kind, label: "", ref });
+const edge = (
+  id: string,
+  from: string,
+  to: string,
+  type: MapEdge["type"] = "road",
+): MapEdge => ({ id, from, to, type, points: [], note: "" });
+const doc = (nodes: MapNode[] = [], edges: MapEdge[] = []): MapDocument => ({
+  schemaVersion: 2,
   nodes,
-  edges: [],
+  edges,
 });
 
-describe("grace import", () => {
-  const graces = [
-    grace(1, 100, 100),
-    grace(2, 500, 500),
-    grace(3, 900, 900),
-    grace(4, 50, 50, "Underground", "underground"),
-  ];
+const graces = gameGraceNodes([
+  grace(1, 100, 100),
+  grace(2, 500, 500),
+  grace(4, 50, 50, "Underground", "underground"),
+]);
+const fixed = new Map(graces.map((n) => [n.id, n]));
 
-  it("adds the layer's graces, links hand-placed ones and skips linked ones", () => {
-    const start = doc(
-      node("hand", 120, 110),
-      node("done", 900, 900, "grace/3"),
-    );
-    const result = applyMapAction(
-      start,
-      importGraces(graces, start, "overworld"),
-    );
-    expect(validDocument("map", result)).toBe(true);
-    expect(result.nodes.find((n) => n.id === "hand")).toMatchObject({
-      x: 120,
-      y: 110,
+describe("game graces", () => {
+  it("are nodes named by their grace id, linked to it", () => {
+    expect(graces[0]).toEqual({
+      id: "grace/1",
+      layer: "overworld",
+      x: 100,
+      y: 100,
+      kind: "grace",
+      label: "",
       ref: "grace/1",
     });
-    expect(result.nodes.map((n) => n.ref).sort()).toEqual([
-      "grace/1",
-      "grace/2",
-      "grace/3",
-    ]);
-    expect(result.nodes.find((n) => n.ref === "grace/2")).toMatchObject({
-      x: 500,
-      y: 500,
-      layer: "overworld",
-      kind: "grace",
-    });
   });
 
-  it("is one undo step and has nothing left to do afterwards", () => {
-    const start = doc();
-    const history = historyReducer(
-      { past: [], present: start, future: [] },
-      importGraces(graces, start, "overworld"),
-    );
-    expect(history.present.nodes).toHaveLength(3);
-    expect(historyReducer(history, { type: "undo" }).present).toBe(start);
-    expect(importGraces(graces, history.present, "overworld")).toEqual({
-      type: "batch",
-      actions: [],
-    });
-  });
-
-  it("leaves out a grace with the same name and spot as one already placed", () => {
-    const twins = [
+  it("leave out a grace with the same name and spot as an earlier one", () => {
+    const twins = gameGraceNodes([
       grace(10, 300, 300, "Elden Throne"),
       grace(11, 301, 300, "Elden Throne"),
-    ];
-    const result = applyMapAction(
-      doc(),
-      importGraces(twins, doc(), "overworld"),
+      grace(12, 300, 300, "Elsewhere"),
+    ]);
+    expect(twins.map((n) => n.id)).toEqual(["grace/10", "grace/12"]);
+  });
+
+  it("show on the map without being stored", () => {
+    const mine = doc([node("j", 1, 2)]);
+    expect(withGameGraces(mine, graces).nodes.map((n) => n.id)).toEqual([
+      "grace/1",
+      "grace/2",
+      "grace/4",
+      "j",
+    ]);
+    expect(mine.nodes).toHaveLength(1);
+  });
+
+  it("can end a path but can't be moved or removed", () => {
+    const start = doc([node("j", 1, 2)]);
+    const joined = applyMapAction(
+      start,
+      { type: "addEdge", edge: edge("e", "j", "grace/1") },
+      fixed,
     );
-    expect(result.nodes.map((n) => n.ref)).toEqual(["grace/10"]);
+    expect(joined.edges).toHaveLength(1);
+    expect(validDocument("map", joined)).toBe(true);
+    for (const action of [
+      { type: "updateNode", id: "grace/1", changes: { x: 9 } },
+      { type: "removeNode", id: "grace/1" },
+    ] as const)
+      expect(applyMapAction(joined, action, fixed)).toBe(joined);
+    // Only waygates join layers, game graces included.
+    expect(
+      applyMapAction(
+        start,
+        { type: "addEdge", edge: edge("e", "j", "grace/4") },
+        fixed,
+      ),
+    ).toBe(start);
+    // Without the game graces, a path to one has nowhere to end.
+    expect(
+      applyMapAction(start, {
+        type: "addEdge",
+        edge: edge("e", "j", "grace/1"),
+      }),
+    ).toBe(start);
+  });
+
+  it("replace a hand-placed grace in one undo step, keeping its paths", () => {
+    const start = doc(
+      [node("hand", 120, 110, "grace"), node("j", 1, 2)],
+      [edge("e", "j", "hand"), edge("loop", "hand", "grace/1")],
+    );
+    const history = historyReducer(
+      { past: [], present: start, future: [] },
+      replaceWithGrace(start, "hand", "grace/1"),
+      fixed,
+    );
+    expect(history.present.nodes.map((n) => n.id)).toEqual(["j"]);
+    expect(history.present.edges).toEqual([edge("e", "j", "grace/1")]);
+    expect(historyReducer(history, { type: "undo" }).present).toBe(start);
+  });
+});
+
+describe("map upgrade from version 1", () => {
+  it("drops stored grace copies and ends their paths at the grace id", () => {
+    const old = {
+      schemaVersion: 1,
+      nodes: [
+        node("copy-1", 100, 100, "grace", "grace/1"),
+        node("copy-2", 500, 500, "grace", "grace/2"),
+        node("hand", 120, 110, "grace"),
+        node("j", 1, 2),
+      ],
+      edges: [
+        edge("a", "copy-1", "j"),
+        edge("b", "j", "hand"),
+        edge("c", "copy-1", "copy-2"),
+      ],
+    };
+    const upgraded = upgradeDocument("map", old);
+    expect(validDocument("map", upgraded)).toBe(true);
+    expect(upgraded).toEqual(
+      doc(
+        [node("hand", 120, 110, "grace"), node("j", 1, 2)],
+        [
+          edge("a", "grace/1", "j"),
+          edge("b", "j", "hand"),
+          edge("c", "grace/1", "grace/2"),
+        ],
+      ),
+    );
+  });
+
+  it("rejects a stored node that takes a game grace's id", () => {
+    expect(validDocument("map", doc([node("grace/1", 1, 2)]))).toBe(false);
   });
 });

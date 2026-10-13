@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { MapDocument, MapEdge, MapNode } from "../src/domain/types";
+import type {
+  LayerId,
+  MapDocument,
+  MapEdge,
+  MapNode,
+} from "../src/domain/types";
 import { applyMapAction } from "../src/map/editing";
+import { withGameGraces } from "../src/map/graces";
 import { importMap } from "../src/profiles/importMap";
 
 const node = (id: string, changes: Partial<MapNode> = {}): MapNode => ({
@@ -20,56 +26,53 @@ const edge = (
   type: MapEdge["type"] = "road",
 ): MapEdge => ({ id, from, to, type, points: [], note: "" });
 const doc = (nodes: MapNode[], edges: MapEdge[] = []): MapDocument => ({
-  schemaVersion: 1,
+  schemaVersion: 2,
   nodes,
   edges,
 });
+// What every profile's map shows: a game grace, by its grace id.
+const elleh = node("grace/1", { kind: "grace", ref: "grace/1" });
+const shown = (map: MapDocument) => withGameGraces(map, [elleh]);
+const fixed = new Map([[elleh.id, elleh]]);
+const copy = (target: MapDocument, source: MapDocument, layer?: LayerId) =>
+  applyMapAction(target, importMap(shown(target), source, layer).action, fixed);
 
 describe("import from another profile", () => {
   const source = doc(
-    [
-      node("elleh", { kind: "grace", ref: "grace/1" }),
-      node("j"),
-      node("cave", { layer: "underground", kind: "entrance" }),
-    ],
-    [edge("road", "elleh", "j"), edge("down", "j", "cave", "waygate")],
+    [node("j"), node("cave", { layer: "underground", kind: "entrance" })],
+    [edge("road", "grace/1", "j"), edge("down", "j", "cave", "waygate")],
   );
 
-  it("copies nodes and paths, attaching paths to graces already placed", () => {
-    const target = doc([node("mine", { kind: "grace", ref: "grace/1" })]);
-    const copied = importMap(target, source);
-    expect(copied).toMatchObject({ nodes: 2, edges: 2 });
-    const result = applyMapAction(target, copied.action);
-    expect(result.nodes.map((n) => n.id)).toEqual(["mine", "j", "cave"]);
+  it("copies nodes and paths, with paths ending at game graces", () => {
+    const target = doc([]);
+    expect(importMap(shown(target), source)).toMatchObject({
+      nodes: 2,
+      edges: 2,
+    });
+    const result = copy(target, source);
+    expect(result.nodes.map((n) => n.id)).toEqual(["j", "cave"]);
     expect(result.edges.map((e) => [e.from, e.to])).toEqual([
-      ["mine", "j"],
+      ["grace/1", "j"],
       ["j", "cave"],
     ]);
     // Importing again brings nothing new.
-    expect(importMap(result, source)).toMatchObject({ nodes: 0, edges: 0 });
+    expect(importMap(shown(result), source)).toMatchObject({
+      nodes: 0,
+      edges: 0,
+    });
   });
 
   it("copies one layer, keeping waygates to nodes already on the map", () => {
-    const empty = doc([]);
-    const overworld = applyMapAction(
-      empty,
-      importMap(empty, source, "overworld").action,
-    );
-    expect(overworld.nodes.map((n) => n.id)).toEqual(["elleh", "j"]);
+    const overworld = copy(doc([]), source, "overworld");
+    expect(overworld.nodes.map((n) => n.id)).toEqual(["j"]);
     expect(overworld.edges.map((e) => e.id)).toEqual(["road"]);
-    const both = applyMapAction(
-      overworld,
-      importMap(overworld, source, "underground").action,
-    );
+    const both = copy(overworld, source, "underground");
     expect(both.edges.map((e) => e.id)).toEqual(["road", "down"]);
   });
 
   it("skips a path already drawn between the same nodes", () => {
-    const target = doc(
-      [node("mine", { kind: "grace", ref: "grace/1" }), node("j")],
-      [edge("other", "j", "mine")],
-    );
-    expect(importMap(target, source, "overworld")).toMatchObject({
+    const target = doc([node("j")], [edge("other", "j", "grace/1")]);
+    expect(importMap(shown(target), source, "overworld")).toMatchObject({
       nodes: 0,
       edges: 0,
     });

@@ -58,7 +58,7 @@ describe("file store", () => {
       status: 409,
     });
     await expect(
-      store().write(MAP, { ...map, schemaVersion: 2 }, first.revision),
+      store().write(MAP, { ...map, schemaVersion: 99 }, first.revision),
     ).rejects.toBeInstanceOf(StorageError);
   });
 

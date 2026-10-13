@@ -217,7 +217,7 @@ export function ImportFromProfile({
       <h3 className="label">{t("Import from another playthrough")}</h3>
       <p className="text-xs text-muted">
         {t(
-          "Copies its nodes and paths onto this map. Nodes already here, and graces already placed, are kept.",
+          "Copies its nodes and paths onto this map. Nodes already here are kept.",
         )}
       </p>
       <div className="flex gap-2">
