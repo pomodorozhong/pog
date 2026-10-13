@@ -94,3 +94,36 @@ describe("routing rules", () => {
     ).toEqual(player);
   });
 });
+
+describe("the shared grace filter", () => {
+  it("defaults off and upgrades a version 7 file without changing profiles or other settings", () => {
+    const player = addProfile(initialDocuments().player);
+    player.language = "zh-TW";
+    player.stepSize = "large";
+    player.profiles[0].progress.position = "grace/1";
+    expect(player.hideUnusedGraces).toBe(false);
+    const legacy: Record<string, unknown> = { ...player, schemaVersion: 7 };
+    delete legacy.hideUnusedGraces;
+    expect(upgradeDocument("player", legacy)).toEqual(player);
+    expect(validDocument("player", legacy)).toBe(false);
+    expect(
+      validDocument("player", { ...player, hideUnusedGraces: "yes" }),
+    ).toBe(false);
+  });
+
+  it("saves and reloads the setting once for every playthrough", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "route-of-grace filter "));
+    try {
+      const store = new FileStore(resolveStoragePaths(directory));
+      const player = {
+        ...addProfile(initialDocuments().player),
+        hideUnusedGraces: true,
+      };
+      await store.write("player", player, null);
+      const reopened = await store.read("player");
+      expect(reopened.state).toEqual(player);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+});

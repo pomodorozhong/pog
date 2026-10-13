@@ -68,7 +68,7 @@ Three kinds, kept separate:
    - **Upgrade:** the single `map.json` of earlier versions becomes the first profile's map (`profile-1`) the first time it is read.
    - **Profile IDs** are lowercase letters, digits and dashes, since they name files.
    - **Deleting a profile** moves its map file into a `deleted/` folder instead of removing it, since it's player data.
-3. **Player state:** `player.json` in the app data folder: app settings (language, map view, path number size) plus the playthrough profiles and which one is active.
+3. **Player state:** `player.json` in the app data folder: app settings (language, map view, path number size, grace filter) plus the playthrough profiles and which one is active.
    - **Each profile:** ID, name, goal, constraints (structured fields plus a free-text note), wishlist (item, status needed / acquired / skipped, note), progress (discovered graces, picked-up items, beaten bosses, as event flags), current position, and the linked save slot (Steam ID, slot index, character name).
    - **Upgrades:** older files upgrade on read; a version 1 file (no profiles) becomes one untitled profile.
 
@@ -86,7 +86,9 @@ Leaflet with `CRS.Simple` over the extracted tiles; one layer per map. The edito
 
 **Graces:** every game grace shows on its layer; of graces sharing a name and spot (Leyndell and its ashen twin) only the first shows. There's no tool to place a grace by hand, and a stored map holds no graces.
 
-**Planned grace filter (#32):** one app setting, shared across playthroughs and off by default, hides graces no path on the active profile's map runs through. A grace stays visible at the player's position, when selected, and while drawing a path. This only changes the display; routing and fast travel still use every discovered grace.
+**Grace filter:** "Hide graces without paths" in the toolbar is one app setting, shared across playthroughs and off by default. It hides graces no path on the active profile's map runs through, including graces between a path's endpoints. A grace stays visible at the player's position and when selected. Draw path mode shows every grace, including before choosing the first pin. This only changes the display; routing and fast travel still use every discovered grace. Older player files gain the setting, off, on read.
+
+**Names:** names appear on hover at any zoom and stay open at zoom 4 or closer (junction names remain on hover). The player's position, selected pin and pins on the planned route keep their names open at any zoom, including graces reached by fast travel.
 
 ### Path graph
 

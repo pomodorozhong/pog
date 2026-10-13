@@ -206,6 +206,15 @@ export default function App() {
     () => new Map(plan?.route.order.map((id, i) => [id, i + 1])),
     [plan],
   );
+  const routeNodes = useMemo(
+    () =>
+      new Set(
+        plan?.route.legs.flatMap((leg) =>
+          leg.flatMap((step) => [step.from, step.to]),
+        ),
+      ),
+    [plan],
+  );
   const undiscovered = useMemo(
     () =>
       data && progress
@@ -468,7 +477,16 @@ export default function App() {
             />
           </label>
         )}
-        <label className="ml-auto flex items-center gap-2">
+        <button
+          className="chip ml-auto"
+          aria-pressed={player.hideUnusedGraces}
+          onClick={() =>
+            setPlayer({ ...player, hideUnusedGraces: !player.hideUnusedGraces })
+          }
+        >
+          {t("Hide graces without paths")}
+        </button>
+        <label className="ml-2 flex items-center gap-2">
           <span className="text-muted">{t("Path numbers")}</span>
           <select
             className="field"
@@ -519,12 +537,15 @@ export default function App() {
             selection={selection}
             draft={draft}
             editable={tool === "select"}
+            drawing={tool === "path"}
+            hideUnusedGraces={player.hideUnusedGraces}
             language={language}
             data={data}
             undiscovered={undiscovered}
             position={progress?.position ?? null}
             route={route}
             stops={stops}
+            routeNodes={routeNodes}
             highlight={highlight}
           />
           <p className="pointer-events-none absolute bottom-2 left-2 z-[500] max-w-[70%] rounded bg-ink/85 px-2 py-1 text-xs text-muted">

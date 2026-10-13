@@ -130,10 +130,12 @@ export type Profile = {
 };
 
 export type PlayerDocument = {
-  schemaVersion: 7;
+  schemaVersion: 8;
   language: Language;
   view: MapView;
   stepSize: StepSize;
+  /** Hide graces no path on the active profile's map runs through. */
+  hideUnusedGraces: boolean;
   activeProfile: string;
   profiles: Profile[];
 };

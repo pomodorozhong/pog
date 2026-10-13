@@ -44,6 +44,9 @@ type Props = MapCanvasHandlers & {
   selection: Selection;
   draft: Draft | null;
   editable: boolean;
+  /** Draw path mode, including choosing the first pin. */
+  drawing: boolean;
+  hideUnusedGraces: boolean;
   language: Language;
   data: GameData;
   /** Graces on the map not yet discovered in this playthrough. */
@@ -54,6 +57,8 @@ type Props = MapCanvasHandlers & {
   route: RouteLine[];
   /** Route stop numbers, by node. */
   stops: Map<string, number>;
+  /** Every node traversed by the planned route, including fast travel. */
+  routeNodes: Set<string>;
   /** A path to point out, for example while choosing where to move a path. */
   highlight: string | null;
 };
@@ -67,6 +72,9 @@ export function MapCanvas(props: Props) {
   const map = useRef<L.Map | null>(null);
   const overlay = useRef<L.LayerGroup | null>(null);
   const rubberBand = useRef<L.Polyline | null>(null);
+  const labels = useRef<
+    { marker: L.Marker; always: boolean; showWhenZoomed: boolean }[]
+  >([]);
   /** Step numbers on the map, with the stretches of their path on this layer. */
   const steps = useRef<{ marker: L.Marker; runs: Point[][] }[]>([]);
   // Leaflet handlers are bound once; they read the latest props through this ref.
@@ -80,6 +88,18 @@ export function MapCanvas(props: Props) {
   const placeAllSteps = () =>
     map.current &&
     placeSteps(map.current, steps.current, latest.current.info.maxZoom);
+  const updateLabels = () => {
+    const zoomed = map.current!.getZoom() >= LABEL_ZOOM;
+    for (const { marker, always, showWhenZoomed } of labels.current) {
+      const tooltip = marker.getTooltip()!;
+      const permanent = always || (showWhenZoomed && zoomed);
+      if (tooltip.options.permanent !== permanent)
+        marker.unbindTooltip().bindTooltip(tooltip.getContent()!, {
+          ...tooltip.options,
+          permanent,
+        });
+    }
+  };
   const toPoint = (latLng: L.LatLng): Point => {
     const p = map.current!.project(latLng, latest.current.info.maxZoom);
     return [Math.round(p.x), Math.round(p.y)];
@@ -127,9 +147,6 @@ export function MapCanvas(props: Props) {
         y: center[1],
         zoom: instance.getZoom(),
       });
-      instance
-        .getContainer()
-        .classList.toggle("show-labels", instance.getZoom() >= LABEL_ZOOM);
     };
     // Gestures move the map every frame; report the view once it settles.
     let reportTimer: ReturnType<typeof setTimeout> | undefined;
@@ -138,6 +155,7 @@ export function MapCanvas(props: Props) {
       reportTimer = setTimeout(report, 150);
     });
     instance.on("move zoom resize", placeAllSteps);
+    instance.on("zoomend", updateLabels);
     const disableGestures = enableGestures(instance);
     return () => {
       clearTimeout(reportTimer);
@@ -177,19 +195,24 @@ export function MapCanvas(props: Props) {
     selection,
     draft,
     editable,
+    drawing,
+    hideUnusedGraces,
     language,
     data,
     undiscovered,
     position,
     route,
     stops,
+    routeNodes,
     highlight,
   } = props;
   useEffect(() => {
     const group = overlay.current!;
     group.clearLayers();
     steps.current = [];
+    labels.current = [];
     const byId = new Map(nodes.map((n) => [n.id, n]));
+    const pathNodes = new Set(edges.flatMap((edge) => edge.nodes));
     const portalEnds = new Set<string>();
 
     for (const edge of edges) {
@@ -281,6 +304,15 @@ export function MapCanvas(props: Props) {
     for (const node of nodes) {
       if (node.layer !== layer) continue;
       const selected = selection?.kind === "node" && selection.id === node.id;
+      if (
+        node.kind === "grace" &&
+        hideUnusedGraces &&
+        !drawing &&
+        !pathNodes.has(node.id) &&
+        position !== node.id &&
+        !selected
+      )
+        continue;
       const name = displayName(data, node, language);
       const entry = node.ref ? data.byId.get(node.ref) : undefined;
       const image =
@@ -321,13 +353,22 @@ export function MapCanvas(props: Props) {
           ),
         )
         .addTo(group);
-      if (name)
+      if (name) {
+        const always =
+          selected ||
+          position === node.id ||
+          stops.has(node.id) ||
+          routeNodes.has(node.id);
+        const showWhenZoomed = node.kind !== "junction";
         marker.bindTooltip(escapeHtml(name), {
-          permanent: node.kind !== "junction",
+          permanent:
+            always || (showWhenZoomed && map.current!.getZoom() >= LABEL_ZOOM),
           direction: "right",
           offset: [10, 0],
           className: `node-label node-label--${node.kind}`,
         });
+        labels.current.push({ marker, always, showWhenZoomed });
+      }
     }
   }, [
     nodes,
@@ -335,6 +376,8 @@ export function MapCanvas(props: Props) {
     selection,
     draft,
     editable,
+    drawing,
+    hideUnusedGraces,
     language,
     data,
     layer,
@@ -342,6 +385,7 @@ export function MapCanvas(props: Props) {
     position,
     route,
     stops,
+    routeNodes,
     highlight,
   ]);
 
