@@ -6,10 +6,11 @@ Route of Grace is a map-based Elden Ring route planner. See `docs/architecture.m
 
 First check for parked items from an earlier wrap-up (a `chore: park pending items` commit on any branch) and go through them with the player, as the `wrap-up` skill's "Resolving pending items" describes.
 
-Work is tracked in GitHub issues; `.agents/next-steps.md` ranks them. Read it, check the top issue is still open (`gh issue view`), read the issue and its comments, and propose it to the player before starting. If it is labelled `needs-decision`, ask its questions first. The player can always name another issue or task instead; work without an issue gets one drafted.
+Work is tracked in GitHub issues; `.agents/next-steps.md` ranks them. Read it from the most recently pushed branch, check the top issue is still open (`gh issue view`), read the issue and its comments, and propose it to the player before starting. If it is labelled `needs-decision`, ask its questions first. The player can always name another issue or task instead; work without an issue gets one drafted.
 
 - Comment freely on issues being worked on (handoff notes, decisions). Ask before filing a new issue.
 - Lasting knowledge goes in `docs/` (index: `docs/README.md`), not in issues.
+- Before every push, update `.agents/next-steps.md` to read as it will once that branch merges, and commit the ranking change as `docs:` on that branch.
 - End a session with the `wrap-up` skill.
 
 ## Data
