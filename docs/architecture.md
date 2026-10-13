@@ -20,7 +20,7 @@ A map-based route planner for Elden Ring (base game and Shadow of the Erdtree). 
 | Names           | Official in-game English and zh-TW names win over any other source. Player-written text is kept as written.                                                              |
 | Language        | English and Traditional Chinese (zh-TW) for all interface text.                                                                                                          |
 | Spoilers        | Fine. Show missable and quest-lock warnings freely.                                                                                                                      |
-| Viewer mode     | Required: a read-only URL used as an OBS browser source.                                                                                                                 |
+| Viewer mode     | Required: a read-only URL used as an OBS browser source, mirroring the operator's screen.                                                                                |
 | DLC             | In scope (separate map layers).                                                                                                                                          |
 | Platform        | Mac, game running in CrossOver. Everything runs natively on macOS.                                                                                                       |
 | Live position   | No. The player sets their position by hand (for example "at grace X").                                                                                                   |
@@ -112,13 +112,13 @@ Everything here runs for the active profile.
 - **Travel cost:** shortest path (Dijkstra) over the graph. Edge cost = length × the type's speed factor, plus fixed costs (lift, waygate); the numbers live in `src/routing/route.ts`. Fast travel to any grace this profile has discovered is a cheap jump, except where it's blocked (inside legacy dungeons before their grace).
 - **Visit order:** an ordering problem with prerequisites. Nearest neighbor plus 2-opt is enough for a few dozen targets.
 - **Rerouting:** when an item is added to the profile's wishlist, fit it into the current route at the cheapest point and show the extra cost ("+4 min, best after the Liurnia grace") before committing.
-- **Views:** "Next stops" (the active route, drawn on the map), "Blocked by X" ("beating Radahn unlocks 4 of your wishlist items"), "Don't miss" (quest-sensitive items).
+- **Views:** "Next stops" (the active route, drawn on the map) and "Blocked by X" ("beating Radahn unlocks 4 of your wishlist items", including items a quest step can make missable).
 
 ### OBS viewer
 
-- **Base:** the old project's read-only viewer (WebSocket relay; operator publishes snapshots, viewers follow).
-- **URL options:** a separate URL with layouts (full map with route, corner minimap, "next 3 stops" strip), a transparent background, large text, `?lang=zh-TW`, and `?profile=` to pin one playthrough (default: the active one).
-- **Updates:** live over WebSocket from the operator app, with an optional hotkey for "advance to next stop".
+A read-only page that mirrors the operator's screen: the same layout, open modals, scroll position and map view. There are no separate viewer layouts; what the operator sees is what the stream shows.
+
+- **Base:** the old project's read-only viewer (WebSocket relay; the operator app publishes state snapshots, viewers follow live).
 
 ### Agent tools
 
