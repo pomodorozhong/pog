@@ -359,7 +359,11 @@ export function MapCanvas(props: Props) {
           position === node.id ||
           stops.has(node.id) ||
           routeNodes.has(node.id);
-        const showWhenZoomed = node.kind !== "junction";
+        // Graces crowd even ordinary close-zoom views; their names stay on
+        // hover unless the pin matters right now. Other named pins can still
+        // show their names when zoomed in.
+        const showWhenZoomed =
+          node.kind !== "junction" && node.kind !== "grace";
         marker.bindTooltip(escapeHtml(name), {
           permanent:
             always || (showWhenZoomed && map.current!.getZoom() >= LABEL_ZOOM),

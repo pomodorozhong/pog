@@ -88,7 +88,7 @@ Leaflet with `CRS.Simple` over the extracted tiles; one layer per map. The edito
 
 **Grace filter:** "Hide graces without paths" in the toolbar is one app setting, shared across playthroughs and off by default. It hides graces no path on the active profile's map runs through, including graces between a path's endpoints. A grace stays visible at the player's position and when selected. Draw path mode shows every grace, including before choosing the first pin. This only changes the display; routing and fast travel still use every discovered grace. Older player files gain the setting, off, on read.
 
-**Names:** names appear on hover at any zoom and stay open at zoom 4 or closer (junction names remain on hover). The player's position, selected pin and pins on the planned route keep their names open at any zoom, including graces reached by fast travel.
+**Names:** ordinary grace and junction names appear only on hover at every zoom. Item and entrance names also stay open at zoom 4 or closer. The player's position, selected pin and pins on the planned route keep their names open at any zoom, including graces reached by fast travel. Showing every grace name from zoom 4 still crowded normal map use, so graces no longer use that threshold.
 
 ### Path graph
 

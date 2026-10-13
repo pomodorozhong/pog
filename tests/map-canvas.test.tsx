@@ -197,7 +197,7 @@ describe("grace visibility", () => {
 });
 
 describe("grace names", () => {
-  it("shows important names at low zoom and other names on hover, then updates at the zoom threshold", () => {
+  it("keeps ordinary grace names on hover at every zoom and important names visible", () => {
     const props = canvasProps();
     const { container, rerender } = render(
       <MapCanvas
@@ -218,10 +218,15 @@ describe("grace names", () => {
     fireEvent.mouseOut(unused);
     expect(labels()).not.toContain("unused");
     act(() => leaflet.current!.setZoom(4, { animate: false }));
-    expect(labels()).toHaveLength(4);
-    act(() => leaflet.current!.setZoom(3, { animate: false }));
+    expect(labels()).toEqual(["start", "middle", "end"]);
+    fireEvent.mouseOver(unused);
+    expect(labels()).toContain("unused");
+    fireEvent.mouseOut(unused);
+    act(() => leaflet.current!.setZoom(8, { animate: false }));
     expect(labels()).toEqual(["start", "middle", "end"]);
     rerender(<MapCanvas {...props} />);
+    expect(labels()).toEqual([]);
+    act(() => leaflet.current!.setZoom(3, { animate: false }));
     expect(labels()).toEqual([]);
   });
 });
