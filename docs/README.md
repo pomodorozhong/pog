@@ -1,6 +1,6 @@
 # Docs
 
-- [plan.md](plan.md): goal, decisions, design, build order with each milestone's status, risks.
+- [architecture.md](architecture.md): goal, decisions, how the app works, what the game data taught us, risks. Status and order live in [GitHub milestones](https://github.com/pomodorozhong/route-of-grace/milestones) and issues.
 - [progress/](progress/): what was built and learned, by date, with test results.
 - [../scripts/extract/README.md](../scripts/extract/README.md): the game data extractor and its output.
 

@@ -1,6 +1,6 @@
 # Project instructions
 
-Route of Grace is a map-based Elden Ring route planner. See `docs/plan.md` for the design and build order.
+Route of Grace is a map-based Elden Ring route planner. See `docs/architecture.md` for how it works and why; status lives in GitHub milestones and issues.
 
 ## Start of a session
 
