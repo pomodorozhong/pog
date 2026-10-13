@@ -1,6 +1,6 @@
 # Route of Grace: plan
 
-Updated 2026-10-14 (UI redesign added as milestone 5). Replaces the build order in the old project's handoff note, and adds what extracting the game data taught us.
+Updated 2026-10-13 (milestone 4 done). Replaces the build order in the old project's handoff note, and adds what extracting the game data taught us.
 
 ## Goal
 
@@ -145,7 +145,7 @@ Original plan, kept for reference:
 - [x] ~~**Calibrate the world-to-map transform per layer.**~~ Not needed; see above. Fit scale and offset by least squares from 3+ graces the player places by hand, then check against all graces. Use the cell grid (`areaNo`, `gridX`, `gridZ`) plus local position. Handle legacy dungeons through `WorldMapLegacyConvParam`, and underground and DLC layers separately.
 - [x] Import graces as nodes in one click, skipping any already placed.
 
-### 4. Profiles, wishlist and routing
+### 4. Profiles, wishlist and routing ✅
 
 The interface for these features stays plain and functional; only blockers are fixed until the redesign in milestone 5.
 
@@ -169,7 +169,11 @@ The interface for these features stays plain and functional; only blockers are f
 
 After milestone 4, when every main screen exists (map editor, profiles, wishlist, progress, save import, route), so the design covers how profiles shape the whole app rather than being patched one feature at a time.
 
-- [ ] Collect UI issues from the player during milestone 4 here, as they come up.
+- [ ] Collect UI issues from the player during milestone 4 here, as they come up. None were raised. Noticed while building it:
+  - The side panel stacks playthrough, progress, save import, next stops, wishlist, map import and layer summary in one scroll; the wishlist (46 items for the template) pushes everything below it far down.
+  - Wishlist notes from the template are long and only fit a two-line box.
+  - The save import review keeps "Apply" when nothing changed.
+  - Route stops show item names only; a stop's region or nearest grace would help.
 - [ ] Layout: header, side panel, where the profile, wishlist, progress and route live; desktop and narrow windows.
 - [ ] Map: node markers, labels and path styles, readable at stream resolution too, since the OBS viewer (milestone 8) reuses them.
 - [ ] English and zh-TW checked together (text length, wording against the game's own terms).
