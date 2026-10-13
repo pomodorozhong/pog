@@ -190,6 +190,10 @@ export default function App() {
 
   const layer = player?.view.layer ?? "overworld";
   const edit = useCallback((action: MapAction) => dispatch(action), []);
+  const changeHistory = useCallback((type: "undo" | "redo") => {
+    setDraft(null);
+    dispatch({ type });
+  }, []);
 
   const profile = player ? activeProfile(player) : null;
   const progress = profile?.progress ?? null;
@@ -344,8 +348,7 @@ export default function App() {
       const mod = event.metaKey || event.ctrlKey;
       if (mod && event.key.toLowerCase() === "z") {
         event.preventDefault();
-        setDraft(null);
-        dispatch({ type: event.shiftKey ? "redo" : "undo" });
+        changeHistory(event.shiftKey ? "redo" : "undo");
         return;
       }
       if (mod || event.altKey) return;
@@ -364,7 +367,7 @@ export default function App() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [draft, deleteSelection]);
+  }, [draft, deleteSelection, changeHistory]);
 
   if (dataError)
     return (
@@ -488,14 +491,14 @@ export default function App() {
           <button
             className="chip"
             disabled={!history.past.length}
-            onClick={() => dispatch({ type: "undo" })}
+            onClick={() => changeHistory("undo")}
           >
             {t("Undo")}
           </button>
           <button
             className="chip"
             disabled={!history.future.length}
-            onClick={() => dispatch({ type: "redo" })}
+            onClick={() => changeHistory("redo")}
           >
             {t("Redo")}
           </button>
