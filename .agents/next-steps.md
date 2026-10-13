@@ -1,7 +1,7 @@
 # Next steps
 
-1. #29 Grace name tags clutter the map (small)
-2. #32 Filter to hide graces no path goes through (pairs with #29)
+1. #32 Filter to hide graces no path goes through (one app setting; draft PR #35)
+2. #29 Grace name tags clutter the map (small; same draft PR #35)
 3. #28 Layout holds up in a narrow window
 4. #33 Step numbers pinned to the screen edge can overlap (small)
 5. #22 Try the main flows and note what feels awkward (keep adding notes; starts M5)
