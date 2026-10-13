@@ -1,6 +1,6 @@
 # Next steps
 
-1. #29 Review hover-only grace names in draft PR #35
+1. #29 Review very-close grace names and Details controls in draft PR #35
 2. #28 Layout holds up in a narrow window
 3. #33 Step numbers pinned to the screen edge can overlap (small)
 4. #36 Layer summary misses paths drawn only through graces (small)
