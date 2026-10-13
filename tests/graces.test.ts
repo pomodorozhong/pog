@@ -33,7 +33,7 @@ const edge = (
   from: string,
   to: string,
   type: MapEdge["type"] = "road",
-): MapEdge => ({ id, from, to, type, points: [], note: "", step: 0 });
+): MapEdge => ({ id, nodes: [from, to], type, note: "", step: 0 });
 const doc = (nodes: MapNode[] = [], edges: MapEdge[] = []): MapDocument => ({
   schemaVersion: 2,
   nodes,

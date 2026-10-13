@@ -24,7 +24,7 @@ const edge = (
   from: string,
   to: string,
   type: MapEdge["type"] = "road",
-): MapEdge => ({ id, from, to, type, points: [], note: "", step: 0 });
+): MapEdge => ({ id, nodes: [from, to], type, note: "", step: 0 });
 const doc = (nodes: MapNode[], edges: MapEdge[] = []): MapDocument => ({
   schemaVersion: 2,
   nodes,
@@ -52,7 +52,7 @@ describe("import from another profile", () => {
     });
     const result = copy(target, source);
     expect(result.nodes.map((n) => n.id)).toEqual(["j", "cave"]);
-    expect(result.edges.map((e) => [e.from, e.to])).toEqual([
+    expect(result.edges.map((e) => e.nodes)).toEqual([
       ["grace/1", "j"],
       ["j", "cave"],
     ]);

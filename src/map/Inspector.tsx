@@ -25,7 +25,7 @@ import {
   searchCatalog,
   type GameData,
 } from "./catalog";
-import { inStepOrder, type MapAction } from "./editing";
+import { inStepOrder, newId, type MapAction } from "./editing";
 import { isGameGrace } from "./graces";
 import type { Selection } from "./MapCanvas";
 import { EDGE_NAMES, LAYER_NAMES, NODE_KIND_NAMES } from "./labels";
@@ -43,6 +43,8 @@ type Props = {
   showNode(id: string): void;
   /** Point out a path on the map, or stop (null). */
   highlight(id: string | null): void;
+  /** Go on drawing a path from its last pin. */
+  extendPath(id: string): void;
   deleteSelection(): void;
   recovery?: string;
   /** Shown above the layer summary when nothing is selected. */
@@ -110,9 +112,10 @@ function NodePanel({
   const candidates = fixed ? [] : refCandidates(data, node.kind);
   const results = query ? searchCatalog(candidates, query) : [];
   const entry = node.ref ? data.byId.get(node.ref) : undefined;
-  const connected = doc.edges.filter(
-    (e) => e.from === node.id || e.to === node.id,
+  const connected = inStepOrder(
+    doc.edges.filter((e) => e.nodes.includes(node.id)),
   );
+  const nodes = new Map(doc.nodes.map((n) => [n.id, n]));
   const update = (changes: Partial<MapNode>) =>
     edit({ type: "updateNode", id: node.id, changes });
   const other = language === "en" ? "zh-TW" : "en";
@@ -231,23 +234,38 @@ function NodePanel({
         </h3>
         <ul className="space-y-1 text-sm">
           {connected.map((e) => {
-            const otherEnd = doc.nodes.find(
-              (n) => n.id === (e.from === node.id ? e.to : e.from),
+            // Where the path could be split here: a pin that isn't an end.
+            const at = e.nodes.findIndex(
+              (id, i) => id === node.id && i > 0 && i < e.nodes.length - 1,
             );
             return (
-              <li key={e.id}>
+              <li key={e.id} className="flex items-center gap-2">
                 <button
-                  className="link text-left"
+                  className="link min-w-0 flex-1 truncate text-left"
                   onClick={() => select({ kind: "edge", id: e.id })}
                 >
                   <span
                     className="swatch"
                     style={{ background: EDGE_STYLE[e.type].color }}
                   />{" "}
-                  {t(EDGE_NAMES[e.type])} →{" "}
-                  {(otherEnd && displayName(data, otherEnd, language)) ||
-                    t(NODE_KIND_NAMES[otherEnd?.kind ?? "junction"])}
+                  {t("Step {step}", { step: e.step })} ·{" "}
+                  {pathEnds(t, language, data, nodes, e)}
                 </button>
+                {at > 0 && (
+                  <button
+                    className="chip shrink-0 text-xs"
+                    onClick={() =>
+                      edit({
+                        type: "splitEdge",
+                        id: e.id,
+                        at,
+                        newId: newId("path"),
+                      })
+                    }
+                  >
+                    {t("Split here")}
+                  </button>
+                )}
               </li>
             );
           })}
@@ -271,15 +289,11 @@ function EdgePanel(props: Props & { edgeId: string }) {
     props;
   const [moving, setMoving] = useState(false);
   const edge = doc.edges.find((e) => e.id === edgeId)!;
-  const ends = [edge.from, edge.to].map((id) =>
-    doc.nodes.find((n) => n.id === id)!,
-  );
-  const crossesLayers = ends[0].layer !== ends[1].layer;
-  const update = (changes: {
-    type?: EdgeType;
-    note?: string;
-    points?: [number, number][];
-  }) => edit({ type: "updateEdge", id: edge.id, changes });
+  const pins = edge.nodes.map((id) => doc.nodes.find((n) => n.id === id)!);
+  const ends = [pins[0], pins[pins.length - 1]];
+  const crossesLayers = pins.some((n) => n.layer !== pins[0].layer);
+  const update = (changes: { type?: EdgeType; note?: string }) =>
+    edit({ type: "updateEdge", id: edge.id, changes });
 
   if (moving)
     return <MoveList {...props} edge={edge} close={() => setMoving(false)} />;
@@ -297,7 +311,7 @@ function EdgePanel(props: Props & { edgeId: string }) {
       </header>
       <ol className="space-y-1 text-sm">
         {ends.map((end, index) => (
-          <li key={end.id}>
+          <li key={index}>
             <span className="text-muted">
               {index === 0 ? t("From") : t("To")}{" "}
             </span>
@@ -336,20 +350,35 @@ function EdgePanel(props: Props & { edgeId: string }) {
         />
       </label>
       <p className="text-xs text-muted">
-        {t("{count} bends", { count: edge.points.length })}
+        {t("Through {count} pins", { count: pins.length })}
       </p>
       <div className="flex gap-2">
-        {edge.points.length > 0 && (
-          <button className="chip" onClick={() => update({ points: [] })}>
-            {t("Straighten")}
-          </button>
-        )}
+        <button className="chip" onClick={() => props.extendPath(edge.id)}>
+          {t("Extend")}
+        </button>
         <button className="chip chip--danger" onClick={deleteSelection}>
           {t("Delete path")}
         </button>
       </div>
     </section>
   );
+}
+
+/** A path by its first and last pins, such as "Stormhill → Junction". */
+function pathEnds(
+  t: Translate,
+  language: Language,
+  data: GameData,
+  nodes: ReadonlyMap<string, MapNode>,
+  edge: MapEdge,
+) {
+  const name = (id: string) => {
+    const node = nodes.get(id);
+    return node
+      ? displayName(data, node, language) || t(NODE_KIND_NAMES[node.kind])
+      : "";
+  };
+  return `${name(edge.nodes[0])} → ${name(edge.nodes[edge.nodes.length - 1])}`;
 }
 
 /** Choose a path's new step from the list of paths in walking order. */
@@ -368,12 +397,6 @@ function MoveList({
   const ordered = inStepOrder(doc.edges);
   const at = ordered.findIndex((e) => e.id === edge.id);
   const nodes = new Map(doc.nodes.map((n) => [n.id, n]));
-  const name = (id: string) => {
-    const node = nodes.get(id);
-    return node
-      ? displayName(data, node, language) || t(NODE_KIND_NAMES[node.kind])
-      : "";
-  };
   useEffect(() => {
     list.current
       ?.querySelector("[aria-current]")
@@ -451,11 +474,11 @@ function MoveList({
                 style={{ background: EDGE_STYLE[e.type].color }}
               />
               <span className="min-w-0 flex-1 truncate">
-                {name(e.from)} → {name(e.to)}
+                {pathEnds(t, language, data, nodes, e)}
               </span>
-              {nodes.get(e.from)?.layer !== layer && (
+              {nodes.get(e.nodes[0])?.layer !== layer && (
                 <span className="shrink-0 text-xs text-muted">
-                  {t(LAYER_NAMES[nodes.get(e.from)!.layer])}
+                  {t(LAYER_NAMES[nodes.get(e.nodes[0])!.layer])}
                 </span>
               )}
             </li>,
@@ -485,7 +508,7 @@ function Summary({
       <p className="text-muted">
         {t("{nodes} nodes and {edges} paths on this layer.", {
           nodes: here.length,
-          edges: doc.edges.filter((e) => ids.has(e.from) || ids.has(e.to))
+          edges: doc.edges.filter((e) => e.nodes.some((id) => ids.has(id)))
             .length,
         })}
       </p>

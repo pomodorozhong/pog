@@ -42,17 +42,15 @@ export type MapNode = {
 };
 
 /**
- * A drawn path between two nodes. Either end can be a game grace by its
- * catalog id ("grace/<row>"), which the map shows without storing. Only
- * waygates may join different layers.
+ * A path the player drew: one line through pins, in drawing order, with one
+ * step number. A pin can be a game grace by its catalog id ("grace/<row>"),
+ * which the map shows without storing. Only a waygate may join layers.
  */
 export type MapEdge = {
   id: string;
-  from: string;
-  to: string;
+  /** The pins the line runs through, in order: at least two, none twice in a row. */
+  nodes: string[];
   type: EdgeType;
-  /** Waypoints between the two nodes, on the nodes' layer. */
-  points: Point[];
   /** Player-written note, such as the key or boss a requirement needs. */
   note: string;
   /**

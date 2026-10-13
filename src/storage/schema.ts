@@ -69,25 +69,19 @@ function checkMap(value: unknown): value is MapDocument {
   const end = (id: unknown) =>
     typeof id === "string" && (layerOf.has(id) || GRACE_ID.test(id));
   return v.edges.every((e) => {
-    // A game grace's layer is game data, so only paths between two of the
-    // profile's own nodes are checked for joining layers here.
-    const joinsLayers =
-      layerOf.has(e.from) &&
-      layerOf.has(e.to) &&
-      layerOf.get(e.from) !== layerOf.get(e.to);
     const ok =
-      hasExactKeys(e, ["id", "from", "to", "type", "points", "note", "step"]) &&
+      hasExactKeys(e, ["id", "nodes", "type", "note", "step"]) &&
       typeof e.id === "string" &&
       !edgeIds.has(e.id) &&
-      end(e.from) &&
-      end(e.to) &&
-      e.from !== e.to &&
+      Array.isArray(e.nodes) &&
+      e.nodes.length >= 2 &&
+      e.nodes.every((id, i) => end(id) && id !== e.nodes[i - 1]) &&
       includes(EDGE_TYPES, e.type) &&
-      (!joinsLayers || e.type === "waygate") &&
-      Array.isArray(e.points) &&
-      e.points.every(
-        (p) => Array.isArray(p) && p.length === 2 && p.every(isCoordinate),
-      ) &&
+      // A game grace's layer is game data, so only the profile's own nodes
+      // are checked for joining layers here.
+      (e.type === "waygate" ||
+        new Set(e.nodes.map((id) => layerOf.get(id)).filter(Boolean)).size <=
+          1) &&
       typeof e.note === "string" &&
       // Steps run 1..N with no gaps or repeats.
       Number.isInteger(e.step) &&
@@ -275,18 +269,60 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
   return v;
 }
 
+type MapV1 = {
+  schemaVersion: 1;
+  nodes: { id: string; layer: string }[];
+  edges: {
+    id: string;
+    from: string;
+    to: string;
+    type: string;
+    points: [number, number][];
+    note: string;
+  }[];
+};
+
 function upgradeMap(value: object): unknown {
-  const v = value as { schemaVersion: unknown; edges?: unknown };
-  // Version 2 numbered the paths; version 1 paths are numbered in file order.
-  if (v.schemaVersion === 1 && Array.isArray(v.edges))
-    return {
-      ...v,
-      schemaVersion: MAP_VERSION,
-      edges: v.edges.map((e: unknown, i) =>
-        e && typeof e === "object" ? { ...e, step: i + 1 } : e,
-      ),
-    };
-  return v;
+  const v = value as MapV1;
+  if (
+    v.schemaVersion !== 1 ||
+    !Array.isArray(v.nodes) ||
+    !Array.isArray(v.edges)
+  )
+    return v;
+  // Version 2 made a path one numbered line through pins. A version 1 path
+  // ran between two nodes, possibly with bends; its bends become junctions,
+  // and paths are numbered in file order.
+  const layerOf = new Map(v.nodes.map((n) => [n?.id, n?.layer]));
+  const bends: unknown[] = [];
+  const edges = v.edges.map((e, i) => {
+    if (!e || typeof e !== "object" || !Array.isArray(e.points)) return e;
+    const { from, to, points, ...rest } = e;
+    // A bend between two game graces has no known layer, so it is dropped.
+    const layer = layerOf.get(from) ?? layerOf.get(to);
+    const ids = layer
+      ? points.map(([x, y], k) => {
+          const id = `${e.id}-bend-${k + 1}`;
+          bends.push({
+            id,
+            layer,
+            x,
+            y,
+            kind: "junction",
+            label: "",
+            ref: null,
+          });
+          return id;
+        })
+      : [];
+    return { ...rest, nodes: [from, ...ids, to], step: i + 1 };
+  });
+  return {
+    ...v,
+    schemaVersion: MAP_VERSION,
+    nodes: [...v.nodes, ...bends],
+    edges,
+  };
 }
 
 const checks: {

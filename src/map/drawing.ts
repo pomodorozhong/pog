@@ -2,19 +2,49 @@ import type { EdgeType, LayerId, MapNode, Point } from "../domain/types";
 import { newId, type MapAction } from "./editing";
 
 /**
- * Draw path mode, on a click on empty map: drop a junction there and end the
- * path being drawn at it, as one undo step. Drawing goes on from the new
- * junction, so a route is laid down one click at a time.
- *
- * Only a waygate continues from a node on another layer; otherwise the new
- * junction starts a fresh path.
+ * The path being drawn: the pin it has reached, and the path itself once it
+ * has two pins (null before that).
  */
+export type Draft = { from: string; edge: string | null };
+
+/**
+ * Draw path mode: take the path being drawn on to `to`, as one undo step.
+ * The first two pins make a path; each later pin extends it, so a whole line
+ * is one path until Esc ends it. A pin on another layer starts a new path,
+ * unless the path is a waygate.
+ */
+export function drawTo(
+  draft: Draft | null,
+  from: MapNode | undefined,
+  to: MapNode,
+  type: EdgeType,
+): { action: MapAction | null; draft: Draft } {
+  if (!draft || !from || (from.layer !== to.layer && type !== "waygate"))
+    return { action: null, draft: { from: to.id, edge: null } };
+  if (from.id === to.id) return { action: null, draft };
+  if (draft.edge)
+    return {
+      action: { type: "extendEdge", id: draft.edge, node: to.id },
+      draft: { from: to.id, edge: draft.edge },
+    };
+  const id = newId("path");
+  return {
+    action: {
+      type: "addEdge",
+      edge: { id, nodes: [from.id, to.id], type, note: "" },
+    },
+    draft: { from: to.id, edge: id },
+  };
+}
+
+/** Draw path mode, on a click on empty map: drop a junction and draw to it. */
 export function dropJunction(
+  draft: Draft | null,
   from: MapNode | undefined,
   layer: LayerId,
   [x, y]: Point,
   type: EdgeType,
-): { action: MapAction; next: string } {
+): { action: MapAction; draft: Draft } {
   const node: MapNode = {
     id: newId("junction"),
     layer,
@@ -24,24 +54,15 @@ export function dropJunction(
     label: "",
     ref: null,
   };
-  const addNode: MapAction = { type: "addNode", node };
-  if (!from || (from.layer !== layer && type !== "waygate"))
-    return { action: addNode, next: node.id };
+  const next = drawTo(draft, from, node, type);
   return {
     action: {
       type: "batch",
-      actions: [addNode, pathAction(from.id, node.id, type)],
+      actions: [
+        { type: "addNode", node },
+        ...(next.action ? [next.action] : []),
+      ],
     },
-    next: node.id,
+    draft: next.draft,
   };
 }
-
-/** The edit that draws a straight path between two nodes. */
-export const pathAction = (
-  from: string,
-  to: string,
-  type: EdgeType,
-): MapAction => ({
-  type: "addEdge",
-  edge: { id: newId("edge"), from, to, type, points: [], note: "" },
-});

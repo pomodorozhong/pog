@@ -17,14 +17,13 @@ import {
   type MapLayerInfo,
 } from "./catalog";
 import type { RouteLine } from "../routing/order";
-import { edgeLine, isOneWay } from "./editing";
+import type { Draft } from "./drawing";
+import { edgeRuns, isOneWay } from "./editing";
 import { enableGestures } from "./gestures";
 import { EDGE_STYLE, NODE_SYMBOL } from "./style";
 import { isGameGrace } from "./graces";
 
 export type Selection = { kind: "node" | "edge"; id: string } | null;
-/** The node the path being drawn starts from. */
-export type Draft = { from: string } | null;
 
 export type MapCanvasHandlers = {
   onMapClick(point: Point): void;
@@ -42,7 +41,7 @@ type Props = MapCanvasHandlers & {
   nodes: MapNode[];
   edges: MapEdge[];
   selection: Selection;
-  draft: Draft;
+  draft: Draft | null;
   editable: boolean;
   language: Language;
   data: GameData;
@@ -184,50 +183,56 @@ export function MapCanvas(props: Props) {
     const portalEnds = new Set<string>();
 
     for (const edge of edges) {
-      const from = byId.get(edge.from);
-      const to = byId.get(edge.to);
-      if (!from || !to) continue;
-      if (from.layer !== to.layer) {
-        portalEnds.add(from.id);
-        portalEnds.add(to.id);
-        continue;
-      }
-      if (from.layer !== layer) continue;
+      // Pins a waygate jumps between are marked instead of drawn.
+      edge.nodes.forEach((id, i) => {
+        const [a, b] = [byId.get(edge.nodes[i - 1]), byId.get(id)];
+        if (a && b && a.layer !== b.layer) {
+          portalEnds.add(a.id);
+          portalEnds.add(b.id);
+        }
+      });
+      const runs = edgeRuns(edge, byId, layer);
+      if (!runs.length) continue;
       const selected = selection?.kind === "edge" && selection.id === edge.id;
       const highlighted = highlight === edge.id;
       const style = EDGE_STYLE[edge.type];
-      const points = edgeLine(edge, from, to);
-      const line = points.map(toLatLng);
-      if (highlighted)
-        L.polyline(line, {
-          color: "#ffd84a",
-          weight: style.weight + 10,
-          opacity: 0.85,
-          lineCap: "round",
-          interactive: false,
-        }).addTo(group);
-      else if (selected)
-        L.polyline(line, {
-          color: "#fff",
-          weight: style.weight + 6,
-          opacity: 0.5,
-          interactive: false,
-        }).addTo(group);
-      L.polyline(line, { ...style, opacity: 0.95 })
-        .on("click", (event) => {
-          L.DomEvent.stop(event);
-          latest.current.onEdgeClick(edge.id);
-        })
-        .addTo(group);
-      if (isOneWay(edge.type))
-        addArrow(
-          group,
-          line[line.length - 2],
-          line[line.length - 1],
-          style.color,
-        );
-      // The path's step, halfway along it.
-      L.marker(toLatLng(halfway(points)), {
+      const select = (event: L.LeafletEvent) => {
+        L.DomEvent.stop(event);
+        latest.current.onEdgeClick(edge.id);
+      };
+      for (const points of runs) {
+        const line = points.map(toLatLng);
+        if (highlighted)
+          L.polyline(line, {
+            color: "#ffd84a",
+            weight: style.weight + 10,
+            opacity: 0.85,
+            lineCap: "round",
+            interactive: false,
+          }).addTo(group);
+        else if (selected)
+          L.polyline(line, {
+            color: "#fff",
+            weight: style.weight + 6,
+            opacity: 0.5,
+            interactive: false,
+          }).addTo(group);
+        L.polyline(line, { ...style, opacity: 0.95 })
+          .on("click", select)
+          .addTo(group);
+        if (isOneWay(edge.type))
+          addArrow(
+            group,
+            line[line.length - 2],
+            line[line.length - 1],
+            style.color,
+          );
+      }
+      // One step number per path, halfway along its longest stretch here.
+      const longest = runs.reduce((a, b) =>
+        lineLength(b) > lineLength(a) ? b : a,
+      );
+      L.marker(toLatLng(halfway(longest)), {
         icon: L.divIcon({
           className: highlighted ? "path-step is-highlighted" : "path-step",
           html: `<span>${edge.step}</span>`,
@@ -236,10 +241,7 @@ export function MapCanvas(props: Props) {
         keyboard: false,
         zIndexOffset: highlighted ? 1000 : 0,
       })
-        .on("click", (event) => {
-          L.DomEvent.stop(event);
-          latest.current.onEdgeClick(edge.id);
-        })
+        .on("click", select)
         .addTo(group);
     }
 
@@ -361,11 +363,14 @@ function addArrow(
   }).addTo(group);
 }
 
+const segmentLengths = (line: Point[]) =>
+  line.slice(1).map(([x, y], i) => Math.hypot(x - line[i][0], y - line[i][1]));
+const lineLength = (line: Point[]) =>
+  segmentLengths(line).reduce((sum, l) => sum + l, 0);
+
 /** The point halfway along a line, by length. */
 function halfway(line: Point[]): Point {
-  const lengths = line
-    .slice(1)
-    .map(([x, y], i) => Math.hypot(x - line[i][0], y - line[i][1]));
+  const lengths = segmentLengths(line);
   let left = lengths.reduce((sum, l) => sum + l, 0) / 2;
   for (const [i, l] of lengths.entries()) {
     if (left <= l && l > 0) {

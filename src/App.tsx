@@ -26,11 +26,11 @@ import {
   type HistoryAction,
   type MapAction,
 } from "./map/editing";
-import { dropJunction, pathAction } from "./map/drawing";
+import { drawTo, dropJunction, type Draft } from "./map/drawing";
 import { gameGraceNodes, withGameGraces } from "./map/graces";
 import { Inspector } from "./map/Inspector";
 import { EDGE_NAMES, LAYER_NAMES } from "./map/labels";
-import { MapCanvas, type Draft, type Selection } from "./map/MapCanvas";
+import { MapCanvas, type Selection } from "./map/MapCanvas";
 import { EDGE_STYLE } from "./map/style";
 import {
   ImportFromProfile,
@@ -82,7 +82,7 @@ const TOOLS: { tool: Tool; label: string; key: string; tip: string }[] = [
     tool: "path",
     label: "Draw path",
     key: "p",
-    tip: "Each click drops a junction and draws a path to it",
+    tip: "Draw a path through pins: each click on the map drops a junction",
   },
 ];
 
@@ -112,7 +112,7 @@ export default function App() {
   const [tool, setTool] = useState<Tool>("select");
   const [edgeType, setEdgeType] = useState<EdgeType>("road");
   const [selection, setSelection] = useState<Selection>(null);
-  const [draft, setDraft] = useState<Draft>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
   const [highlight, setHighlight] = useState<string | null>(null);
   /** The profile whose map is in `history`. */
   const [mapProfile, setMapProfile] = useState<string | null>(null);
@@ -207,22 +207,6 @@ export default function App() {
     [map.nodes],
   );
 
-  const finishPath = useCallback(
-    (to: string) => {
-      if (!draft || to === draft.from) return;
-      // Only waygates join layers; any other path must end on the layer it started on.
-      if (
-        nodeById.get(draft.from)?.layer !== nodeById.get(to)?.layer &&
-        edgeType !== "waygate"
-      )
-        return;
-      edit(pathAction(draft.from, to, edgeType));
-      // Keep drawing from the node just reached, so a route can be laid down in one go.
-      setDraft({ from: to });
-    },
-    [draft, edgeType, edit, nodeById],
-  );
-
   const addNode = useCallback(
     (kind: NodeKind, [x, y]: Point) => {
       const node = { id: newId(kind), layer, x, y, kind, label: "", ref: null };
@@ -237,15 +221,21 @@ export default function App() {
       if (tool === "select") return setSelection(null);
       if (tool === "path") {
         const from = draft ? nodeById.get(draft.from) : undefined;
-        const { action, next } = dropJunction(from, layer, point, edgeType);
-        edit(action);
-        return setDraft({ from: next });
+        const next = dropJunction(draft, from, layer, point, edgeType);
+        edit(next.action);
+        return setDraft(next.draft);
       }
       setSelection({ kind: "node", id: addNode(tool, point) });
     },
     onNodeClick(id: string) {
-      if (tool === "path")
-        return draft ? finishPath(id) : setDraft({ from: id });
+      if (tool === "path") {
+        const to = nodeById.get(id);
+        if (!to) return;
+        const from = draft ? nodeById.get(draft.from) : undefined;
+        const next = drawTo(draft, from, to, edgeType);
+        if (next.action) edit(next.action);
+        return setDraft(next.draft);
+      }
       setSelection({ kind: "node", id });
     },
     onNodeMove(id: string, [x, y]: Point) {
@@ -313,6 +303,21 @@ export default function App() {
         });
   };
 
+  /** Go on drawing a path from its last pin. */
+  const extendPath = useCallback(
+    (id: string) => {
+      const edge = doc.edges.find((e) => e.id === id);
+      if (!edge) return;
+      const last = edge.nodes[edge.nodes.length - 1];
+      showNode(last);
+      setSelection(null);
+      setTool("path");
+      setEdgeType(edge.type);
+      setDraft({ from: last, edge: id });
+    },
+    [doc.edges, showNode],
+  );
+
   const deleteSelection = useCallback(() => {
     if (!selection) return;
     edit(
@@ -336,7 +341,7 @@ export default function App() {
         return;
       }
       if (mod || event.altKey) return;
-      // Stop drawing; every junction dropped so far stays on the map.
+      // End the path being drawn; every pin dropped so far stays on the map.
       if (event.key === "Escape")
         return draft ? setDraft(null) : setSelection(null);
       if (event.key === "Delete" || event.key === "Backspace")
@@ -434,7 +439,11 @@ export default function App() {
             <select
               className="field"
               value={edgeType}
-              onChange={(event) => setEdgeType(event.target.value as EdgeType)}
+              onChange={(event) => {
+                setEdgeType(event.target.value as EdgeType);
+                // A path has one type: a new type starts a new path from here.
+                if (draft) setDraft({ from: draft.from, edge: null });
+              }}
             >
               {EDGE_TYPES.map((type) => (
                 <option key={type} value={type}>
@@ -501,6 +510,7 @@ export default function App() {
           select={setSelection}
           showNode={showNode}
           highlight={setHighlight}
+          extendPath={extendPath}
           deleteSelection={deleteSelection}
           recovery={mapSave.recovery ?? playerSave.recovery}
           profile={
@@ -571,7 +581,7 @@ export default function App() {
 function toolHint(tool: Tool, drawing: boolean) {
   if (tool === "path")
     return drawing
-      ? "Click the map to drop a junction and keep drawing from it, or click a node to end the path there. Esc stops drawing."
+      ? "Click the map to drop a junction on the path, or click a node to take the path through it. Esc ends the path."
       : "Click a node (or the map) to start a path.";
   if (tool === "select")
     return "Click to select, drag to move. Delete removes the selection; ⌘Z undoes.";

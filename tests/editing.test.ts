@@ -23,30 +23,22 @@ const doc = (...nodes: MapNode[]): MapDocument => ({
 });
 const edge = (
   id: string,
-  from: string,
-  to: string,
+  nodes: string[],
   type: "road" | "waygate" = "road",
-) => ({
-  id,
-  from,
-  to,
-  type,
-  points: [[5, 5]] as [number, number][],
-  note: "",
-});
+) => ({ id, nodes, type, note: "" });
 
 describe("map editing", () => {
-  it("joins layers only with waygates, which carry no waypoints", () => {
+  it("joins layers only with waygates", () => {
     const start = doc(node("a"), node("b", "underground"));
     expect(
-      applyMapAction(start, { type: "addEdge", edge: edge("e", "a", "b") }),
+      applyMapAction(start, { type: "addEdge", edge: edge("e", ["a", "b"]) }),
     ).toBe(start);
     const linked = applyMapAction(start, {
       type: "addEdge",
-      edge: edge("e", "a", "b", "waygate"),
+      edge: edge("e", ["a", "b"], "waygate"),
     });
     expect(linked.edges).toEqual([
-      { ...edge("e", "a", "b", "waygate"), points: [], step: 1 },
+      { ...edge("e", ["a", "b"], "waygate"), step: 1 },
     ]);
     expect(validDocument("map", linked)).toBe(true);
     expect(
@@ -61,7 +53,7 @@ describe("map editing", () => {
   it("removes a node's paths with it and keeps nodes on their path's layer", () => {
     const linked = applyMapAction(doc(node("a"), node("b")), {
       type: "addEdge",
-      edge: edge("e", "a", "b"),
+      edge: edge("e", ["a", "b"]),
     });
     expect(
       applyMapAction(linked, {
@@ -100,13 +92,62 @@ describe("map editing", () => {
   });
 });
 
+describe("paths through pins", () => {
+  const pins = doc(node("a"), node("b"), node("c"), node("d"));
+  const line = applyMapAction(pins, {
+    type: "addEdge",
+    edge: edge("p", ["a", "b", "c"]),
+  });
+
+  it("extends a path from its last pin", () => {
+    const longer = applyMapAction(line, {
+      type: "extendEdge",
+      id: "p",
+      node: "d",
+    });
+    expect(longer.edges[0].nodes).toEqual(["a", "b", "c", "d"]);
+    // Not to the pin it's already at, nor to a missing one.
+    expect(
+      applyMapAction(line, { type: "extendEdge", id: "p", node: "c" }),
+    ).toBe(line);
+    expect(
+      applyMapAction(line, { type: "extendEdge", id: "p", node: "x" }),
+    ).toBe(line);
+  });
+
+  it("closes up around a removed pin, and drops a path left with one", () => {
+    const closed = applyMapAction(line, { type: "removeNode", id: "b" });
+    expect(closed.edges[0].nodes).toEqual(["a", "c"]);
+    expect(
+      applyMapAction(closed, { type: "removeNode", id: "a" }).edges,
+    ).toEqual([]);
+  });
+
+  it("splits a path at an inner pin into two steps in a row", () => {
+    const two = applyMapAction(
+      applyMapAction(line, { type: "addEdge", edge: edge("q", ["c", "d"]) }),
+      { type: "splitEdge", id: "p", at: 1, newId: "p2" },
+    );
+    expect(two.edges.map((e) => [e.id, e.nodes, e.step])).toEqual([
+      ["p", ["a", "b"], 1],
+      ["p2", ["b", "c"], 2],
+      ["q", ["c", "d"], 3],
+    ]);
+    expect(validDocument("map", two)).toBe(true);
+    // Not at an end.
+    expect(
+      applyMapAction(line, { type: "splitEdge", id: "p", at: 0, newId: "n" }),
+    ).toBe(line);
+  });
+});
+
 describe("path steps", () => {
   const add = (start: MapDocument, ...ids: string[]) =>
     ids.reduce(
       (next, id) =>
         applyMapAction(next, {
           type: "addEdge",
-          edge: edge(id, "a", id === "c" ? "c" : "b"),
+          edge: edge(id, ["a", id === "c" ? "c" : "b"]),
         }),
       start,
     );
@@ -145,7 +186,7 @@ describe("path steps", () => {
     ).toEqual({ p: 1, q: 2 });
   });
 
-  it("rejects gaps and repeats, and numbers older maps in file order", () => {
+  it("rejects gaps and repeats", () => {
     const at = (...s: number[]) => ({
       ...four,
       edges: four.edges.map((e, i) => ({ ...e, step: s[i] })),
@@ -154,12 +195,49 @@ describe("path steps", () => {
     expect(validDocument("map", at(1, 2, 2, 3))).toBe(false);
     expect(validDocument("map", at(1, 2, 3, 5))).toBe(false);
     expect(validDocument("map", at(0, 1, 2, 3))).toBe(false);
+  });
+});
+
+describe("upgrading a version 1 map", () => {
+  it("numbers paths in file order and turns bends into junctions", () => {
     const v1 = {
       schemaVersion: 1,
-      nodes: four.nodes,
-      edges: four.edges.map((e) => ({ ...e, step: undefined })),
+      nodes: [node("a"), node("b")],
+      edges: [
+        {
+          id: "e",
+          from: "a",
+          to: "b",
+          type: "road",
+          points: [[5, 6]],
+          note: "n",
+        },
+        {
+          id: "f",
+          from: "b",
+          to: "grace/1",
+          type: "foot",
+          points: [],
+          note: "",
+        },
+      ],
     };
-    expect(upgradeDocument("map", v1)).toEqual(four);
+    const upgraded = upgradeDocument("map", v1);
+    expect(upgraded).toEqual({
+      schemaVersion: 2,
+      nodes: [node("a"), node("b"), { ...node("e-bend-1"), x: 5, y: 6 }],
+      edges: [
+        {
+          id: "e",
+          nodes: ["a", "e-bend-1", "b"],
+          type: "road",
+          note: "n",
+          step: 1,
+        },
+        { id: "f", nodes: ["b", "grace/1"], type: "foot", note: "", step: 2 },
+      ],
+    });
+    expect(validDocument("map", upgraded)).toBe(true);
   });
 });
 
@@ -167,13 +245,19 @@ describe("document validation", () => {
   it("rejects dangling, duplicate and malformed entries", () => {
     const base = doc(node("a"), node("b"));
     expect(
-      validDocument("map", { ...base, edges: [edge("e", "a", "missing")] }),
+      validDocument("map", {
+        ...base,
+        edges: [{ ...edge("e", ["a", "missing"]), step: 1 }],
+      }),
     ).toBe(false);
     expect(validDocument("map", doc(node("a"), node("a")))).toBe(false);
     expect(
       validDocument("map", {
         ...base,
-        edges: [edge("e", "a", "b"), edge("e", "b", "a")],
+        edges: [
+          { ...edge("e", ["a", "b"]), step: 1 },
+          { ...edge("e", ["b", "a"]), step: 2 },
+        ],
       }),
     ).toBe(false);
     expect(validDocument("map", doc({ ...node("a"), x: Number.NaN }))).toBe(

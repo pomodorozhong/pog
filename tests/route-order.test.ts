@@ -25,10 +25,8 @@ function line(ids: string[], xs: number[]): MapDocument {
     nodes: ids.map((id, i) => node(id, xs[i])),
     edges: ids.slice(1).map((id, i) => ({
       id: `e${i}`,
-      from: ids[i],
-      to: id,
+      nodes: [ids[i], id],
       type: "road" as const,
-      points: [],
       note: "",
       step: i + 1,
     })),
