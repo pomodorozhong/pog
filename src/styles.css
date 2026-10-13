@@ -183,6 +183,11 @@ body {
   color: var(--color-ink);
   font-size: calc(var(--step-font) * 1.25);
 }
+/* A step number held on the screen edge while its path is off screen. */
+.path-step.is-pinned span {
+  opacity: 0.75;
+  border: 1px dashed currentColor;
+}
 /* Step number size, chosen in the toolbar. */
 .steps-small {
   --step-font: 11px;

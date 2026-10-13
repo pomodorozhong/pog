@@ -20,6 +20,7 @@ import type { RouteLine } from "../routing/order";
 import type { Draft } from "./drawing";
 import { edgeRuns, isOneWay } from "./editing";
 import { enableGestures } from "./gestures";
+import { placeStep } from "./stepPlacement";
 import { EDGE_STYLE, NODE_SYMBOL } from "./style";
 import { isGameGrace } from "./graces";
 
@@ -58,12 +59,16 @@ type Props = MapCanvasHandlers & {
 };
 
 const LABEL_ZOOM = 4;
+/** How far step numbers pinned to the screen edge stay from it, in pixels. */
+const STEP_INSET = 24;
 
 export function MapCanvas(props: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const overlay = useRef<L.LayerGroup | null>(null);
   const rubberBand = useRef<L.Polyline | null>(null);
+  /** Step numbers on the map, with the stretches of their path on this layer. */
+  const steps = useRef<{ marker: L.Marker; runs: Point[][] }[]>([]);
   // Leaflet handlers are bound once; they read the latest props through this ref.
   const latest = useRef(props);
   useLayoutEffect(() => {
@@ -72,6 +77,9 @@ export function MapCanvas(props: Props) {
 
   const toLatLng = ([x, y]: Point) =>
     map.current!.unproject([x, y], latest.current.info.maxZoom);
+  const placeAllSteps = () =>
+    map.current &&
+    placeSteps(map.current, steps.current, latest.current.info.maxZoom);
   const toPoint = (latLng: L.LatLng): Point => {
     const p = map.current!.project(latLng, latest.current.info.maxZoom);
     return [Math.round(p.x), Math.round(p.y)];
@@ -129,6 +137,7 @@ export function MapCanvas(props: Props) {
       clearTimeout(reportTimer);
       reportTimer = setTimeout(report, 150);
     });
+    instance.on("move zoom resize", placeAllSteps);
     const disableGestures = enableGestures(instance);
     return () => {
       clearTimeout(reportTimer);
@@ -179,6 +188,7 @@ export function MapCanvas(props: Props) {
   useEffect(() => {
     const group = overlay.current!;
     group.clearLayers();
+    steps.current = [];
     const byId = new Map(nodes.map((n) => [n.id, n]));
     const portalEnds = new Set<string>();
 
@@ -228,11 +238,8 @@ export function MapCanvas(props: Props) {
             style.color,
           );
       }
-      // One step number per path, halfway along its longest stretch here.
-      const longest = runs.reduce((a, b) =>
-        lineLength(b) > lineLength(a) ? b : a,
-      );
-      L.marker(toLatLng(halfway(longest)), {
+      // One step number per path, placed by placeSteps.
+      const marker = L.marker(toLatLng(runs[0][0]), {
         icon: L.divIcon({
           className: highlighted ? "path-step is-highlighted" : "path-step",
           html: `<span>${edge.step}</span>`,
@@ -243,7 +250,9 @@ export function MapCanvas(props: Props) {
       })
         .on("click", select)
         .addTo(group);
+      steps.current.push({ marker, runs });
     }
+    placeAllSteps();
 
     for (const line of route) {
       if (line.layer !== layer) continue;
@@ -363,23 +372,35 @@ function addArrow(
   }).addTo(group);
 }
 
-const segmentLengths = (line: Point[]) =>
-  line.slice(1).map(([x, y], i) => Math.hypot(x - line[i][0], y - line[i][1]));
-const lineLength = (line: Point[]) =>
-  segmentLengths(line).reduce((sum, l) => sum + l, 0);
-
-/** The point halfway along a line, by length. */
-function halfway(line: Point[]): Point {
-  const lengths = segmentLengths(line);
-  let left = lengths.reduce((sum, l) => sum + l, 0) / 2;
-  for (const [i, l] of lengths.entries()) {
-    if (left <= l && l > 0) {
-      const [[ax, ay], [bx, by]] = [line[i], line[i + 1]];
-      return [ax + ((bx - ax) * left) / l, ay + ((by - ay) * left) / l];
-    }
-    left -= l;
+/**
+ * Keep each step number on the visible part of its path, or on the screen
+ * edge nearest the path when all of it is off screen.
+ */
+function placeSteps(
+  instance: L.Map,
+  steps: { marker: L.Marker; runs: Point[][] }[],
+  maxZoom: number,
+) {
+  const { x: width, y: height } = instance.getSize();
+  const box = {
+    left: STEP_INSET,
+    top: STEP_INSET,
+    right: width - STEP_INSET,
+    bottom: height - STEP_INSET,
+  };
+  for (const { marker, runs } of steps) {
+    const onScreen = runs.map((run) =>
+      run.map((p): Point => {
+        const { x, y } = instance.latLngToContainerPoint(
+          instance.unproject(p, maxZoom),
+        );
+        return [x, y];
+      }),
+    );
+    const { point, pinned } = placeStep(onScreen, box);
+    marker.setLatLng(instance.containerPointToLatLng(point));
+    marker.getElement()?.classList.toggle("is-pinned", pinned);
   }
-  return line[0];
 }
 
 const escapeHtml = (text: string) =>
