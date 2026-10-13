@@ -1,5 +1,5 @@
 import type { LayerId, MapDocument, MapEdge, MapNode } from "../domain/types";
-import type { MapAction } from "../map/editing";
+import { inStepOrder, type MapAction } from "../map/editing";
 
 /**
  * The edits that copy another profile's nodes and paths into `target`, as one
@@ -9,8 +9,9 @@ import type { MapAction } from "../map/editing";
  * (same ID, as after an earlier import), or a game grace, which every map
  * shows. Copied paths attach to it, and importing again only brings what's
  * new. With a layer, only that layer's nodes are copied; a path is copied when
- * both its ends are on the target map afterwards, so a waygate can join a
- * reused node on another layer.
+ * all its pins are on the target map afterwards, so a waygate can join a
+ * reused node on another layer. Copied paths keep their order and follow the
+ * target's last step.
  */
 export function importMap(
   target: MapDocument,
@@ -33,20 +34,20 @@ export function importMap(
     placed.get(id) ?? (nodeIds.has(id) ? id : undefined);
 
   const edgeIds = new Set(target.edges.map((e) => e.id));
-  // A path of the same type between the same two nodes is already drawn.
+  // A path of the same type through the same pins, either way, is already drawn.
   const drawn = new Set(
     target.edges.flatMap((e) => [
-      `${e.from} ${e.to} ${e.type}`,
-      `${e.to} ${e.from} ${e.type}`,
+      `${e.type} ${e.nodes.join(" ")}`,
+      `${e.type} ${[...e.nodes].reverse().join(" ")}`,
     ]),
   );
   const edges: MapEdge[] = [];
-  for (const edge of source.edges) {
-    const from = endOf(edge.from);
-    const to = endOf(edge.to);
-    if (!from || !to || from === to || edgeIds.has(edge.id)) continue;
-    if (drawn.has(`${from} ${to} ${edge.type}`)) continue;
-    edges.push({ ...edge, from, to });
+  for (const edge of inStepOrder(source.edges)) {
+    const pins = edge.nodes.map(endOf);
+    if (edgeIds.has(edge.id) || pins.some((id) => !id)) continue;
+    const nodes = pins as string[];
+    if (drawn.has(`${edge.type} ${nodes.join(" ")}`)) continue;
+    edges.push({ ...edge, nodes });
   }
 
   return {

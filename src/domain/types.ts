@@ -42,29 +42,35 @@ export type MapNode = {
 };
 
 /**
- * A drawn path between two nodes. Either end can be a game grace by its
- * catalog id ("grace/<row>"), which the map shows without storing. Only
- * waygates may join different layers.
+ * A path the player drew: one line through pins, in drawing order, with one
+ * step number. A pin can be a game grace by its catalog id ("grace/<row>"),
+ * which the map shows without storing. Only a waygate may join layers.
  */
 export type MapEdge = {
   id: string;
-  from: string;
-  to: string;
+  /** The pins the line runs through, in order: at least two, none twice in a row. */
+  nodes: string[];
   type: EdgeType;
-  /** Waypoints between the two nodes, on the nodes' layer. */
-  points: Point[];
   /** Player-written note, such as the key or boss a requirement needs. */
   note: string;
+  /**
+   * The path's place in the player's walk, shown on the map. Steps run 1..N
+   * across the whole map, with no gaps or repeats.
+   */
+  step: number;
 };
 
 /** A profile's own nodes and paths. Game graces are not stored here. */
 export type MapDocument = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   nodes: MapNode[];
   edges: MapEdge[];
 };
 
 export type MapView = { layer: LayerId; x: number; y: number; zoom: number };
+export const STEP_SIZES = ["small", "medium", "large"] as const;
+/** How big path step numbers show on the map. */
+export type StepSize = (typeof STEP_SIZES)[number];
 export const WISHLIST_STATUSES = ["needed", "acquired", "skipped"] as const;
 export type WishlistStatus = (typeof WISHLIST_STATUSES)[number];
 
@@ -124,9 +130,10 @@ export type Profile = {
 };
 
 export type PlayerDocument = {
-  schemaVersion: 6;
+  schemaVersion: 7;
   language: Language;
   view: MapView;
+  stepSize: StepSize;
   activeProfile: string;
   profiles: Profile[];
 };

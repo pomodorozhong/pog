@@ -63,11 +63,12 @@ Everything below comes from the player's own install, read natively on macOS in 
 Three kinds, kept separate:
 
 1. **Game data (generated):** `game-data/catalog.json`, `icons/`, `map/`. Never edited by hand, never committed.
-2. **Player-authored map data, one file per profile:** `maps/<profile id>.json` in the app data folder. Nodes (junction, item, entrance) in native map pixels of their layer, and edges (typed polylines between nodes; only waygates join layers). An edge can end at a game grace by its grace ID (`grace/<row>`).
+2. **Player-authored map data, one file per profile:** `maps/<profile id>.json` in the app data folder. Nodes (junction, item, entrance) in native map pixels of their layer, and paths (`edges`: each one typed line through an ordered list of nodes, with its `step` in the player's walk; only waygates join layers). A path can run through a game grace by its grace ID (`grace/<row>`).
+   - **Upgrade:** a version 1 map file (paths between two nodes, with bends) becomes version 2: each bend becomes a junction, and paths are numbered in file order. A bend on a path between two game graces is dropped, since its layer isn't known without the game data. The player accepted this loss for the upgrade because the tool has not been put into use yet.
    - **Upgrade:** the single `map.json` of earlier versions becomes the first profile's map (`profile-1`) the first time it is read.
    - **Profile IDs** are lowercase letters, digits and dashes, since they name files.
    - **Deleting a profile** moves its map file into a `deleted/` folder instead of removing it, since it's player data.
-3. **Player state:** `player.json` in the app data folder: app settings (language, map view) plus the playthrough profiles and which one is active.
+3. **Player state:** `player.json` in the app data folder: app settings (language, map view, path number size) plus the playthrough profiles and which one is active.
    - **Each profile:** ID, name, goal, constraints (structured fields plus a free-text note), wishlist (item, status needed / acquired / skipped, note), progress (discovered graces, picked-up items, beaten bosses, as event flags), current position, and the linked save slot (Steam ID, slot index, character name).
    - **Upgrades:** older files upgrade on read; a version 1 file (no profiles) becomes one untitled profile.
 
@@ -88,7 +89,9 @@ Leaflet with `CRS.Simple` over the extracted tiles; one layer per map. The edito
 ### Path graph
 
 - **Nodes:** graces, junctions, item pins, dungeon entrances.
-- **Edges:** polylines typed `road`, `torrent`, `foot`, `one-way-drop`, `lift`, `waygate`, `spiritspring`, `requires-key`, `requires-flag`. The type sets cost and rules.
+- **Paths:** lines through nodes, typed `road`, `torrent`, `foot`, `one-way-drop`, `lift`, `waygate`, `spiritspring`, `requires-key`, `requires-flag`. The type sets cost and rules; routing treats each pair of neighbouring nodes on a path as one hop.
+- **Drawing:** a path is the whole line drawn in one go. In Draw path mode each click on the map drops a junction on the path, and a click on a node takes the path through it; Esc ends the path. Undo and Redo end drawing before changing the map history. Junctions double as bends. A path has one type, so changing the type while drawing starts a new path from the last node. Afterwards a path can be extended from its last node, or split in two at an inner node.
+- **Steps:** paths are numbered in the order the player will walk them, like a guide's steps, with one number per path, shown halfway along the part of it on screen; when the whole path is off screen, its number is held on the nearest screen edge. A waygate with no drawn line on a layer shows its number beside a local endpoint, or on the screen edge when the endpoints are off screen. The number size (small, medium, large) is an app setting. Steps run 1..N across the whole map with no gaps or repeats: a new path goes last, removing one closes the gap, and imported paths follow the last step in their own order. "Move…" on a selected path lists every path in order to put it anywhere. Steps are the player's own order, separate from the planned route's stop numbers.
 - **Unexplored areas:** fall back to a straight line between points, shown as "path is a guess" until the player draws a real one. Guesses only bridge unconnected pieces, so they never undercut drawn paths.
 
 ### Profiles
@@ -137,5 +140,5 @@ Tool definitions stay separate from transport, so a WebMCP adapter can come late
 
 - **MSB parsing (milestone 6):** not yet attempted. The ER format is documented by the modding community (SoulsFormats). Coverage is limited to world pickups; shops, enemy drops and quest rewards have no treasure position, so manual pins and notes stay necessary.
 - **Keeping profile maps in sync:** each profile has its own map, so a path fixed in one profile isn't fixed in the others. "Import from another profile" covers starting a playthrough.
-- **Hand-drawn paths are ongoing work:** the editor has to stay fast (click to add waypoints, choose the type, undo).
+- **Hand-drawn paths are ongoing work:** the editor has to stay fast (click to drop junctions, choose the type, undo).
 - **Game patches:** rerun the extractor; formats have already changed once.

@@ -53,6 +53,16 @@ body {
   .swatch {
     @apply inline-block h-1 w-5 rounded align-middle;
   }
+  /* The Move… list: paths in walking order, with slots to put a path in. */
+  .move-row {
+    @apply flex items-center gap-2 rounded px-1 py-1 outline-none hover:bg-ink focus-visible:bg-ink;
+  }
+  .move-row.is-moving {
+    @apply bg-gold/15 text-gold;
+  }
+  .move-slot {
+    @apply w-full rounded border border-dashed border-line/60 py-0.5 text-xs text-muted hover:border-gold hover:text-gold focus-visible:border-gold focus-visible:text-gold;
+  }
 }
 
 .map-canvas {
@@ -153,6 +163,40 @@ body {
   font: 700 11px/18px var(--font-sans);
   text-align: center;
   box-shadow: 0 0 0 2px var(--color-ink);
+}
+/* A path's step in the player's walk, centred halfway along it. */
+.path-step span {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  min-width: calc(var(--step-font) * 1.6);
+  padding: 0 calc(var(--step-font) / 3);
+  border-radius: 6px;
+  background: var(--color-ink);
+  color: var(--color-text);
+  font: 700 var(--step-font) / 1.6 var(--font-sans);
+  text-align: center;
+  box-shadow: 0 0 0 1px rgb(238 233 219 / 0.5);
+  cursor: pointer;
+}
+.path-step.is-highlighted span {
+  background: #ffd84a;
+  color: var(--color-ink);
+  font-size: calc(var(--step-font) * 1.25);
+}
+/* A step number held on the screen edge while its path is off screen. */
+.path-step.is-pinned span {
+  opacity: 0.75;
+  border: 1px dashed currentColor;
+}
+/* Step number size, chosen in the toolbar. */
+.steps-small {
+  --step-font: 11px;
+}
+.steps-medium {
+  --step-font: 15px;
+}
+.steps-large {
+  --step-font: 21px;
 }
 .map-node.has-portal {
   outline: 2px dashed #b48ce0;

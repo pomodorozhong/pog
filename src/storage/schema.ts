@@ -3,6 +3,7 @@ import {
   LANGUAGES,
   LAYERS,
   NODE_KINDS,
+  STEP_SIZES,
   WISHLIST_STATUSES,
   type DocumentKey,
   type DocumentName,
@@ -65,30 +66,31 @@ function checkMap(value: unknown): value is MapDocument {
     layerOf.set(n.id, n.layer);
   }
   const edgeIds = new Set<string>();
+  const steps = new Set<number>();
   const end = (id: unknown) =>
     typeof id === "string" && (layerOf.has(id) || GRACE_ID.test(id));
   return v.edges.every((e) => {
-    // A game grace's layer is game data, so only paths between two of the
-    // profile's own nodes are checked for joining layers here.
-    const joinsLayers =
-      layerOf.has(e.from) &&
-      layerOf.has(e.to) &&
-      layerOf.get(e.from) !== layerOf.get(e.to);
     const ok =
-      hasExactKeys(e, ["id", "from", "to", "type", "points", "note"]) &&
+      hasExactKeys(e, ["id", "nodes", "type", "note", "step"]) &&
       typeof e.id === "string" &&
       !edgeIds.has(e.id) &&
-      end(e.from) &&
-      end(e.to) &&
-      e.from !== e.to &&
+      Array.isArray(e.nodes) &&
+      e.nodes.length >= 2 &&
+      e.nodes.every((id, i) => end(id) && id !== e.nodes[i - 1]) &&
       includes(EDGE_TYPES, e.type) &&
-      (!joinsLayers || e.type === "waygate") &&
-      Array.isArray(e.points) &&
-      e.points.every(
-        (p) => Array.isArray(p) && p.length === 2 && p.every(isCoordinate),
-      ) &&
-      typeof e.note === "string";
+      // A game grace's layer is game data, so only the profile's own nodes
+      // are checked for joining layers here.
+      (e.type === "waygate" ||
+        new Set(e.nodes.map((id) => layerOf.get(id)).filter(Boolean)).size <=
+          1) &&
+      typeof e.note === "string" &&
+      // Steps run 1..N with no gaps or repeats.
+      Number.isInteger(e.step) &&
+      e.step >= 1 &&
+      e.step <= v.edges.length &&
+      !steps.has(e.step);
     edgeIds.add(e.id);
+    steps.add(e.step);
     return ok;
   });
 }
@@ -155,6 +157,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
       "schemaVersion",
       "language",
       "view",
+      "stepSize",
       "activeProfile",
       "profiles",
     ])
@@ -163,8 +166,9 @@ function checkPlayer(value: unknown): value is PlayerDocument {
   const v = value as PlayerDocument;
   const ids = new Set<string>();
   return (
-    v.schemaVersion === 6 &&
+    v.schemaVersion === PLAYER_VERSION &&
     includes(LANGUAGES, v.language) &&
+    includes(STEP_SIZES, v.stepSize) &&
     hasExactKeys(v.view, ["layer", "x", "y", "zoom"]) &&
     includes(LAYERS, v.view.layer) &&
     [v.view.x, v.view.y, v.view.zoom].every(isCoordinate) &&
@@ -198,8 +202,9 @@ function checkPlayer(value: unknown): value is PlayerDocument {
 }
 
 export const FIRST_PROFILE_ID = "profile-1";
-const PLAYER_VERSION = 6;
-const MAP_VERSION = 1;
+const PLAYER_VERSION = 7;
+const MAP_VERSION = 2;
+const DEFAULT_STEP_SIZE = "medium";
 const PROFILE_ID = /^[a-z0-9-]{1,64}$/;
 
 export const mapKey = (profile: string): DocumentKey => `maps/${profile}`;
@@ -226,8 +231,13 @@ const firstProfile = () => ({
  * Anything unrecognised is returned unchanged, so validation rejects it.
  */
 export function upgradeDocument(name: DocumentName, value: unknown): unknown {
-  if (name !== "player" || !value || typeof value !== "object") return value;
-  let v = value as { schemaVersion: unknown; profiles?: unknown };
+  if (!value || typeof value !== "object") return value;
+  if (name === "map") return upgradeMap(value);
+  let v = value as {
+    schemaVersion: unknown;
+    profiles?: unknown;
+    stepSize?: unknown;
+  };
   if (
     v.schemaVersion === 1 &&
     hasExactKeys(v, ["schemaVersion", "language", "view"])
@@ -236,6 +246,7 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
     return {
       ...v,
       schemaVersion: PLAYER_VERSION,
+      stepSize: DEFAULT_STEP_SIZE,
       activeProfile: FIRST_PROFILE_ID,
       profiles: [firstProfile()],
     };
@@ -245,12 +256,13 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
     v.schemaVersion < PLAYER_VERSION &&
     Array.isArray(v.profiles)
   ) {
-    // Later versions added the wishlist (3), progress (4), save link (5) and
-    // routing rules (6).
+    // Later versions added the wishlist (3), progress (4), save link (5),
+    // routing rules (6) and the step number size (7).
     const added = firstProfile();
     v = {
       ...v,
       schemaVersion: PLAYER_VERSION,
+      stepSize: "stepSize" in v ? v.stepSize : DEFAULT_STEP_SIZE,
       profiles: v.profiles.map((p: unknown) =>
         p && typeof p === "object"
           ? {
@@ -265,6 +277,62 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
     };
   }
   return v;
+}
+
+type MapV1 = {
+  schemaVersion: 1;
+  nodes: { id: string; layer: string }[];
+  edges: {
+    id: string;
+    from: string;
+    to: string;
+    type: string;
+    points: [number, number][];
+    note: string;
+  }[];
+};
+
+function upgradeMap(value: object): unknown {
+  const v = value as MapV1;
+  if (
+    v.schemaVersion !== 1 ||
+    !Array.isArray(v.nodes) ||
+    !Array.isArray(v.edges)
+  )
+    return v;
+  // Version 2 made a path one numbered line through pins. A version 1 path
+  // ran between two nodes, possibly with bends; its bends become junctions,
+  // and paths are numbered in file order.
+  const layerOf = new Map(v.nodes.map((n) => [n?.id, n?.layer]));
+  const bends: unknown[] = [];
+  const edges = v.edges.map((e, i) => {
+    if (!e || typeof e !== "object" || !Array.isArray(e.points)) return e;
+    const { from, to, points, ...rest } = e;
+    // A bend between two game graces has no known layer, so it is dropped.
+    const layer = layerOf.get(from) ?? layerOf.get(to);
+    const ids = layer
+      ? points.map(([x, y], k) => {
+          const id = `${e.id}-bend-${k + 1}`;
+          bends.push({
+            id,
+            layer,
+            x,
+            y,
+            kind: "junction",
+            label: "",
+            ref: null,
+          });
+          return id;
+        })
+      : [];
+    return { ...rest, nodes: [from, ...ids, to], step: i + 1 };
+  });
+  return {
+    ...v,
+    schemaVersion: MAP_VERSION,
+    nodes: [...v.nodes, ...bends],
+    edges,
+  };
 }
 
 const checks: {
@@ -291,6 +359,7 @@ export const initialDocuments = (): Documents => ({
     schemaVersion: PLAYER_VERSION,
     language: "en",
     view: { layer: "overworld", x: 5248, y: 5248, zoom: 3 },
+    stepSize: DEFAULT_STEP_SIZE,
     activeProfile: FIRST_PROFILE_ID,
     profiles: [firstProfile()],
   },

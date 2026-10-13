@@ -19,7 +19,7 @@ const edge = (
   from: string,
   to: string,
   type: MapEdge["type"] = "road",
-): MapEdge => ({ id, from, to, type, points: [], note: "" });
+): MapEdge => ({ id, nodes: [from, to], type, note: "", step: 0 });
 const open = { avoid: [], dlc: true };
 
 describe("travel cost", () => {
@@ -38,7 +38,7 @@ describe("travel cost", () => {
 describe("shortest paths", () => {
   // a — b — c along a road, d far away, e in the DLC.
   const map: MapDocument = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     nodes: [
       node("a", 0),
       node("b", 1400),
@@ -60,6 +60,19 @@ describe("shortest paths", () => {
     expect(pathTo(paths, "c")?.map((s) => s.via)).toEqual([
       { kind: "edge", id: "ab", type: "road" },
       { kind: "edge", id: "bc", type: "road" },
+    ]);
+  });
+
+  it("travels a path through several pins hop by hop, either way", () => {
+    const line = {
+      ...map,
+      edges: [{ ...edge("abc", "a", "c"), nodes: ["a", "b", "c"] }],
+    };
+    const back = shortestPaths(buildGraph(line, open, []), "c");
+    expect(back.seconds.get("a")).toBe(200);
+    expect(pathTo(back, "a")?.map((s) => [s.from, s.to])).toEqual([
+      ["c", "b"],
+      ["b", "a"],
     ]);
   });
 

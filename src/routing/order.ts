@@ -4,7 +4,6 @@ import type {
   Point,
   WishlistItem,
 } from "../domain/types";
-import { edgeLine } from "../map/editing";
 import {
   pathTo,
   shortestPaths,
@@ -148,28 +147,23 @@ export type RouteLine = {
   guess: boolean;
 };
 
-/** The planned route as lines on the map. */
+/** The planned route as lines on the map: each hop is straight between two pins. */
 export function routeLines(map: MapDocument, legs: Step[][]): RouteLine[] {
   const nodes = new Map(map.nodes.map((n) => [n.id, n]));
-  const edges = new Map(map.edges.map((e) => [e.id, e]));
   return legs.flat().flatMap((step): RouteLine[] => {
     const from = nodes.get(step.from);
     const to = nodes.get(step.to);
     if (!from || !to || from.layer !== to.layer) return [];
-    if (step.via.kind === "guess")
-      return [
-        {
-          layer: from.layer,
-          points: [
-            [from.x, from.y],
-            [to.x, to.y],
-          ],
-          guess: true,
-        },
-      ];
-    const edge = step.via.kind === "edge" && edges.get(step.via.id);
-    if (!edge) return [];
-    const line = edgeLine(edge, nodes.get(edge.from)!, nodes.get(edge.to)!);
-    return [{ layer: from.layer, points: line, guess: false }];
+    if (step.via.kind === "fast-travel") return [];
+    return [
+      {
+        layer: from.layer,
+        points: [
+          [from.x, from.y],
+          [to.x, to.y],
+        ],
+        guess: step.via.kind === "guess",
+      },
+    ];
   });
 }

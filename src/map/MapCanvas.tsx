@@ -17,13 +17,14 @@ import {
   type MapLayerInfo,
 } from "./catalog";
 import type { RouteLine } from "../routing/order";
-import { edgeLine, isOneWay } from "./editing";
+import type { Draft } from "./drawing";
+import { edgeRuns, isOneWay } from "./editing";
 import { enableGestures } from "./gestures";
+import { placeStep } from "./stepPlacement";
 import { EDGE_STYLE, NODE_SYMBOL } from "./style";
 import { isGameGrace } from "./graces";
 
 export type Selection = { kind: "node" | "edge"; id: string } | null;
-export type Draft = { from: string; points: Point[] } | null;
 
 export type MapCanvasHandlers = {
   onMapClick(point: Point): void;
@@ -41,7 +42,7 @@ type Props = MapCanvasHandlers & {
   nodes: MapNode[];
   edges: MapEdge[];
   selection: Selection;
-  draft: Draft;
+  draft: Draft | null;
   editable: boolean;
   language: Language;
   data: GameData;
@@ -53,15 +54,21 @@ type Props = MapCanvasHandlers & {
   route: RouteLine[];
   /** Route stop numbers, by node. */
   stops: Map<string, number>;
+  /** A path to point out, for example while choosing where to move a path. */
+  highlight: string | null;
 };
 
 const LABEL_ZOOM = 4;
+/** How far step numbers pinned to the screen edge stay from it, in pixels. */
+const STEP_INSET = 24;
 
 export function MapCanvas(props: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const overlay = useRef<L.LayerGroup | null>(null);
   const rubberBand = useRef<L.Polyline | null>(null);
+  /** Step numbers on the map, with the stretches of their path on this layer. */
+  const steps = useRef<{ marker: L.Marker; runs: Point[][] }[]>([]);
   // Leaflet handlers are bound once; they read the latest props through this ref.
   const latest = useRef(props);
   useLayoutEffect(() => {
@@ -70,6 +77,9 @@ export function MapCanvas(props: Props) {
 
   const toLatLng = ([x, y]: Point) =>
     map.current!.unproject([x, y], latest.current.info.maxZoom);
+  const placeAllSteps = () =>
+    map.current &&
+    placeSteps(map.current, steps.current, latest.current.info.maxZoom);
   const toPoint = (latLng: L.LatLng): Point => {
     const p = map.current!.project(latLng, latest.current.info.maxZoom);
     return [Math.round(p.x), Math.round(p.y)];
@@ -101,11 +111,13 @@ export function MapCanvas(props: Props) {
       latest.current.onMapClick(toPoint(event.latlng)),
     );
     instance.on("mousemove", (event: L.LeafletMouseEvent) => {
-      const { draft, nodes } = latest.current;
+      const { draft, nodes, layer } = latest.current;
       const from = draft && nodes.find((n) => n.id === draft.from);
-      if (!draft || !from) return;
-      const last = draft.points[draft.points.length - 1] ?? [from.x, from.y];
-      rubberBand.current!.setLatLngs([toLatLng(last), event.latlng]);
+      if (!from || from.layer !== layer) return;
+      rubberBand.current!.setLatLngs([
+        toLatLng([from.x, from.y]),
+        event.latlng,
+      ]);
     });
     const report = () => {
       const center = toPoint(instance.getCenter());
@@ -125,6 +137,7 @@ export function MapCanvas(props: Props) {
       clearTimeout(reportTimer);
       reportTimer = setTimeout(report, 150);
     });
+    instance.on("move zoom resize", placeAllSteps);
     const disableGestures = enableGestures(instance);
     return () => {
       clearTimeout(reportTimer);
@@ -170,47 +183,84 @@ export function MapCanvas(props: Props) {
     position,
     route,
     stops,
+    highlight,
   } = props;
   useEffect(() => {
     const group = overlay.current!;
     group.clearLayers();
+    steps.current = [];
     const byId = new Map(nodes.map((n) => [n.id, n]));
     const portalEnds = new Set<string>();
 
     for (const edge of edges) {
-      const from = byId.get(edge.from);
-      const to = byId.get(edge.to);
-      if (!from || !to) continue;
-      if (from.layer !== to.layer) {
-        portalEnds.add(from.id);
-        portalEnds.add(to.id);
-        continue;
-      }
-      if (from.layer !== layer) continue;
+      // Pins a waygate jumps between are marked instead of drawn.
+      edge.nodes.forEach((id, i) => {
+        const [a, b] = [byId.get(edge.nodes[i - 1]), byId.get(id)];
+        if (a && b && a.layer !== b.layer) {
+          portalEnds.add(a.id);
+          portalEnds.add(b.id);
+        }
+      });
+      const runs = edgeRuns(edge, byId, layer);
+      // A waygate may have only isolated endpoints on this layer. Its number
+      // still belongs here, even though the jump itself has no drawn line.
+      const stepRuns = runs.length
+        ? runs
+        : edge.nodes.flatMap((id): Point[][] => {
+            const node = byId.get(id);
+            return node?.layer === layer ? [[[node.x, node.y]]] : [];
+          });
+      if (!stepRuns.length) continue;
       const selected = selection?.kind === "edge" && selection.id === edge.id;
+      const highlighted = highlight === edge.id;
       const style = EDGE_STYLE[edge.type];
-      const line = edgeLine(edge, from, to).map(toLatLng);
-      if (selected)
-        L.polyline(line, {
-          color: "#fff",
-          weight: style.weight + 6,
-          opacity: 0.5,
-          interactive: false,
-        }).addTo(group);
-      L.polyline(line, { ...style, opacity: 0.95 })
-        .on("click", (event) => {
-          L.DomEvent.stop(event);
-          latest.current.onEdgeClick(edge.id);
-        })
+      const select = (event: L.LeafletEvent) => {
+        L.DomEvent.stop(event);
+        latest.current.onEdgeClick(edge.id);
+      };
+      for (const points of runs) {
+        const line = points.map(toLatLng);
+        if (highlighted)
+          L.polyline(line, {
+            color: "#ffd84a",
+            weight: style.weight + 10,
+            opacity: 0.85,
+            lineCap: "round",
+            interactive: false,
+          }).addTo(group);
+        else if (selected)
+          L.polyline(line, {
+            color: "#fff",
+            weight: style.weight + 6,
+            opacity: 0.5,
+            interactive: false,
+          }).addTo(group);
+        L.polyline(line, { ...style, opacity: 0.95 })
+          .on("click", select)
+          .addTo(group);
+        if (isOneWay(edge.type))
+          addArrow(
+            group,
+            line[line.length - 2],
+            line[line.length - 1],
+            style.color,
+          );
+      }
+      // One step number per path, placed by placeSteps.
+      const marker = L.marker(toLatLng(stepRuns[0][0]), {
+        icon: L.divIcon({
+          className: highlighted ? "path-step is-highlighted" : "path-step",
+          html: `<span>${edge.step}</span>`,
+          iconSize: [0, 0],
+        }),
+        keyboard: false,
+        zIndexOffset: highlighted ? 1000 : 0,
+      })
+        .on("click", select)
         .addTo(group);
-      if (isOneWay(edge.type))
-        addArrow(
-          group,
-          line[line.length - 2],
-          line[line.length - 1],
-          style.color,
-        );
+      steps.current.push({ marker, runs: stepRuns });
     }
+    placeAllSteps();
 
     for (const line of route) {
       if (line.layer !== layer) continue;
@@ -224,17 +274,9 @@ export function MapCanvas(props: Props) {
       }).addTo(group);
     }
 
-    if (draft) {
-      const from = byId.get(draft.from);
-      if (from?.layer === layer)
-        L.polyline([[from.x, from.y] as Point, ...draft.points].map(toLatLng), {
-          color: "#eee9db",
-          dashArray: "4 6",
-          weight: 3,
-          interactive: false,
-        }).addTo(group);
+    if (draft && byId.get(draft.from)?.layer === layer)
       rubberBand.current!.addTo(group);
-    } else rubberBand.current!.setLatLngs([]);
+    else rubberBand.current!.setLatLngs([]);
 
     for (const node of nodes) {
       if (node.layer !== layer) continue;
@@ -300,6 +342,7 @@ export function MapCanvas(props: Props) {
     position,
     route,
     stops,
+    highlight,
   ]);
 
   // Pan to a node selected elsewhere (for example the far end of a waygate).
@@ -335,6 +378,45 @@ function addArrow(
       iconSize: [16, 16],
     }),
   }).addTo(group);
+}
+
+/**
+ * Keep each step number on the visible part of its path, or on the screen
+ * edge nearest the path when all of it is off screen.
+ */
+function placeSteps(
+  instance: L.Map,
+  steps: { marker: L.Marker; runs: Point[][] }[],
+  maxZoom: number,
+) {
+  const { x: width, y: height } = instance.getSize();
+  const box = {
+    left: STEP_INSET,
+    top: STEP_INSET,
+    right: width - STEP_INSET,
+    bottom: height - STEP_INSET,
+  };
+  for (const { marker, runs } of steps) {
+    const onScreen = runs.map((run) =>
+      run.map((p): Point => {
+        const { x, y } = instance.latLngToContainerPoint(
+          instance.unproject(p, maxZoom),
+        );
+        return [x, y];
+      }),
+    );
+    const { point, pinned } = placeStep(onScreen, box);
+    // Put an isolated portal's number beside its pin so both remain clickable.
+    const besidePortal = !pinned && onScreen.every((run) => run.length === 1);
+    const labelPoint: Point = besidePortal
+      ? [
+          Math.min(point[0] + STEP_INSET, box.right),
+          Math.max(point[1] - STEP_INSET, box.top),
+        ]
+      : point;
+    marker.setLatLng(instance.containerPointToLatLng(labelPoint));
+    marker.getElement()?.classList.toggle("is-pinned", pinned);
+  }
 }
 
 const escapeHtml = (text: string) =>

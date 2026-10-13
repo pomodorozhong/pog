@@ -9,6 +9,7 @@ import {
 import {
   EDGE_TYPES,
   LAYERS,
+  STEP_SIZES,
   type EdgeType,
   type LayerId,
   type Language,
@@ -16,6 +17,7 @@ import {
   type NodeKind,
   type PlayerDocument,
   type Point,
+  type StepSize,
 } from "./domain/types";
 import { translate, type Translate } from "./i18n/translation";
 import { loadGameData, type GameData } from "./map/catalog";
@@ -26,10 +28,11 @@ import {
   type HistoryAction,
   type MapAction,
 } from "./map/editing";
+import { drawTo, dropJunction, type Draft } from "./map/drawing";
 import { gameGraceNodes, withGameGraces } from "./map/graces";
 import { Inspector } from "./map/Inspector";
 import { EDGE_NAMES, LAYER_NAMES } from "./map/labels";
-import { MapCanvas, type Draft, type Selection } from "./map/MapCanvas";
+import { MapCanvas, type Selection } from "./map/MapCanvas";
 import { EDGE_STYLE } from "./map/style";
 import {
   ImportFromProfile,
@@ -52,12 +55,43 @@ import {
 } from "./storage/usePersistentDocument";
 
 export type Tool = "select" | NodeKind | "path";
-const TOOLS: { tool: Tool; label: string; key: string }[] = [
-  { tool: "select", label: "Select", key: "v" },
-  { tool: "junction", label: "Junction", key: "j" },
-  { tool: "item", label: "Item pin", key: "i" },
-  { tool: "entrance", label: "Entrance", key: "e" },
-  { tool: "path", label: "Draw path", key: "p" },
+const STEP_SIZE_NAMES: Record<StepSize, string> = {
+  small: "Small",
+  medium: "Medium",
+  large: "Large",
+};
+
+const TOOLS: { tool: Tool; label: string; key: string; tip: string }[] = [
+  {
+    tool: "select",
+    label: "Select",
+    key: "v",
+    tip: "Select, move and edit nodes and paths",
+  },
+  {
+    tool: "junction",
+    label: "Junction",
+    key: "j",
+    tip: "An unnamed point where paths meet or turn",
+  },
+  {
+    tool: "item",
+    label: "Item pin",
+    key: "i",
+    tip: "Where an item is picked up, linked to the item",
+  },
+  {
+    tool: "entrance",
+    label: "Entrance",
+    key: "e",
+    tip: "A dungeon entrance, linked to a game place",
+  },
+  {
+    tool: "path",
+    label: "Draw path",
+    key: "p",
+    tip: "Draw a path through pins: each click on the map drops a junction",
+  },
 ];
 
 export default function App() {
@@ -86,7 +120,8 @@ export default function App() {
   const [tool, setTool] = useState<Tool>("select");
   const [edgeType, setEdgeType] = useState<EdgeType>("road");
   const [selection, setSelection] = useState<Selection>(null);
-  const [draft, setDraft] = useState<Draft>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [highlight, setHighlight] = useState<string | null>(null);
   /** The profile whose map is in `history`. */
   const [mapProfile, setMapProfile] = useState<string | null>(null);
   const views = useRef(new Map<LayerId, MapView>());
@@ -155,6 +190,10 @@ export default function App() {
 
   const layer = player?.view.layer ?? "overworld";
   const edit = useCallback((action: MapAction) => dispatch(action), []);
+  const changeHistory = useCallback((type: "undo" | "redo") => {
+    setDraft(null);
+    dispatch({ type });
+  }, []);
 
   const profile = player ? activeProfile(player) : null;
   const progress = profile?.progress ?? null;
@@ -180,32 +219,6 @@ export default function App() {
     [map.nodes],
   );
 
-  const finishPath = useCallback(
-    (to: string) => {
-      if (!draft || to === draft.from) return;
-      // Only waygates join layers; any other path must end on the layer it started on.
-      if (
-        nodeById.get(draft.from)?.layer !== nodeById.get(to)?.layer &&
-        edgeType !== "waygate"
-      )
-        return;
-      edit({
-        type: "addEdge",
-        edge: {
-          id: newId("edge"),
-          from: draft.from,
-          to,
-          type: edgeType,
-          points: draft.points,
-          note: "",
-        },
-      });
-      // Keep drawing from the node just reached, so a route can be laid down in one go.
-      setDraft({ from: to, points: [] });
-    },
-    [draft, edgeType, edit, nodeById],
-  );
-
   const addNode = useCallback(
     (kind: NodeKind, [x, y]: Point) => {
       const node = { id: newId(kind), layer, x, y, kind, label: "", ref: null };
@@ -219,15 +232,22 @@ export default function App() {
     onMapClick(point: Point) {
       if (tool === "select") return setSelection(null);
       if (tool === "path") {
-        if (draft && nodeById.get(draft.from)?.layer === layer)
-          return setDraft({ ...draft, points: [...draft.points, point] });
-        return setDraft({ from: addNode("junction", point), points: [] });
+        const from = draft ? nodeById.get(draft.from) : undefined;
+        const next = dropJunction(draft, from, layer, point, edgeType);
+        edit(next.action);
+        return setDraft(next.draft);
       }
       setSelection({ kind: "node", id: addNode(tool, point) });
     },
     onNodeClick(id: string) {
-      if (tool === "path")
-        return draft ? finishPath(id) : setDraft({ from: id, points: [] });
+      if (tool === "path") {
+        const to = nodeById.get(id);
+        if (!to) return;
+        const from = draft ? nodeById.get(draft.from) : undefined;
+        const next = drawTo(draft, from, to, edgeType);
+        if (next.action) edit(next.action);
+        return setDraft(next.draft);
+      }
       setSelection({ kind: "node", id });
     },
     onNodeMove(id: string, [x, y]: Point) {
@@ -295,6 +315,21 @@ export default function App() {
         });
   };
 
+  /** Go on drawing a path from its last pin. */
+  const extendPath = useCallback(
+    (id: string) => {
+      const edge = doc.edges.find((e) => e.id === id);
+      if (!edge) return;
+      const last = edge.nodes[edge.nodes.length - 1];
+      showNode(last);
+      setSelection(null);
+      setTool("path");
+      setEdgeType(edge.type);
+      setDraft({ from: last, edge: id });
+    },
+    [doc.edges, showNode],
+  );
+
   const deleteSelection = useCallback(() => {
     if (!selection) return;
     edit(
@@ -313,35 +348,13 @@ export default function App() {
       const mod = event.metaKey || event.ctrlKey;
       if (mod && event.key.toLowerCase() === "z") {
         event.preventDefault();
-        setDraft(null);
-        dispatch({ type: event.shiftKey ? "redo" : "undo" });
+        changeHistory(event.shiftKey ? "redo" : "undo");
         return;
       }
       if (mod || event.altKey) return;
+      // End the path being drawn; every pin dropped so far stays on the map.
       if (event.key === "Escape")
         return draft ? setDraft(null) : setSelection(null);
-      if (event.key === "Enter" && draft) {
-        // End the path at its last waypoint by turning it into a junction.
-        const last = draft.points[draft.points.length - 1];
-        if (!last) return setDraft(null);
-        const end = addNode("junction", last);
-        edit({
-          type: "addEdge",
-          edge: {
-            id: newId("edge"),
-            from: draft.from,
-            to: end,
-            type: edgeType,
-            points: draft.points.slice(0, -1),
-            note: "",
-          },
-        });
-        return setDraft(null);
-      }
-      if (event.key === "Backspace" && draft) {
-        event.preventDefault();
-        return setDraft({ ...draft, points: draft.points.slice(0, -1) });
-      }
       if (event.key === "Delete" || event.key === "Backspace")
         return deleteSelection();
       const picked = TOOLS.find(
@@ -354,7 +367,7 @@ export default function App() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [draft, edgeType, addNode, edit, deleteSelection]);
+  }, [draft, deleteSelection, changeHistory]);
 
   if (dataError)
     return (
@@ -417,12 +430,12 @@ export default function App() {
         role="toolbar"
         aria-label={t("Map tools")}
       >
-        {TOOLS.map(({ tool: id, label, key }) => (
+        {TOOLS.map(({ tool: id, label, key, tip }) => (
           <button
             key={id}
             className="chip"
             aria-pressed={tool === id}
-            title={`${t(label)} (${key.toUpperCase()})`}
+            title={`${t(tip)} (${key.toUpperCase()})`}
             onClick={() => {
               setTool(id);
               setDraft(null);
@@ -437,7 +450,11 @@ export default function App() {
             <select
               className="field"
               value={edgeType}
-              onChange={(event) => setEdgeType(event.target.value as EdgeType)}
+              onChange={(event) => {
+                setEdgeType(event.target.value as EdgeType);
+                // A path has one type: a new type starts a new path from here.
+                if (draft) setDraft({ from: draft.from, edge: null });
+              }}
             >
               {EDGE_TYPES.map((type) => (
                 <option key={type} value={type}>
@@ -451,18 +468,37 @@ export default function App() {
             />
           </label>
         )}
-        <div className="ml-auto flex gap-1">
+        <label className="ml-auto flex items-center gap-2">
+          <span className="text-muted">{t("Path numbers")}</span>
+          <select
+            className="field"
+            value={player.stepSize}
+            onChange={(event) =>
+              setPlayer({
+                ...player,
+                stepSize: event.target.value as StepSize,
+              })
+            }
+          >
+            {STEP_SIZES.map((size) => (
+              <option key={size} value={size}>
+                {t(STEP_SIZE_NAMES[size])}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="flex gap-1">
           <button
             className="chip"
             disabled={!history.past.length}
-            onClick={() => dispatch({ type: "undo" })}
+            onClick={() => changeHistory("undo")}
           >
             {t("Undo")}
           </button>
           <button
             className="chip"
             disabled={!history.future.length}
-            onClick={() => dispatch({ type: "redo" })}
+            onClick={() => changeHistory("redo")}
           >
             {t("Redo")}
           </button>
@@ -470,7 +506,9 @@ export default function App() {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <div className={`relative min-h-[50vh] flex-1 tool-${tool}`}>
+        <div
+          className={`relative min-h-[50vh] flex-1 tool-${tool} steps-${player.stepSize}`}
+        >
           <MapCanvas
             {...handlers}
             layer={layer}
@@ -487,6 +525,7 @@ export default function App() {
             position={progress?.position ?? null}
             route={route}
             stops={stops}
+            highlight={highlight}
           />
           <p className="pointer-events-none absolute bottom-2 left-2 z-[500] max-w-[70%] rounded bg-ink/85 px-2 py-1 text-xs text-muted">
             {t(toolHint(tool, draft !== null))}
@@ -502,6 +541,8 @@ export default function App() {
           edit={edit}
           select={setSelection}
           showNode={showNode}
+          highlight={setHighlight}
+          extendPath={extendPath}
           deleteSelection={deleteSelection}
           recovery={mapSave.recovery ?? playerSave.recovery}
           profile={
@@ -572,7 +613,7 @@ export default function App() {
 function toolHint(tool: Tool, drawing: boolean) {
   if (tool === "path")
     return drawing
-      ? "Click the map to add waypoints, click a node to finish. Enter ends at the last waypoint, Backspace removes it, Esc cancels."
+      ? "Click the map to drop a junction on the path, or click a node to take the path through it. Esc ends the path."
       : "Click a node (or the map) to start a path.";
   if (tool === "select")
     return "Click to select, drag to move. Delete removes the selection; ⌘Z undoes.";

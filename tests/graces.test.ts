@@ -33,11 +33,12 @@ const edge = (
   from: string,
   to: string,
   type: MapEdge["type"] = "road",
-): MapEdge => ({ id, from, to, type, points: [], note: "" });
+): MapEdge => ({ id, nodes: [from, to], type, note: "", step: 0 });
 const doc = (nodes: MapNode[] = [], edges: MapEdge[] = []): MapDocument => ({
-  schemaVersion: 1,
+  schemaVersion: 2,
   nodes,
-  edges,
+  // Paths are walked in the order given.
+  edges: edges.map((e, i) => ({ ...e, step: i + 1 })),
 });
 
 const graces = gameGraceNodes([

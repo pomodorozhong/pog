@@ -2,10 +2,9 @@ import type {
   EdgeType,
   MapDocument,
   MapNode,
-  Point,
   RouteRules,
 } from "../domain/types";
-import { edgeLine, isOneWay } from "../map/editing";
+import { isOneWay } from "../map/editing";
 
 // Costs are seconds of play. One map pixel is one metre: the world-to-map
 // transform only shifts coordinates.
@@ -49,13 +48,6 @@ export type Graph = {
   fastTravel: string[];
 };
 
-const length = (line: Point[]) =>
-  line.reduce(
-    (sum, [x, y], i) =>
-      i ? sum + Math.hypot(x - line[i - 1][0], y - line[i - 1][1]) : 0,
-    0,
-  );
-
 /** Seconds to travel a drawn path, or null when the rules rule it out. */
 export function edgeSeconds(
   type: EdgeType,
@@ -97,21 +89,23 @@ export function buildGraph(
     return top;
   };
 
-  for (const edge of map.edges) {
-    const from = nodes.get(edge.from);
-    const to = nodes.get(edge.to);
-    if (!from || !to) continue;
-    const seconds = edgeSeconds(
-      edge.type,
-      from.layer === to.layer ? length(edgeLine(edge, from, to)) : 0,
-      rules,
-    );
-    if (seconds === null) continue;
-    group.set(root(from.id), root(to.id));
-    const via: Via = { kind: "edge", id: edge.id, type: edge.type };
-    add(from.id, { to: to.id, via, seconds });
-    if (!isOneWay(edge.type)) add(to.id, { to: from.id, via, seconds });
-  }
+  // Each pair of neighbouring pins on a path is one hop.
+  for (const edge of map.edges)
+    for (const [i, id] of edge.nodes.entries()) {
+      const from = nodes.get(edge.nodes[i - 1]);
+      const to = nodes.get(id);
+      if (!from || !to) continue;
+      const seconds = edgeSeconds(
+        edge.type,
+        from.layer === to.layer ? Math.hypot(to.x - from.x, to.y - from.y) : 0,
+        rules,
+      );
+      if (seconds === null) continue;
+      group.set(root(from.id), root(to.id));
+      const via: Via = { kind: "edge", id: edge.id, type: edge.type };
+      add(from.id, { to: to.id, via, seconds });
+      if (!isOneWay(edge.type)) add(to.id, { to: from.id, via, seconds });
+    }
 
   // Guesses only bridge pieces the drawn paths don't connect, so a path drawn
   // on foot (around a cliff, say) isn't undercut by a straight ride.

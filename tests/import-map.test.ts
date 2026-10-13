@@ -24,11 +24,12 @@ const edge = (
   from: string,
   to: string,
   type: MapEdge["type"] = "road",
-): MapEdge => ({ id, from, to, type, points: [], note: "" });
+): MapEdge => ({ id, nodes: [from, to], type, note: "", step: 0 });
 const doc = (nodes: MapNode[], edges: MapEdge[] = []): MapDocument => ({
-  schemaVersion: 1,
+  schemaVersion: 2,
   nodes,
-  edges,
+  // Paths are walked in the order given.
+  edges: edges.map((e, i) => ({ ...e, step: i + 1 })),
 });
 // What every profile's map shows: a game grace, by its grace id.
 const elleh = node("grace/1", { kind: "grace", ref: "grace/1" });
@@ -51,7 +52,7 @@ describe("import from another profile", () => {
     });
     const result = copy(target, source);
     expect(result.nodes.map((n) => n.id)).toEqual(["j", "cave"]);
-    expect(result.edges.map((e) => [e.from, e.to])).toEqual([
+    expect(result.edges.map((e) => e.nodes)).toEqual([
       ["grace/1", "j"],
       ["j", "cave"],
     ]);
@@ -68,6 +69,20 @@ describe("import from another profile", () => {
     expect(overworld.edges.map((e) => e.id)).toEqual(["road"]);
     const both = copy(overworld, source, "underground");
     expect(both.edges.map((e) => e.id)).toEqual(["road", "down"]);
+  });
+
+  it("numbers copied paths in their order, after the target's last path", () => {
+    const target = doc([node("k")], [edge("mine", "k", "grace/1")]);
+    const reversed = {
+      ...source,
+      edges: source.edges.map((e) => ({ ...e, step: 3 - e.step })),
+    };
+    const result = copy(target, reversed);
+    expect(result.edges.map((e) => [e.id, e.step])).toEqual([
+      ["mine", 1],
+      ["down", 2],
+      ["road", 3],
+    ]);
   });
 
   it("skips a path already drawn between the same nodes", () => {
