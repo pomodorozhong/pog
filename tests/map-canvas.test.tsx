@@ -149,6 +149,43 @@ const canvasProps = (): ComponentProps<typeof MapCanvas> => ({
 });
 
 describe("grace visibility", () => {
+  it("preserves paths, step numbers and retained grace markers when the filter changes", () => {
+    const props = {
+      ...canvasProps(),
+      view: { layer: "overworld" as const, x: 100, y: 100, zoom: 6 },
+      edges: [
+        {
+          id: "walk",
+          nodes: ["grace/1", "grace/2", "grace/3"],
+          type: "road" as const,
+          note: "",
+          step: 1,
+        },
+      ],
+    };
+    const { container, rerender } = render(<MapCanvas {...props} />);
+    const step = container.querySelector(".path-step")!;
+    const grace = container.querySelector(".map-node--grace")!;
+    const label = [...container.querySelectorAll(".node-label--grace")].find(
+      (element) => element.textContent === "start",
+    )!;
+    const path = container.querySelector(".leaflet-overlay-pane path")!;
+    expect(step).not.toBeNull();
+    expect(path).not.toBeNull();
+    expect(label).not.toBeUndefined();
+    rerender(<MapCanvas {...props} hideUnusedGraces />);
+    expect(container.querySelectorAll(".map-node--grace")).toHaveLength(3);
+    expect(container.querySelector(".path-step")).toBe(step);
+    expect(container.querySelector(".map-node--grace")).toBe(grace);
+    expect(label.isConnected).toBe(true);
+    expect(container.querySelector(".leaflet-overlay-pane path")).toBe(path);
+    rerender(<MapCanvas {...props} />);
+    expect(container.querySelectorAll(".map-node--grace")).toHaveLength(4);
+    expect(container.querySelector(".path-step")).toBe(step);
+    expect(container.querySelector(".map-node--grace")).toBe(grace);
+    expect(label.isConnected).toBe(true);
+  });
+
   it("keeps every pin on a drawn path, including an inner grace, and updates with the map", () => {
     const props = canvasProps();
     const { container, rerender } = render(<MapCanvas {...props} />);

@@ -75,6 +75,9 @@ export function MapCanvas(props: Props) {
   const map = useRef<L.Map | null>(null);
   const overlay = useRef<L.LayerGroup | null>(null);
   const rubberBand = useRef<L.Polyline | null>(null);
+  const graceMarkers = useRef<
+    { id: string; marker: L.Marker; onPath: boolean }[]
+  >([]);
   const labels = useRef<
     { marker: L.Marker; always: boolean; minZoom: number | null }[]
   >([]);
@@ -85,6 +88,25 @@ export function MapCanvas(props: Props) {
   useLayoutEffect(() => {
     latest.current = props;
   });
+
+  const syncGraceVisibility = () => {
+    const group = overlay.current;
+    if (!group) return;
+    const { hideUnusedGraces, drawing, position, selection } = latest.current;
+    for (const { id, marker, onPath } of graceMarkers.current) {
+      const visible =
+        !hideUnusedGraces ||
+        drawing ||
+        onPath ||
+        position === id ||
+        (selection?.kind === "node" && selection.id === id);
+      // Keep retained markers and the rest of the overlay attached. Rebuilding
+      // everything here restarts tooltip fades and makes the map flash.
+      if (visible && !group.hasLayer(marker)) marker.addTo(group);
+      else if (!visible && group.hasLayer(marker)) group.removeLayer(marker);
+    }
+  };
+  useLayoutEffect(syncGraceVisibility, [props.hideUnusedGraces, props.drawing]);
 
   const toLatLng = ([x, y]: Point) =>
     map.current!.unproject([x, y], latest.current.info.maxZoom);
@@ -198,8 +220,6 @@ export function MapCanvas(props: Props) {
     selection,
     draft,
     editable,
-    drawing,
-    hideUnusedGraces,
     graceNames,
     language,
     data,
@@ -213,6 +233,7 @@ export function MapCanvas(props: Props) {
   useEffect(() => {
     const group = overlay.current!;
     group.clearLayers();
+    graceMarkers.current = [];
     steps.current = [];
     labels.current = [];
     const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -308,15 +329,6 @@ export function MapCanvas(props: Props) {
     for (const node of nodes) {
       if (node.layer !== layer) continue;
       const selected = selection?.kind === "node" && selection.id === node.id;
-      if (
-        node.kind === "grace" &&
-        hideUnusedGraces &&
-        !drawing &&
-        !pathNodes.has(node.id) &&
-        position !== node.id &&
-        !selected
-      )
-        continue;
       const name = displayName(data, node, language);
       const entry = node.ref ? data.byId.get(node.ref) : undefined;
       const image =
@@ -355,8 +367,14 @@ export function MapCanvas(props: Props) {
             node.id,
             toPoint((event.target as L.Marker).getLatLng()),
           ),
-        )
-        .addTo(group);
+        );
+      if (node.kind === "grace")
+        graceMarkers.current.push({
+          id: node.id,
+          marker,
+          onPath: pathNodes.has(node.id),
+        });
+      else marker.addTo(group);
       if (name) {
         const always =
           selected ||
@@ -383,14 +401,13 @@ export function MapCanvas(props: Props) {
         labels.current.push({ marker, always, minZoom });
       }
     }
+    syncGraceVisibility();
   }, [
     nodes,
     edges,
     selection,
     draft,
     editable,
-    drawing,
-    hideUnusedGraces,
     graceNames,
     language,
     data,
