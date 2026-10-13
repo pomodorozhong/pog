@@ -145,5 +145,9 @@
   "Move step {step} to…": "將第 {step} 步移到…",
   "Done": "完成",
   "Put here": "放在這裡",
-  "Split here": "在此分割"
+  "Split here": "在此分割",
+  "Path numbers": "路徑編號",
+  "Small": "小",
+  "Medium": "中",
+  "Large": "大"
 }

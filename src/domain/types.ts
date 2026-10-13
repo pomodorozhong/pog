@@ -68,6 +68,9 @@ export type MapDocument = {
 };
 
 export type MapView = { layer: LayerId; x: number; y: number; zoom: number };
+export const STEP_SIZES = ["small", "medium", "large"] as const;
+/** How big path step numbers show on the map. */
+export type StepSize = (typeof STEP_SIZES)[number];
 export const WISHLIST_STATUSES = ["needed", "acquired", "skipped"] as const;
 export type WishlistStatus = (typeof WISHLIST_STATUSES)[number];
 
@@ -127,9 +130,10 @@ export type Profile = {
 };
 
 export type PlayerDocument = {
-  schemaVersion: 6;
+  schemaVersion: 7;
   language: Language;
   view: MapView;
+  stepSize: StepSize;
   activeProfile: string;
   profiles: Profile[];
 };

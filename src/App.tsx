@@ -9,6 +9,7 @@ import {
 import {
   EDGE_TYPES,
   LAYERS,
+  STEP_SIZES,
   type EdgeType,
   type LayerId,
   type Language,
@@ -16,6 +17,7 @@ import {
   type NodeKind,
   type PlayerDocument,
   type Point,
+  type StepSize,
 } from "./domain/types";
 import { translate, type Translate } from "./i18n/translation";
 import { loadGameData, type GameData } from "./map/catalog";
@@ -53,6 +55,12 @@ import {
 } from "./storage/usePersistentDocument";
 
 export type Tool = "select" | NodeKind | "path";
+const STEP_SIZE_NAMES: Record<StepSize, string> = {
+  small: "Small",
+  medium: "Medium",
+  large: "Large",
+};
+
 const TOOLS: { tool: Tool; label: string; key: string; tip: string }[] = [
   {
     tool: "select",
@@ -457,7 +465,26 @@ export default function App() {
             />
           </label>
         )}
-        <div className="ml-auto flex gap-1">
+        <label className="ml-auto flex items-center gap-2">
+          <span className="text-muted">{t("Path numbers")}</span>
+          <select
+            className="field"
+            value={player.stepSize}
+            onChange={(event) =>
+              setPlayer({
+                ...player,
+                stepSize: event.target.value as StepSize,
+              })
+            }
+          >
+            {STEP_SIZES.map((size) => (
+              <option key={size} value={size}>
+                {t(STEP_SIZE_NAMES[size])}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="flex gap-1">
           <button
             className="chip"
             disabled={!history.past.length}
@@ -476,7 +503,9 @@ export default function App() {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <div className={`relative min-h-[50vh] flex-1 tool-${tool}`}>
+        <div
+          className={`relative min-h-[50vh] flex-1 tool-${tool} steps-${player.stepSize}`}
+        >
           <MapCanvas
             {...handlers}
             layer={layer}

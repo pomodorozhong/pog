@@ -3,6 +3,7 @@ import {
   LANGUAGES,
   LAYERS,
   NODE_KINDS,
+  STEP_SIZES,
   WISHLIST_STATUSES,
   type DocumentKey,
   type DocumentName,
@@ -156,6 +157,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
       "schemaVersion",
       "language",
       "view",
+      "stepSize",
       "activeProfile",
       "profiles",
     ])
@@ -164,8 +166,9 @@ function checkPlayer(value: unknown): value is PlayerDocument {
   const v = value as PlayerDocument;
   const ids = new Set<string>();
   return (
-    v.schemaVersion === 6 &&
+    v.schemaVersion === PLAYER_VERSION &&
     includes(LANGUAGES, v.language) &&
+    includes(STEP_SIZES, v.stepSize) &&
     hasExactKeys(v.view, ["layer", "x", "y", "zoom"]) &&
     includes(LAYERS, v.view.layer) &&
     [v.view.x, v.view.y, v.view.zoom].every(isCoordinate) &&
@@ -199,8 +202,9 @@ function checkPlayer(value: unknown): value is PlayerDocument {
 }
 
 export const FIRST_PROFILE_ID = "profile-1";
-const PLAYER_VERSION = 6;
+const PLAYER_VERSION = 7;
 const MAP_VERSION = 2;
+const DEFAULT_STEP_SIZE = "medium";
 const PROFILE_ID = /^[a-z0-9-]{1,64}$/;
 
 export const mapKey = (profile: string): DocumentKey => `maps/${profile}`;
@@ -229,7 +233,11 @@ const firstProfile = () => ({
 export function upgradeDocument(name: DocumentName, value: unknown): unknown {
   if (!value || typeof value !== "object") return value;
   if (name === "map") return upgradeMap(value);
-  let v = value as { schemaVersion: unknown; profiles?: unknown };
+  let v = value as {
+    schemaVersion: unknown;
+    profiles?: unknown;
+    stepSize?: unknown;
+  };
   if (
     v.schemaVersion === 1 &&
     hasExactKeys(v, ["schemaVersion", "language", "view"])
@@ -238,6 +246,7 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
     return {
       ...v,
       schemaVersion: PLAYER_VERSION,
+      stepSize: DEFAULT_STEP_SIZE,
       activeProfile: FIRST_PROFILE_ID,
       profiles: [firstProfile()],
     };
@@ -247,12 +256,13 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
     v.schemaVersion < PLAYER_VERSION &&
     Array.isArray(v.profiles)
   ) {
-    // Later versions added the wishlist (3), progress (4), save link (5) and
-    // routing rules (6).
+    // Later versions added the wishlist (3), progress (4), save link (5),
+    // routing rules (6) and the step number size (7).
     const added = firstProfile();
     v = {
       ...v,
       schemaVersion: PLAYER_VERSION,
+      stepSize: "stepSize" in v ? v.stepSize : DEFAULT_STEP_SIZE,
       profiles: v.profiles.map((p: unknown) =>
         p && typeof p === "object"
           ? {
@@ -349,6 +359,7 @@ export const initialDocuments = (): Documents => ({
     schemaVersion: PLAYER_VERSION,
     language: "en",
     view: { layer: "overworld", x: 5248, y: 5248, zoom: 3 },
+    stepSize: DEFAULT_STEP_SIZE,
     activeProfile: FIRST_PROFILE_ID,
     profiles: [firstProfile()],
   },

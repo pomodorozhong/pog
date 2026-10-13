@@ -68,7 +68,7 @@ Three kinds, kept separate:
    - **Upgrade:** the single `map.json` of earlier versions becomes the first profile's map (`profile-1`) the first time it is read.
    - **Profile IDs** are lowercase letters, digits and dashes, since they name files.
    - **Deleting a profile** moves its map file into a `deleted/` folder instead of removing it, since it's player data.
-3. **Player state:** `player.json` in the app data folder: app settings (language, map view) plus the playthrough profiles and which one is active.
+3. **Player state:** `player.json` in the app data folder: app settings (language, map view, path number size) plus the playthrough profiles and which one is active.
    - **Each profile:** ID, name, goal, constraints (structured fields plus a free-text note), wishlist (item, status needed / acquired / skipped, note), progress (discovered graces, picked-up items, beaten bosses, as event flags), current position, and the linked save slot (Steam ID, slot index, character name).
    - **Upgrades:** older files upgrade on read; a version 1 file (no profiles) becomes one untitled profile.
 

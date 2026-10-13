@@ -168,12 +168,12 @@ body {
 .path-step span {
   position: absolute;
   transform: translate(-50%, -50%);
-  min-width: 24px;
-  padding: 0 5px;
+  min-width: calc(var(--step-font) * 1.6);
+  padding: 0 calc(var(--step-font) / 3);
   border-radius: 6px;
   background: var(--color-ink);
   color: var(--color-text);
-  font: 700 15px/24px var(--font-sans);
+  font: 700 var(--step-font) / 1.6 var(--font-sans);
   text-align: center;
   box-shadow: 0 0 0 1px rgb(238 233 219 / 0.5);
   cursor: pointer;
@@ -181,9 +181,17 @@ body {
 .path-step.is-highlighted span {
   background: #ffd84a;
   color: var(--color-ink);
-  font-size: 18px;
-  line-height: 30px;
-  min-width: 30px;
+  font-size: calc(var(--step-font) * 1.25);
+}
+/* Step number size, chosen in the toolbar. */
+.steps-small {
+  --step-font: 11px;
+}
+.steps-medium {
+  --step-font: 15px;
+}
+.steps-large {
+  --step-font: 21px;
 }
 .map-node.has-portal {
   outline: 2px dashed #b48ce0;
