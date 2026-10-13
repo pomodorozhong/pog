@@ -86,6 +86,8 @@ Leaflet with `CRS.Simple` over the extracted tiles; one layer per map. The edito
 
 **Graces:** every game grace shows on its layer; of graces sharing a name and spot (Leyndell and its ashen twin) only the first shows. There's no tool to place a grace by hand, and a stored map holds no graces.
 
+**Planned grace filter (#32):** one app setting, shared across playthroughs and off by default, hides graces no path on the active profile's map runs through. A grace stays visible at the player's position, when selected, and while drawing a path. This only changes the display; routing and fast travel still use every discovered grace.
+
 ### Path graph
 
 - **Nodes:** graces, junctions, item pins, dungeon entrances.
