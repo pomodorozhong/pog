@@ -63,7 +63,8 @@ Everything below comes from the player's own install, read natively on macOS in 
 Three kinds, kept separate:
 
 1. **Game data (generated):** `game-data/catalog.json`, `icons/`, `map/`. Never edited by hand, never committed.
-2. **Player-authored map data, one file per profile:** `maps/<profile id>.json` in the app data folder. Nodes (grace, junction, item, entrance) in native map pixels of their layer, and edges (typed polylines between nodes; only waygates join layers).
+2. **Player-authored map data, one file per profile:** `maps/<profile id>.json` in the app data folder (schema version 2). Nodes (junction, item, entrance) in native map pixels of their layer, and edges (typed polylines between nodes; only waygates join layers). An edge can end at a game grace by its grace ID (`grace/<row>`).
+   - **Upgrade from version 1:** version 1 stored a copy of each game grace the player added; reading it drops the copies and ends their paths at the grace ID. A position set on a copy reads as not set.
    - **Upgrade:** the single `map.json` of earlier versions becomes the first profile's map (`profile-1`) the first time it is read.
    - **Profile IDs** are lowercase letters, digits and dashes, since they name files.
    - **Deleting a profile** moves its map file into a `deleted/` folder instead of removing it, since it's player data.
@@ -73,7 +74,7 @@ Three kinds, kept separate:
 
 `ROUTE_OF_GRACE_DATA_DIR` overrides the app data folder (used for tests). Saves are atomic, revision-checked across windows, and served to localhost only.
 
-Graces imported from game data are stored as ordinary nodes with a `ref` to their grace ID. That way paths can attach to them, and the player can still nudge them.
+**Game graces are not stored.** Like the map tiles, they're game data: every profile's map shows them from `catalog.json`, with the grace ID as node ID, so paths, positions and fast travel refer to them directly and a game patch reaches every profile. They can't be moved, edited or deleted. (Milestone 3 stored them as nodes so they could be nudged; the transform turned out exact, so that wasn't needed.)
 
 The route itself is never stored: it is worked out from the active profile's map, wishlist, progress, position and constraints.
 
@@ -83,7 +84,7 @@ The route itself is never stored: it is worked out from the active profile's map
 
 Leaflet with `CRS.Simple` over the extracted tiles; one layer per map. The editor places nodes, draws typed paths, links nodes to catalog items (with icons), and has undo/redo per profile. Legacy dungeons stay single entrance nodes with step-by-step notes. The overworld map doesn't help inside them, though `WorldMapLegacyConvParam` can place their graces on the overworld.
 
-**Grace import:** one click per layer. Hand-placed graces within 48 px of a game grace get linked to it; graces already linked or duplicated (Leyndell's ashen twins) are skipped. Unlinked grace nodes get nearby-grace suggestions.
+**Graces:** every game grace shows on its layer; of graces sharing a name and spot (Leyndell and its ashen twin) only the first shows. There's no tool to place a grace by hand. A hand-placed grace from earlier versions offers nearby game graces and is replaced by the one picked, its paths moving over.
 
 ### Path graph
 
@@ -93,7 +94,7 @@ Leaflet with `CRS.Simple` over the extracted tiles; one layer per map. The edito
 
 ### Profiles
 
-Create, rename, switch (header) and delete. A new profile starts with an empty map. **"Import from another profile"** copies another profile's nodes and paths (optionally one layer) into the active profile as one undo step; graces already present (same grace ID) are reused instead of duplicated, so copied paths attach to them. The seed wishlist (`seed/wishlist.json`, the "Great Stars Guard Counter" build) can start a profile, with official names replacing the seed's.
+Create, rename, switch (header) and delete. A new profile starts with no nodes of its own; the game graces are already there. **"Import from another profile"** copies another profile's nodes and paths (optionally one layer) into the active profile as one undo step; nodes already present (same ID, game graces included) are reused, so copied paths attach to them. The seed wishlist (`seed/wishlist.json`, the "Great Stars Guard Counter" build) can start a profile, with official names replacing the seed's.
 
 ### Progress from the save
 
