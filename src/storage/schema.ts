@@ -65,6 +65,7 @@ function checkMap(value: unknown): value is MapDocument {
     layerOf.set(n.id, n.layer);
   }
   const edgeIds = new Set<string>();
+  const steps = new Set<number>();
   const end = (id: unknown) =>
     typeof id === "string" && (layerOf.has(id) || GRACE_ID.test(id));
   return v.edges.every((e) => {
@@ -75,7 +76,7 @@ function checkMap(value: unknown): value is MapDocument {
       layerOf.has(e.to) &&
       layerOf.get(e.from) !== layerOf.get(e.to);
     const ok =
-      hasExactKeys(e, ["id", "from", "to", "type", "points", "note"]) &&
+      hasExactKeys(e, ["id", "from", "to", "type", "points", "note", "step"]) &&
       typeof e.id === "string" &&
       !edgeIds.has(e.id) &&
       end(e.from) &&
@@ -87,8 +88,14 @@ function checkMap(value: unknown): value is MapDocument {
       e.points.every(
         (p) => Array.isArray(p) && p.length === 2 && p.every(isCoordinate),
       ) &&
-      typeof e.note === "string";
+      typeof e.note === "string" &&
+      // Steps run 1..N with no gaps or repeats.
+      Number.isInteger(e.step) &&
+      e.step >= 1 &&
+      e.step <= v.edges.length &&
+      !steps.has(e.step);
     edgeIds.add(e.id);
+    steps.add(e.step);
     return ok;
   });
 }
@@ -199,7 +206,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
 
 export const FIRST_PROFILE_ID = "profile-1";
 const PLAYER_VERSION = 6;
-const MAP_VERSION = 1;
+const MAP_VERSION = 2;
 const PROFILE_ID = /^[a-z0-9-]{1,64}$/;
 
 export const mapKey = (profile: string): DocumentKey => `maps/${profile}`;
@@ -226,7 +233,8 @@ const firstProfile = () => ({
  * Anything unrecognised is returned unchanged, so validation rejects it.
  */
 export function upgradeDocument(name: DocumentName, value: unknown): unknown {
-  if (name !== "player" || !value || typeof value !== "object") return value;
+  if (!value || typeof value !== "object") return value;
+  if (name === "map") return upgradeMap(value);
   let v = value as { schemaVersion: unknown; profiles?: unknown };
   if (
     v.schemaVersion === 1 &&
@@ -264,6 +272,20 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
       ),
     };
   }
+  return v;
+}
+
+function upgradeMap(value: object): unknown {
+  const v = value as { schemaVersion: unknown; edges?: unknown };
+  // Version 2 numbered the paths; version 1 paths are numbered in file order.
+  if (v.schemaVersion === 1 && Array.isArray(v.edges))
+    return {
+      ...v,
+      schemaVersion: MAP_VERSION,
+      edges: v.edges.map((e: unknown, i) =>
+        e && typeof e === "object" ? { ...e, step: i + 1 } : e,
+      ),
+    };
   return v;
 }
 

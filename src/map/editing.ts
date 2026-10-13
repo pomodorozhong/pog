@@ -9,17 +9,22 @@ import type {
 export const newId = (prefix: string) =>
   `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
 
+/** A path to add: it always becomes the last step. */
+export type NewEdge = Omit<MapEdge, "step">;
+
 export type MapAction =
   | { type: "addNode"; node: MapNode }
   | { type: "updateNode"; id: string; changes: Partial<Omit<MapNode, "id">> }
   | { type: "removeNode"; id: string }
-  | { type: "addEdge"; edge: MapEdge }
+  | { type: "addEdge"; edge: NewEdge }
   | {
       type: "updateEdge";
       id: string;
       changes: Partial<Pick<MapEdge, "type" | "note" | "points">>;
     }
   | { type: "removeEdge"; id: string }
+  /** Give a path another step; the paths in between shift by one. */
+  | { type: "moveEdge"; id: string; step: number }
   /** Several edits as one undo step. */
   | { type: "batch"; actions: MapAction[] };
 
@@ -61,7 +66,9 @@ export function applyMapAction(
       return {
         ...doc,
         nodes: doc.nodes.filter((n) => n.id !== action.id),
-        edges: doc.edges.filter((e) => !touches(e, action.id)),
+        edges: renumber(
+          inStepOrder(doc.edges).filter((e) => !touches(e, action.id)),
+        ),
       };
     case "addEdge": {
       const { edge } = action;
@@ -73,7 +80,11 @@ export function applyMapAction(
         ...doc,
         edges: [
           ...doc.edges,
-          from.layer === to.layer ? edge : { ...edge, points: [] },
+          {
+            ...edge,
+            points: from.layer === to.layer ? edge.points : [],
+            step: doc.edges.length + 1,
+          },
         ],
       };
     }
@@ -92,7 +103,20 @@ export function applyMapAction(
     }
     case "removeEdge":
       if (!doc.edges.some((e) => e.id === action.id)) return doc;
-      return { ...doc, edges: doc.edges.filter((e) => e.id !== action.id) };
+      return {
+        ...doc,
+        edges: renumber(
+          inStepOrder(doc.edges).filter((e) => e.id !== action.id),
+        ),
+      };
+    case "moveEdge": {
+      const edge = doc.edges.find((e) => e.id === action.id);
+      const step = Math.min(Math.max(1, action.step), doc.edges.length);
+      if (!edge || !Number.isInteger(step) || step === edge.step) return doc;
+      const others = inStepOrder(doc.edges).filter((e) => e.id !== edge.id);
+      others.splice(step - 1, 0, edge);
+      return { ...doc, edges: renumber(others) };
+    }
     case "batch":
       return action.actions.reduce(
         (next, each) => applyMapAction(next, each, fixed),
@@ -103,6 +127,14 @@ export function applyMapAction(
 
 const touches = (edge: MapEdge, nodeId: string) =>
   edge.from === nodeId || edge.to === nodeId;
+
+/** Paths in walking order. */
+export const inStepOrder = (edges: MapEdge[]) =>
+  [...edges].sort((a, b) => a.step - b.step);
+
+/** Number paths 1..N in the order given. */
+const renumber = (edges: MapEdge[]) =>
+  edges.map((e, i) => (e.step === i + 1 ? e : { ...e, step: i + 1 }));
 
 export type History = {
   past: MapDocument[];

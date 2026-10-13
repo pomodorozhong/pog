@@ -21,7 +21,7 @@ const node = (id: string, x: number, y = 0): MapNode => ({
 /** Points on a line, joined by a road in the given order. */
 function line(ids: string[], xs: number[]): MapDocument {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     nodes: ids.map((id, i) => node(id, xs[i])),
     edges: ids.slice(1).map((id, i) => ({
       id: `e${i}`,
@@ -30,6 +30,7 @@ function line(ids: string[], xs: number[]): MapDocument {
       type: "road" as const,
       points: [],
       note: "",
+      step: i + 1,
     })),
   };
 }
@@ -62,7 +63,7 @@ describe("visit order", () => {
     // On a line from 0: nearest neighbour goes to a (+1 km), back past the
     // start to b (−2 km), then out to c (+10 km): 16 km. b, a, c is 14 km.
     const spread: MapDocument = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       nodes: [
         node("s", 0),
         node("a", 1000),
@@ -83,7 +84,7 @@ describe("visit order", () => {
 describe("route targets", () => {
   it("takes needed wishlist items that have a pin", () => {
     const map: MapDocument = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       nodes: [
         { ...node("pin", 0), kind: "item", ref: "weapon/1" },
         { ...node("got", 0), kind: "item", ref: "weapon/2" },

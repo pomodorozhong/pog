@@ -19,7 +19,7 @@ const edge = (
   from: string,
   to: string,
   type: MapEdge["type"] = "road",
-): MapEdge => ({ id, from, to, type, points: [], note: "" });
+): MapEdge => ({ id, from, to, type, points: [], note: "", step: 0 });
 const open = { avoid: [], dlc: true };
 
 describe("travel cost", () => {
@@ -38,7 +38,7 @@ describe("travel cost", () => {
 describe("shortest paths", () => {
   // a — b — c along a road, d far away, e in the DLC.
   const map: MapDocument = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     nodes: [
       node("a", 0),
       node("b", 1400),

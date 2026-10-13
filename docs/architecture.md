@@ -63,7 +63,8 @@ Everything below comes from the player's own install, read natively on macOS in 
 Three kinds, kept separate:
 
 1. **Game data (generated):** `game-data/catalog.json`, `icons/`, `map/`. Never edited by hand, never committed.
-2. **Player-authored map data, one file per profile:** `maps/<profile id>.json` in the app data folder. Nodes (junction, item, entrance) in native map pixels of their layer, and edges (typed polylines between nodes; only waygates join layers). An edge can end at a game grace by its grace ID (`grace/<row>`).
+2. **Player-authored map data, one file per profile:** `maps/<profile id>.json` in the app data folder. Nodes (junction, item, entrance) in native map pixels of their layer, and edges (typed polylines between nodes; only waygates join layers). An edge can end at a game grace by its grace ID (`grace/<row>`). Each edge stores its `step` in the player's walk.
+   - **Upgrade:** a version 1 map file (no steps) numbers its paths in file order.
    - **Upgrade:** the single `map.json` of earlier versions becomes the first profile's map (`profile-1`) the first time it is read.
    - **Profile IDs** are lowercase letters, digits and dashes, since they name files.
    - **Deleting a profile** moves its map file into a `deleted/` folder instead of removing it, since it's player data.

@@ -55,11 +55,16 @@ export type MapEdge = {
   points: Point[];
   /** Player-written note, such as the key or boss a requirement needs. */
   note: string;
+  /**
+   * The path's place in the player's walk, shown on the map. Steps run 1..N
+   * across the whole map, with no gaps or repeats.
+   */
+  step: number;
 };
 
 /** A profile's own nodes and paths. Game graces are not stored here. */
 export type MapDocument = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   nodes: MapNode[];
   edges: MapEdge[];
 };

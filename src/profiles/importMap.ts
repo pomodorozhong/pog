@@ -1,5 +1,5 @@
 import type { LayerId, MapDocument, MapEdge, MapNode } from "../domain/types";
-import type { MapAction } from "../map/editing";
+import { inStepOrder, type MapAction } from "../map/editing";
 
 /**
  * The edits that copy another profile's nodes and paths into `target`, as one
@@ -10,7 +10,8 @@ import type { MapAction } from "../map/editing";
  * shows. Copied paths attach to it, and importing again only brings what's
  * new. With a layer, only that layer's nodes are copied; a path is copied when
  * both its ends are on the target map afterwards, so a waygate can join a
- * reused node on another layer.
+ * reused node on another layer. Copied paths keep their order and follow the
+ * target's last step.
  */
 export function importMap(
   target: MapDocument,
@@ -41,7 +42,7 @@ export function importMap(
     ]),
   );
   const edges: MapEdge[] = [];
-  for (const edge of source.edges) {
+  for (const edge of inStepOrder(source.edges)) {
     const from = endOf(edge.from);
     const to = endOf(edge.to);
     if (!from || !to || from === to || edgeIds.has(edge.id)) continue;
