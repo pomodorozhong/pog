@@ -1,6 +1,16 @@
 # Project instructions
 
-Route of Grace is a map-based Elden Ring route planner. See `docs/plan.md` for the design and build order.
+Route of Grace is a map-based Elden Ring route planner. See `docs/architecture.md` for how it works and why; status lives in GitHub milestones and issues.
+
+## Start of a session
+
+First check for parked items from an earlier wrap-up (a `chore: park pending items` commit on any branch) and go through them with the player, as the `wrap-up` skill's "Resolving pending items" describes.
+
+Work is tracked in GitHub issues; `.agents/next-steps.md` ranks them. Read it, check the top issue is still open (`gh issue view`), read the issue and its comments, and propose it to the player before starting. If it is labelled `needs-decision`, ask its questions first. The player can always name another issue or task instead; work without an issue gets one drafted.
+
+- Comment freely on issues being worked on (handoff notes, decisions). Ask before filing a new issue.
+- Lasting knowledge goes in `docs/` (index: `docs/README.md`), not in issues.
+- End a session with the `wrap-up` skill.
 
 ## Data
 
@@ -12,7 +22,7 @@ Route of Grace is a map-based Elden Ring route planner. See `docs/plan.md` for t
 ## Interface
 
 - All interface text supports English and Traditional Chinese (zh-TW). Write English in the code and add the zh-TW string to `data/localization/ui.zh-TW.json`.
-- The viewer (`?mode=viewer`, not built yet) is read-only and must stay usable as an OBS browser source: transparent background option, readable at stream resolution.
+- The viewer (`?mode=viewer`, not built yet) mirrors the operator's screen (same layout, open modals, scroll position, map view) for use as an OBS browser source. It accepts no input and never sends updates back, so state only flows from the operator to viewers.
 - When adding a wishlist item, suggest its region and requirements, and ask the player to confirm the exact pin.
 
 ## Checks
