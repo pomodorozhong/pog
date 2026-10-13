@@ -30,7 +30,7 @@
   "Undo": "復原",
   "Redo": "重做",
   "Click a node (or the map) to start a path.": "點選節點（或地圖）開始繪製路徑。",
-  "Click the map to add waypoints, click a node to finish. Enter ends at the last waypoint, Backspace removes it, Esc cancels.": "點選地圖加入路徑點，點選節點完成。Enter 在最後一個路徑點結束，Backspace 移除路徑點，Esc 取消。",
+  "Click the map to drop a junction and keep drawing from it, or click a node to end the path there. Esc stops drawing.": "點選地圖放下路口並從該處繼續繪製，或點選節點在該處結束路徑。Esc 停止繪製。",
   "Click to select, drag to move. Delete removes the selection; ⌘Z undoes.": "點選以選取，拖曳以移動。Delete 刪除選取項目；⌘Z 復原。",
   "Click the map to place. Click an existing node to select it.": "點選地圖放置。點選既有節點即可選取。",
   "Selected node": "已選取的節點",
@@ -133,5 +133,10 @@
   "fast travel to {grace}": "傳送至 {grace}",
   "path is a guess": "路徑為推測",
   "Can't reach: {stops}": "無法到達：{stops}",
-  "1 stop, about {time}": "共 1 站，約 {time}"
+  "1 stop, about {time}": "共 1 站，約 {time}",
+  "Select, move and edit nodes and paths": "選取、移動與編輯節點和路徑",
+  "An unnamed point where paths meet or turn": "路徑交會或轉彎的無名地點",
+  "Where an item is picked up, linked to the item": "拾取道具的地點，連結到該道具",
+  "A dungeon entrance, linked to a game place": "地城入口，連結到遊戲中的地點",
+  "Each click drops a junction and draws a path to it": "每次點選都會放下路口並畫出通往該處的路徑"
 }

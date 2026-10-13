@@ -26,6 +26,7 @@ import {
   type HistoryAction,
   type MapAction,
 } from "./map/editing";
+import { dropJunction, pathAction } from "./map/drawing";
 import { gameGraceNodes, withGameGraces } from "./map/graces";
 import { Inspector } from "./map/Inspector";
 import { EDGE_NAMES, LAYER_NAMES } from "./map/labels";
@@ -52,12 +53,37 @@ import {
 } from "./storage/usePersistentDocument";
 
 export type Tool = "select" | NodeKind | "path";
-const TOOLS: { tool: Tool; label: string; key: string }[] = [
-  { tool: "select", label: "Select", key: "v" },
-  { tool: "junction", label: "Junction", key: "j" },
-  { tool: "item", label: "Item pin", key: "i" },
-  { tool: "entrance", label: "Entrance", key: "e" },
-  { tool: "path", label: "Draw path", key: "p" },
+const TOOLS: { tool: Tool; label: string; key: string; tip: string }[] = [
+  {
+    tool: "select",
+    label: "Select",
+    key: "v",
+    tip: "Select, move and edit nodes and paths",
+  },
+  {
+    tool: "junction",
+    label: "Junction",
+    key: "j",
+    tip: "An unnamed point where paths meet or turn",
+  },
+  {
+    tool: "item",
+    label: "Item pin",
+    key: "i",
+    tip: "Where an item is picked up, linked to the item",
+  },
+  {
+    tool: "entrance",
+    label: "Entrance",
+    key: "e",
+    tip: "A dungeon entrance, linked to a game place",
+  },
+  {
+    tool: "path",
+    label: "Draw path",
+    key: "p",
+    tip: "Each click drops a junction and draws a path to it",
+  },
 ];
 
 export default function App() {
@@ -189,19 +215,9 @@ export default function App() {
         edgeType !== "waygate"
       )
         return;
-      edit({
-        type: "addEdge",
-        edge: {
-          id: newId("edge"),
-          from: draft.from,
-          to,
-          type: edgeType,
-          points: draft.points,
-          note: "",
-        },
-      });
+      edit(pathAction(draft.from, to, edgeType));
       // Keep drawing from the node just reached, so a route can be laid down in one go.
-      setDraft({ from: to, points: [] });
+      setDraft({ from: to });
     },
     [draft, edgeType, edit, nodeById],
   );
@@ -219,15 +235,16 @@ export default function App() {
     onMapClick(point: Point) {
       if (tool === "select") return setSelection(null);
       if (tool === "path") {
-        if (draft && nodeById.get(draft.from)?.layer === layer)
-          return setDraft({ ...draft, points: [...draft.points, point] });
-        return setDraft({ from: addNode("junction", point), points: [] });
+        const from = draft ? nodeById.get(draft.from) : undefined;
+        const { action, next } = dropJunction(from, layer, point, edgeType);
+        edit(action);
+        return setDraft({ from: next });
       }
       setSelection({ kind: "node", id: addNode(tool, point) });
     },
     onNodeClick(id: string) {
       if (tool === "path")
-        return draft ? finishPath(id) : setDraft({ from: id, points: [] });
+        return draft ? finishPath(id) : setDraft({ from: id });
       setSelection({ kind: "node", id });
     },
     onNodeMove(id: string, [x, y]: Point) {
@@ -318,30 +335,9 @@ export default function App() {
         return;
       }
       if (mod || event.altKey) return;
+      // Stop drawing; every junction dropped so far stays on the map.
       if (event.key === "Escape")
         return draft ? setDraft(null) : setSelection(null);
-      if (event.key === "Enter" && draft) {
-        // End the path at its last waypoint by turning it into a junction.
-        const last = draft.points[draft.points.length - 1];
-        if (!last) return setDraft(null);
-        const end = addNode("junction", last);
-        edit({
-          type: "addEdge",
-          edge: {
-            id: newId("edge"),
-            from: draft.from,
-            to: end,
-            type: edgeType,
-            points: draft.points.slice(0, -1),
-            note: "",
-          },
-        });
-        return setDraft(null);
-      }
-      if (event.key === "Backspace" && draft) {
-        event.preventDefault();
-        return setDraft({ ...draft, points: draft.points.slice(0, -1) });
-      }
       if (event.key === "Delete" || event.key === "Backspace")
         return deleteSelection();
       const picked = TOOLS.find(
@@ -354,7 +350,7 @@ export default function App() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [draft, edgeType, addNode, edit, deleteSelection]);
+  }, [draft, deleteSelection]);
 
   if (dataError)
     return (
@@ -417,12 +413,12 @@ export default function App() {
         role="toolbar"
         aria-label={t("Map tools")}
       >
-        {TOOLS.map(({ tool: id, label, key }) => (
+        {TOOLS.map(({ tool: id, label, key, tip }) => (
           <button
             key={id}
             className="chip"
             aria-pressed={tool === id}
-            title={`${t(label)} (${key.toUpperCase()})`}
+            title={`${t(tip)} (${key.toUpperCase()})`}
             onClick={() => {
               setTool(id);
               setDraft(null);
@@ -572,7 +568,7 @@ export default function App() {
 function toolHint(tool: Tool, drawing: boolean) {
   if (tool === "path")
     return drawing
-      ? "Click the map to add waypoints, click a node to finish. Enter ends at the last waypoint, Backspace removes it, Esc cancels."
+      ? "Click the map to drop a junction and keep drawing from it, or click a node to end the path there. Esc stops drawing."
       : "Click a node (or the map) to start a path.";
   if (tool === "select")
     return "Click to select, drag to move. Delete removes the selection; ⌘Z undoes.";

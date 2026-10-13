@@ -23,7 +23,8 @@ import { EDGE_STYLE, NODE_SYMBOL } from "./style";
 import { isGameGrace } from "./graces";
 
 export type Selection = { kind: "node" | "edge"; id: string } | null;
-export type Draft = { from: string; points: Point[] } | null;
+/** The node the path being drawn starts from. */
+export type Draft = { from: string } | null;
 
 export type MapCanvasHandlers = {
   onMapClick(point: Point): void;
@@ -101,11 +102,13 @@ export function MapCanvas(props: Props) {
       latest.current.onMapClick(toPoint(event.latlng)),
     );
     instance.on("mousemove", (event: L.LeafletMouseEvent) => {
-      const { draft, nodes } = latest.current;
+      const { draft, nodes, layer } = latest.current;
       const from = draft && nodes.find((n) => n.id === draft.from);
-      if (!draft || !from) return;
-      const last = draft.points[draft.points.length - 1] ?? [from.x, from.y];
-      rubberBand.current!.setLatLngs([toLatLng(last), event.latlng]);
+      if (!from || from.layer !== layer) return;
+      rubberBand.current!.setLatLngs([
+        toLatLng([from.x, from.y]),
+        event.latlng,
+      ]);
     });
     const report = () => {
       const center = toPoint(instance.getCenter());
@@ -224,17 +227,9 @@ export function MapCanvas(props: Props) {
       }).addTo(group);
     }
 
-    if (draft) {
-      const from = byId.get(draft.from);
-      if (from?.layer === layer)
-        L.polyline([[from.x, from.y] as Point, ...draft.points].map(toLatLng), {
-          color: "#eee9db",
-          dashArray: "4 6",
-          weight: 3,
-          interactive: false,
-        }).addTo(group);
+    if (draft && byId.get(draft.from)?.layer === layer)
       rubberBand.current!.addTo(group);
-    } else rubberBand.current!.setLatLngs([]);
+    else rubberBand.current!.setLatLngs([]);
 
     for (const node of nodes) {
       if (node.layer !== layer) continue;
