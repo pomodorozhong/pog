@@ -33,6 +33,7 @@ import { gameGraceNodes, withGameGraces } from "./map/graces";
 import { Inspector } from "./map/Inspector";
 import { EDGE_NAMES, LAYER_NAMES } from "./map/labels";
 import { MapCanvas, type Selection } from "./map/MapCanvas";
+import { MapDetails } from "./map/MapDetails";
 import { EDGE_STYLE } from "./map/style";
 import {
   ImportFromProfile,
@@ -122,6 +123,7 @@ export default function App() {
   const [selection, setSelection] = useState<Selection>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [highlight, setHighlight] = useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   /** The profile whose map is in `history`. */
   const [mapProfile, setMapProfile] = useState<string | null>(null);
   const views = useRef(new Map<LayerId, MapView>());
@@ -204,6 +206,15 @@ export default function App() {
   );
   const stops = useMemo(
     () => new Map(plan?.route.order.map((id, i) => [id, i + 1])),
+    [plan],
+  );
+  const routeNodes = useMemo(
+    () =>
+      new Set(
+        plan?.route.legs.flatMap((leg) =>
+          leg.flatMap((step) => [step.from, step.to]),
+        ),
+      ),
     [plan],
   );
   const undiscovered = useMemo(
@@ -519,13 +530,24 @@ export default function App() {
             selection={selection}
             draft={draft}
             editable={tool === "select"}
+            drawing={tool === "path"}
+            hideUnusedGraces={player.hideUnusedGraces}
+            graceNames={player.graceNames}
             language={language}
             data={data}
             undiscovered={undiscovered}
             position={progress?.position ?? null}
             route={route}
             stops={stops}
+            routeNodes={routeNodes}
             highlight={highlight}
+          />
+          <MapDetails
+            t={t}
+            settings={player}
+            onChange={(changes) => setPlayer({ ...player, ...changes })}
+            open={detailsOpen}
+            onOpenChange={setDetailsOpen}
           />
           <p className="pointer-events-none absolute bottom-2 left-2 z-[500] max-w-[70%] rounded bg-ink/85 px-2 py-1 text-xs text-muted">
             {t(toolHint(tool, draft !== null))}

@@ -68,7 +68,7 @@ Three kinds, kept separate:
    - **Upgrade:** the single `map.json` of earlier versions becomes the first profile's map (`profile-1`) the first time it is read.
    - **Profile IDs** are lowercase letters, digits and dashes, since they name files.
    - **Deleting a profile** moves its map file into a `deleted/` folder instead of removing it, since it's player data.
-3. **Player state:** `player.json` in the app data folder: app settings (language, map view, path number size) plus the playthrough profiles and which one is active.
+3. **Player state:** `player.json` in the app data folder: app settings (language, map view, path number size, grace filter, grace-name mode) plus the playthrough profiles and which one is active.
    - **Each profile:** ID, name, goal, constraints (structured fields plus a free-text note), wishlist (item, status needed / acquired / skipped, note), progress (discovered graces, picked-up items, beaten bosses, as event flags), current position, and the linked save slot (Steam ID, slot index, character name).
    - **Upgrades:** older files upgrade on read; a version 1 file (no profiles) becomes one untitled profile.
 
@@ -85,6 +85,12 @@ The route itself is never stored: it is worked out from the active profile's map
 Leaflet with `CRS.Simple` over the extracted tiles; one layer per map. The editor places nodes, draws typed paths, links nodes to catalog items (with icons), and has undo/redo per profile. Legacy dungeons stay single entrance nodes with step-by-step notes. The overworld map doesn't help inside them, though `WorldMapLegacyConvParam` can place their graces on the overworld.
 
 **Graces:** every game grace shows on its layer; of graces sharing a name and spot (Leyndell and its ashen twin) only the first shows. There's no tool to place a grace by hand, and a stored map holds no graces.
+
+**Grace filter:** "Hide graces without paths" beside the Details button at the map's upper-right edge is one app setting, shared across playthroughs and off by default. It hides graces no path on the active profile's map runs through, including graces between a path's endpoints. A grace stays visible at the player's position and when selected. Draw path mode shows every grace, including before choosing the first pin. This only changes the display; routing and fast travel still use every discovered grace. Older player files gain the setting, off, on read.
+
+Changing the grace filter only attaches or detaches the affected grace markers. Paths, step numbers and retained graces stay attached, so the toggle does not rebuild the whole overlay or restart their tooltip fades.
+
+**Names:** the Details button on the map edge opens grace-name options: Automatic (the default), On hover and Always. Automatic opens ordinary grace names only at zoom 6 or closer, the map tiles' native resolution; all zooms still support hover. The choice is one app setting shared across playthroughs, and older player files gain Automatic on read. Item and entrance names stay open from zoom 4, while junction names stay on hover. The player's position, selected pin and planned-route pins keep their names open at any zoom, including graces reached by fast travel. Zoom 4 still crowded normal map use; the player requested a much closer threshold plus detail options.
 
 ### Path graph
 

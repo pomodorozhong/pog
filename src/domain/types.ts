@@ -71,6 +71,8 @@ export type MapView = { layer: LayerId; x: number; y: number; zoom: number };
 export const STEP_SIZES = ["small", "medium", "large"] as const;
 /** How big path step numbers show on the map. */
 export type StepSize = (typeof STEP_SIZES)[number];
+export const GRACE_NAME_MODES = ["auto", "hover", "always"] as const;
+export type GraceNameMode = (typeof GRACE_NAME_MODES)[number];
 export const WISHLIST_STATUSES = ["needed", "acquired", "skipped"] as const;
 export type WishlistStatus = (typeof WISHLIST_STATUSES)[number];
 
@@ -130,10 +132,13 @@ export type Profile = {
 };
 
 export type PlayerDocument = {
-  schemaVersion: 7;
+  schemaVersion: 9;
   language: Language;
   view: MapView;
   stepSize: StepSize;
+  /** Hide graces no path on the active profile's map runs through. */
+  hideUnusedGraces: boolean;
+  graceNames: GraceNameMode;
   activeProfile: string;
   profiles: Profile[];
 };

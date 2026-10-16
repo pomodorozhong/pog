@@ -2,6 +2,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type {
+  GraceNameMode,
   LayerId,
   Language,
   MapEdge,
@@ -44,6 +45,10 @@ type Props = MapCanvasHandlers & {
   selection: Selection;
   draft: Draft | null;
   editable: boolean;
+  /** Draw path mode, including choosing the first pin. */
+  drawing: boolean;
+  hideUnusedGraces: boolean;
+  graceNames: GraceNameMode;
   language: Language;
   data: GameData;
   /** Graces on the map not yet discovered in this playthrough. */
@@ -54,11 +59,14 @@ type Props = MapCanvasHandlers & {
   route: RouteLine[];
   /** Route stop numbers, by node. */
   stops: Map<string, number>;
+  /** Every node traversed by the planned route, including fast travel. */
+  routeNodes: Set<string>;
   /** A path to point out, for example while choosing where to move a path. */
   highlight: string | null;
 };
 
 const LABEL_ZOOM = 4;
+const GRACE_LABEL_ZOOM = 6;
 /** How far step numbers pinned to the screen edge stay from it, in pixels. */
 const STEP_INSET = 24;
 
@@ -67,6 +75,12 @@ export function MapCanvas(props: Props) {
   const map = useRef<L.Map | null>(null);
   const overlay = useRef<L.LayerGroup | null>(null);
   const rubberBand = useRef<L.Polyline | null>(null);
+  const graceMarkers = useRef<
+    { id: string; marker: L.Marker; onPath: boolean }[]
+  >([]);
+  const labels = useRef<
+    { marker: L.Marker; always: boolean; minZoom: number | null }[]
+  >([]);
   /** Step numbers on the map, with the stretches of their path on this layer. */
   const steps = useRef<{ marker: L.Marker; runs: Point[][] }[]>([]);
   // Leaflet handlers are bound once; they read the latest props through this ref.
@@ -75,11 +89,42 @@ export function MapCanvas(props: Props) {
     latest.current = props;
   });
 
+  const syncGraceVisibility = () => {
+    const group = overlay.current;
+    if (!group) return;
+    const { hideUnusedGraces, drawing, position, selection } = latest.current;
+    for (const { id, marker, onPath } of graceMarkers.current) {
+      const visible =
+        !hideUnusedGraces ||
+        drawing ||
+        onPath ||
+        position === id ||
+        (selection?.kind === "node" && selection.id === id);
+      // Keep retained markers and the rest of the overlay attached. Rebuilding
+      // everything here restarts tooltip fades and makes the map flash.
+      if (visible && !group.hasLayer(marker)) marker.addTo(group);
+      else if (!visible && group.hasLayer(marker)) group.removeLayer(marker);
+    }
+  };
+  useLayoutEffect(syncGraceVisibility, [props.hideUnusedGraces, props.drawing]);
+
   const toLatLng = ([x, y]: Point) =>
     map.current!.unproject([x, y], latest.current.info.maxZoom);
   const placeAllSteps = () =>
     map.current &&
     placeSteps(map.current, steps.current, latest.current.info.maxZoom);
+  const updateLabels = () => {
+    const zoom = map.current!.getZoom();
+    for (const { marker, always, minZoom } of labels.current) {
+      const tooltip = marker.getTooltip()!;
+      const permanent = always || (minZoom !== null && zoom >= minZoom);
+      if (tooltip.options.permanent !== permanent)
+        marker.unbindTooltip().bindTooltip(tooltip.getContent()!, {
+          ...tooltip.options,
+          permanent,
+        });
+    }
+  };
   const toPoint = (latLng: L.LatLng): Point => {
     const p = map.current!.project(latLng, latest.current.info.maxZoom);
     return [Math.round(p.x), Math.round(p.y)];
@@ -127,9 +172,6 @@ export function MapCanvas(props: Props) {
         y: center[1],
         zoom: instance.getZoom(),
       });
-      instance
-        .getContainer()
-        .classList.toggle("show-labels", instance.getZoom() >= LABEL_ZOOM);
     };
     // Gestures move the map every frame; report the view once it settles.
     let reportTimer: ReturnType<typeof setTimeout> | undefined;
@@ -138,6 +180,7 @@ export function MapCanvas(props: Props) {
       reportTimer = setTimeout(report, 150);
     });
     instance.on("move zoom resize", placeAllSteps);
+    instance.on("zoomend", updateLabels);
     const disableGestures = enableGestures(instance);
     return () => {
       clearTimeout(reportTimer);
@@ -177,19 +220,24 @@ export function MapCanvas(props: Props) {
     selection,
     draft,
     editable,
+    graceNames,
     language,
     data,
     undiscovered,
     position,
     route,
     stops,
+    routeNodes,
     highlight,
   } = props;
   useEffect(() => {
     const group = overlay.current!;
     group.clearLayers();
+    graceMarkers.current = [];
     steps.current = [];
+    labels.current = [];
     const byId = new Map(nodes.map((n) => [n.id, n]));
+    const pathNodes = new Set(edges.flatMap((edge) => edge.nodes));
     const portalEnds = new Set<string>();
 
     for (const edge of edges) {
@@ -319,22 +367,48 @@ export function MapCanvas(props: Props) {
             node.id,
             toPoint((event.target as L.Marker).getLatLng()),
           ),
-        )
-        .addTo(group);
-      if (name)
+        );
+      if (node.kind === "grace")
+        graceMarkers.current.push({
+          id: node.id,
+          marker,
+          onPath: pathNodes.has(node.id),
+        });
+      else marker.addTo(group);
+      if (name) {
+        const always =
+          selected ||
+          position === node.id ||
+          stops.has(node.id) ||
+          routeNodes.has(node.id);
+        const minZoom =
+          node.kind === "grace"
+            ? graceNames === "hover"
+              ? null
+              : graceNames === "always"
+                ? 0
+                : GRACE_LABEL_ZOOM
+            : node.kind === "junction"
+              ? null
+              : LABEL_ZOOM;
         marker.bindTooltip(escapeHtml(name), {
-          permanent: node.kind !== "junction",
+          permanent:
+            always || (minZoom !== null && map.current!.getZoom() >= minZoom),
           direction: "right",
           offset: [10, 0],
           className: `node-label node-label--${node.kind}`,
         });
+        labels.current.push({ marker, always, minZoom });
+      }
     }
+    syncGraceVisibility();
   }, [
     nodes,
     edges,
     selection,
     draft,
     editable,
+    graceNames,
     language,
     data,
     layer,
@@ -342,6 +416,7 @@ export function MapCanvas(props: Props) {
     position,
     route,
     stops,
+    routeNodes,
     highlight,
   ]);
 

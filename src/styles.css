@@ -218,9 +218,8 @@ body {
   text-shadow: 0 0 2px #000;
 }
 
-/* Labels only show once zoomed in, except when selected or hovered. */
+/* Leaflet opens names on hover, at close zoom, or for important pins. */
 .leaflet-tooltip.node-label {
-  display: none;
   padding: 1px 6px;
   border: 1px solid var(--color-line);
   background: rgb(11 19 17 / 0.85);
@@ -231,10 +230,6 @@ body {
 }
 .leaflet-tooltip.node-label::before {
   display: none;
-}
-.show-labels .leaflet-tooltip.node-label,
-.leaflet-tooltip.node-label--junction {
-  display: block;
 }
 .leaflet-container {
   font: inherit;
