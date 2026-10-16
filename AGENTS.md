@@ -2,16 +2,45 @@
 
 Route of Grace is a map-based Elden Ring route planner. See `docs/architecture.md` for how it works and why; status lives in GitHub milestones and issues.
 
-## Start of a session
+<!-- handoff:start (from the handoff skill; edit the skill's template, not this copy) -->
 
-First check for parked items from an earlier wrap-up (a `chore: park pending items` commit on any branch) and go through them with the player, as the `wrap-up` skill's "Resolving pending items" describes.
+## Handoff
 
-Work is tracked in GitHub issues; `.agents/next-steps.md` ranks them. Read it from the most recently pushed branch, check the top issue is still open (`gh issue view`), read the issue and its comments, and propose it to the player before starting. If it is labelled `needs-decision`, ask its questions first. The player can always name another issue or task instead; work without an issue gets one drafted.
+`HANDOFF.md` at the repository root is how sessions resume. It is committed on every branch, including the default branch, and has three sections: `In progress` (one `### <branch>` subsection per active branch, holding that branch's state and its own approval requests), `Ranked work`, and `Pending` (approval requests not tied to a branch, such as issue drafts). Approval requests have stable IDs (`P-01`), the proposed action and scope, why approval is needed, and what they block.
 
+### Start of a session
+
+- Read `HANDOFF.md` and find the subsection named after the current branch (`git branch --show-current`). No subsection means nothing is in progress on this branch.
+- To pick new work, start from the default branch's `Ranked work`. To resume an issue from another computer, find its branch with `gh issue develop --list <N>`, fetch it, and read that branch's `HANDOFF.md`. Preserve local changes when switching checkouts.
+- Compare the subsection's code checkpoint with `git log`; list commits made after it, skipping the branch's own `docs:` commits that only touch `HANDOFF.md` or the docs folder, and re-check verification the rest may have made stale. Run the project's documented checks before building on the previous session's work.
+- Verify issue and PR status when GitHub is available. If the PR has merged or closed, apply the `commit` skill's branch-safety rules before new commits or pushes.
+- A pending entry records a request, not approval. Handle only the approvals the chosen action needs, and continue other authorized work.
+
+### During work
+
+- Create each work branch from its primary issue: `gh issue develop <N> --name <type>/<summary> --base <default branch> --checkout` (or `--worktree <path>`). This creates the branch on GitHub at once, so it needs the same authorization as a push; without it, create the branch locally and link it when pushing is approved. If the work has no issue yet, create the branch locally, add an issue draft to its subsection's pending requests, and link the branch once the issue is filed. The PR may close other issues too; list each with `Closes #N`.
+- Open PRs with the `handoff` skill's PR procedure: the user approves a detailed plan before any work, and approves the finished branch before anything is pushed.
+- Edit only the current branch's subsection, plus `Ranked work` and `Pending` when they actually change. Keep subsections in alphabetical order. Remove subsections whose PR has merged or closed.
+- The branch subsection records: task and issue, PR, code checkpoint, observed state, verification run and results, one concrete next action, and when useful: checks not run, approaches to avoid, and pending IDs with what they block. Describe unmerged work as awaiting review or merge.
+- Keep it current rather than a log. History and decisions belong on the issue; lasting knowledge belongs in the docs folder. Never write secrets or local paths containing personal IDs.
+- Commit `HANDOFF.md` only before a push and at wrap-up, as a `docs:` commit on the work branch. Never commit it on the default branch; with no work branch, commit it on the next task's branch, created as above.
+- On a rebase conflict in `HANDOFF.md`, keep the incoming version of this branch's subsection and the base's version of everything else.
+
+### Before merge
+
+- When the user accepts the work, remove this branch's subsection, update `Ranked work`, and commit and push that before the PR merges, within the user's authorization.
+
+### End of a session
+
+- Use the `handoff` skill to update issues and `HANDOFF.md`, resolve relevant pending requests, checkpoint intended changes, and report what is committed, uncommitted, and retrievable on another computer. Push only within the user's authorization.
+
+<!-- handoff:end -->
+
+## Working with the player
+
+- Work is tracked in GitHub issues. Propose the top of `Ranked work` in `HANDOFF.md` to the player before starting. If it is labelled `needs-decision`, ask its questions first. The player can always name another issue or task instead; work without an issue gets one drafted.
 - Comment freely on issues being worked on (handoff notes, decisions). Ask before filing a new issue.
 - Lasting knowledge goes in `docs/` (index: `docs/README.md`), not in issues.
-- Before every push, update `.agents/next-steps.md` to read as it will once that branch merges, and commit the ranking change as `docs:` on that branch.
-- End a session with the `wrap-up` skill.
 
 ## Data
 
