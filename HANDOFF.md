@@ -5,12 +5,11 @@
 ### feat/mobile-layout
 
 - Task: #28 Layout holds up in a narrow window (the player uses mobile size, where it's unusable)
-- PR: none yet; branch is local only
+- PR: none yet; branch is pushed and linked to #28
 - Code checkpoint: 5c12c09 (main after #35)
 - State: not started; this branch so far only carries the ranking from the #22 walkthrough
 - Verification: none yet
 - Next action: read #28 and its comments, then propose a mobile layout to the player
-- Pending: link this branch to #28 when pushing is approved
 
 ## Ranked work
 
