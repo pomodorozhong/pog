@@ -5,16 +5,15 @@
 ### feat/uniform-paths
 
 - Task: #38 One uniform path with appearance, note and show-note options (decisions recorded on the issue)
-- PR: none yet; the finished branch awaits the player's approval to push and open it (see P-01)
-- Code checkpoint: d36d789 (local, not pushed; the branch exists on GitHub from `gh issue develop` at main)
+- PR: opened for review (Closes #38); awaiting review and merge
+- Code checkpoint: d36d789 (pushed)
 - State: built. Paths have a look (8 colors, solid/dashed), note with "show on map", one way, and teleport (locked on for paths between layers). Routing is by distance, no time estimates; the avoid list is gone. Maps upgrade to v3, player.json to v10.
 - Verification: lint, typecheck, test (87), build pass; checked in the browser on a copy of the player's data at 1400px (upgrade keeps paths gold, editor options, note on map, one-way arrow, cross-layer drawing makes a locked teleport, real data untouched). Next stops and the pin hint without times are covered by typecheck only: the player's data has no needed pinned items.
-- Pending: P-01 push `feat/uniform-paths` and open a PR closing #38 (blocks review and merge)
-- Next action: on approval, push and open the PR; then player review
+- Next action: player review of the PR, including Next stops without minutes on a map with pinned wishlist items; address comments, then merge when accepted
 
 ## Ranked work
 
-1. #38 One uniform path with look, note and routing options (built, awaiting PR)
+1. #38 One uniform path with look, note and routing options (PR awaiting review)
 2. #40 One pin tool; items attach to any node (reshapes nodes before #39 and #10)
 3. #41 Edit a selected path (insert a node between two others)
 4. #39 Notes on any pin, optionally shown on the map
