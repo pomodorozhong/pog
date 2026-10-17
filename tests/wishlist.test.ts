@@ -10,7 +10,9 @@ import {
   countByStatus,
   removeFromWishlist,
   updateWishlistItem,
+  walkOrder,
 } from "../src/wishlist/wishlist";
+import type { MapDocument, MapNode, WishlistItem } from "../src/domain/types";
 
 const STARS = "weapon/11050000";
 
@@ -76,5 +78,56 @@ describe("playthrough templates", () => {
     expect(validDocument("player", player)).toBe(true);
     // Each new profile gets its own copy.
     expect(profile.wishlist).not.toBe(TEMPLATES[0].wishlist);
+  });
+});
+
+describe("walk order", () => {
+  const pin = (
+    id: string,
+    ref: string | null,
+    kind: MapNode["kind"] = "item",
+  ): MapNode => ({
+    id,
+    layer: "overworld",
+    x: 0,
+    y: 0,
+    kind,
+    label: "",
+    ref,
+  });
+  const want = (item: string): WishlistItem => ({
+    item,
+    status: "needed",
+    note: "",
+  });
+
+  it("sorts items by the lowest step of a path through their pin", () => {
+    const map: MapDocument = {
+      schemaVersion: 2,
+      nodes: [
+        pin("a", "weapon/a"),
+        pin("b", "weapon/b"),
+        pin("b2", "weapon/b"),
+        pin("c", "weapon/c"),
+        pin("j", null, "junction"),
+      ],
+      edges: [
+        { id: "e1", nodes: ["j", "b2"], type: "road", note: "", step: 1 },
+        { id: "e2", nodes: ["b2", "a"], type: "road", note: "", step: 2 },
+        { id: "e3", nodes: ["a", "b"], type: "road", note: "", step: 3 },
+      ],
+    };
+    const wishlist = ["weapon/a", "weapon/c", "weapon/b", "weapon/d"].map(want);
+    const { onRoute, offRoute } = walkOrder(map, wishlist);
+    // weapon/b has two pins; the one reached first counts.
+    expect(onRoute.map((r) => [r.entry.item, r.pin, r.step])).toEqual([
+      ["weapon/b", "b2", 1],
+      ["weapon/a", "a", 2],
+    ]);
+    // A pin on no path keeps its pin; an item with no pin has none.
+    expect(offRoute.map((r) => [r.entry.item, r.pin])).toEqual([
+      ["weapon/c", "c"],
+      ["weapon/d", null],
+    ]);
   });
 });
