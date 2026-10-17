@@ -1,9 +1,9 @@
 import {
-  PATH_COLORS,
   type LayerId,
   type MapDocument,
   type MapEdge,
   type MapNode,
+  type PathColor,
   type Point,
 } from "../domain/types";
 
@@ -27,9 +27,25 @@ export const newPath = (id: string, nodes: string[]): NewEdge => ({
   showNote: false,
 });
 
-/** A new path's color: the colors in turn, so neighbouring steps differ. */
+/**
+ * The colors in the order new paths take them. Each color is far from the
+ * next one in hue or lightness, also for red-green color blindness, so
+ * neighbouring steps (and the last and first) are easy to tell apart.
+ */
+const STEP_COLORS: readonly PathColor[] = [
+  "gold",
+  "blue",
+  "white",
+  "red",
+  "teal",
+  "pink",
+  "green",
+  "purple",
+];
+
+/** A new path's color: the step colors in turn, so neighbouring steps differ. */
 export const stepColor = (step: number) =>
-  PATH_COLORS[(step - 1) % PATH_COLORS.length];
+  STEP_COLORS[(step - 1) % STEP_COLORS.length];
 
 /** What the path editor can change. */
 export type EdgeChanges = Partial<

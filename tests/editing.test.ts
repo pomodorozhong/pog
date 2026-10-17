@@ -45,7 +45,7 @@ describe("map editing", () => {
         }),
       start,
     );
-    expect(added.edges.map((e) => e.color)).toEqual(["gold", "green", "white"]);
+    expect(added.edges.map((e) => e.color)).toEqual(["gold", "blue", "white"]);
     const kept = applyMapAction(added, {
       type: "addEdge",
       edge: { ...newPath("s", ["a", "b"]), color: "pink" },
