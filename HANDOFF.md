@@ -9,7 +9,7 @@
 - Code checkpoint: 295a490 (pushed)
 - State: follow-up (pushed) built on the player's request: no Teleport option (a hop between layers is a waygate jump, drawing continues across layers on one path), new paths colored by step, shown note under the step number. Maps go to schema v4, upgrading the v3 files the PR's first build saved (the player's real data is v3 since trying the PR).
 - Verification: lint, typecheck, test (88), build pass; browser check on a fresh copy of the player's data at 1400px (v3 files load and save as v4, colors white/red/blue for steps 3–5, a path across layers draws as one path with the jump pin marked, editor has no Teleport box, notes under numbers). The player's dev servers on ports 5173/5174 run this checkout on real data and hot-reload edits.
-- Next action: player reviews #49; address review comments, or on acceptance remove this subsection and update `Ranked work` before merge
+- Next action: player reviews #49; address review comments. After it merges, the next session removes this subsection
 
 ## Ranked work
 
