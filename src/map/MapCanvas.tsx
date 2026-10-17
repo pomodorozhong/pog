@@ -241,11 +241,17 @@ export function MapCanvas(props: Props) {
     const portalEnds = new Set<string>();
 
     for (const edge of edges) {
-      // Pins a teleport jumps between are marked instead of drawn.
-      if (edge.teleport) for (const id of edge.nodes) portalEnds.add(id);
+      // Pins a path jumps between layers at are marked instead of drawn.
+      edge.nodes.forEach((id, i) => {
+        const [a, b] = [byId.get(edge.nodes[i - 1]), byId.get(id)];
+        if (a && b && a.layer !== b.layer) {
+          portalEnds.add(a.id);
+          portalEnds.add(b.id);
+        }
+      });
       const runs = edgeRuns(edge, byId, layer);
-      // A teleport has only isolated pins on this layer. Its number still
-      // belongs here, even though the jump itself has no drawn line.
+      // A waygate may have only isolated endpoints on this layer. Its number
+      // still belongs here, even though the jump itself has no drawn line.
       const stepRuns = runs.length
         ? runs
         : edge.nodes.flatMap((id): Point[][] => {
@@ -288,11 +294,16 @@ export function MapCanvas(props: Props) {
             style.color,
           );
       }
-      // One step number per path, placed by placeSteps.
+      // One step number per path, placed by placeSteps. The note, when shown,
+      // sits under it and moves with it.
+      const note =
+        edge.showNote && edge.note.trim()
+          ? `<span class="step-note" style="border-color: ${style.color}">${escapeHtml(edge.note)}</span>`
+          : "";
       const marker = L.marker(toLatLng(stepRuns[0][0]), {
         icon: L.divIcon({
           className: highlighted ? "path-step is-highlighted" : "path-step",
-          html: `<span>${edge.step}</span>`,
+          html: `<span class="step-number">${edge.step}</span>${note}`,
           iconSize: [0, 0],
         }),
         keyboard: false,
@@ -301,17 +312,6 @@ export function MapCanvas(props: Props) {
         .on("click", select)
         .addTo(group);
       steps.current.push({ marker, runs: stepRuns });
-      if (edge.showNote && edge.note.trim())
-        L.marker(toLatLng(notePoint(stepRuns[0])), {
-          icon: L.divIcon({
-            className: "path-note",
-            html: `<span style="border-color: ${style.color}">${escapeHtml(edge.note)}</span>`,
-            iconSize: [0, 0],
-          }),
-          keyboard: false,
-        })
-          .on("click", select)
-          .addTo(group);
     }
     placeAllSteps();
 
@@ -497,13 +497,6 @@ function placeSteps(
     marker.setLatLng(instance.containerPointToLatLng(labelPoint));
     marker.getElement()?.classList.toggle("is-pinned", pinned);
   }
-}
-
-/** Where a path's note sits: the middle of its middle hop. */
-function notePoint(run: Point[]): Point {
-  const k = Math.max(0, Math.floor((run.length - 1) / 2));
-  const [a, b] = [run[k], run[k + 1] ?? run[k]];
-  return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
 }
 
 const escapeHtml = (text: string) =>

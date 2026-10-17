@@ -9,7 +9,7 @@ import { inStepOrder, type MapAction } from "../map/editing";
  * (same ID, as after an earlier import), or a game grace, which every map
  * shows. Copied paths attach to it, and importing again only brings what's
  * new. With a layer, only that layer's nodes are copied; a path is copied when
- * all its pins are on the target map afterwards, so a teleport can join a
+ * all its pins are on the target map afterwards, so a waygate can join a
  * reused node on another layer. Copied paths keep their order and follow the
  * target's last step.
  */

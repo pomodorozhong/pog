@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MapDocument, MapEdge, MapNode } from "../src/domain/types";
-import { newPath } from "../src/map/editing";
+import { drawn } from "./paths";
 import {
   buildGraph,
   FAST_TRAVEL_COST,
@@ -19,13 +19,13 @@ const edge = (
   from: string,
   to: string,
   options: Partial<MapEdge> = {},
-): MapEdge => ({ ...newPath(id, [from, to]), step: 0, ...options });
+): MapEdge => ({ ...drawn(id, [from, to]), step: 0, ...options });
 const open = { dlc: true };
 
 describe("shortest paths", () => {
   // a — b — c along a path, d far away, e in the DLC.
   const map: MapDocument = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     nodes: [
       node("a", 0),
       node("b", 1400),
@@ -33,13 +33,9 @@ describe("shortest paths", () => {
       node("d", 50000),
       node("e", 0, 0, "dlc"),
     ],
-    edges: [
-      edge("ab", "a", "b"),
-      edge("bc", "b", "c"),
-      edge("gate", "a", "e", { teleport: true }),
-    ],
+    edges: [edge("ab", "a", "b"), edge("bc", "b", "c"), edge("gate", "a", "e")],
   };
-  const walk = { kind: "edge", teleport: false };
+  const walk = { kind: "edge" };
 
   it("prefers drawn paths over guesses, by distance", () => {
     const paths = shortestPaths(buildGraph(map, open, []), "a");
@@ -86,17 +82,17 @@ describe("shortest paths", () => {
     expect(paths.cost.get("d")).toBeCloseTo(2800 + 47200 * 1.5);
   });
 
-  it("teleports for a fixed cost, whatever the distance", () => {
+  it("jumps between layers for a fixed cost, whatever the distance", () => {
     const far = {
       ...map,
-      edges: [...map.edges, edge("belfry", "a", "d", { teleport: true })],
+      nodes: [...map.nodes, node("deep", 90000, 0, "underground")],
+      edges: [...map.edges, edge("gate2", "d", "deep")],
     };
-    const paths = shortestPaths(buildGraph(far, open, []), "a");
-    expect(paths.cost.get("d")).toBe(100);
-    expect(pathTo(paths, "d")?.[0].via).toEqual({
-      kind: "edge",
-      id: "belfry",
-      teleport: true,
+    const paths = shortestPaths(buildGraph(far, open, ["d"]), "a");
+    expect(paths.cost.get("deep")).toBe(FAST_TRAVEL_COST + 100);
+    expect(pathTo(paths, "deep")?.at(-1)?.via).toEqual({
+      ...walk,
+      id: "gate2",
     });
   });
 

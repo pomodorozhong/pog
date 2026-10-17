@@ -138,7 +138,7 @@ export function detour(
   return best;
 }
 
-/** A stretch of the route to draw on one layer. Fast travel and teleport jumps aren't drawn. */
+/** A stretch of the route to draw on one layer. Fast travel and waygate jumps aren't drawn. */
 export type RouteLine = {
   layer: MapNode["layer"];
   points: Point[];
@@ -153,7 +153,6 @@ export function routeLines(map: MapDocument, legs: Step[][]): RouteLine[] {
     const to = nodes.get(step.to);
     if (!from || !to || from.layer !== to.layer) return [];
     if (step.via.kind === "fast-travel") return [];
-    if (step.via.kind === "edge" && step.via.teleport) return [];
     return [
       {
         layer: from.layer,

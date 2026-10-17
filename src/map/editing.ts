@@ -1,36 +1,39 @@
-import type {
-  LayerId,
-  MapDocument,
-  MapEdge,
-  MapNode,
-  Point,
+import {
+  PATH_COLORS,
+  type LayerId,
+  type MapDocument,
+  type MapEdge,
+  type MapNode,
+  type Point,
 } from "../domain/types";
 
 export const newId = (prefix: string) =>
   `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
 
-/** A path to add: it always becomes the last step. */
-export type NewEdge = Omit<MapEdge, "step">;
+/**
+ * A path to add: it always becomes the last step. Without a color, it takes
+ * its step's color.
+ */
+export type NewEdge = Omit<MapEdge, "step" | "color"> &
+  Partial<Pick<MapEdge, "color">>;
 
 /** A new path through `nodes`, drawn the default way. */
-export const newPath = (
-  id: string,
-  nodes: string[],
-  teleport = false,
-): NewEdge => ({
+export const newPath = (id: string, nodes: string[]): NewEdge => ({
   id,
   nodes,
-  color: teleport ? "purple" : "gold",
-  line: teleport ? "dashed" : "solid",
+  line: "solid",
   oneWay: false,
-  teleport,
   note: "",
   showNote: false,
 });
 
+/** A new path's color: the colors in turn, so neighbouring steps differ. */
+export const stepColor = (step: number) =>
+  PATH_COLORS[(step - 1) % PATH_COLORS.length];
+
 /** What the path editor can change. */
 export type EdgeChanges = Partial<
-  Pick<MapEdge, "color" | "line" | "oneWay" | "teleport" | "note" | "showNote">
+  Pick<MapEdge, "color" | "line" | "oneWay" | "note" | "showNote">
 >;
 
 export type MapAction =
@@ -71,16 +74,8 @@ export function applyMapAction(
 ): MapDocument {
   const find = (id: string) =>
     doc.nodes.find((n) => n.id === id) ?? fixed.get(id);
-  const fits = (pins: string[], teleport: boolean) => {
-    const nodes = pins.map(find);
-    return (
-      pins.length >= 2 &&
-      nodes.every(Boolean) &&
-      pins.every((id, i) => id !== pins[i - 1]) &&
-      // Only a teleport joins layers.
-      (teleport || nodes.every((n) => n!.layer === nodes[0]!.layer))
-    );
-  };
+  const fits = (pins: string[]) =>
+    pins.length >= 2 && pins.every((id, i) => find(id) && id !== pins[i - 1]);
   const replace = (edge: MapEdge) => ({
     ...doc,
     edges: doc.edges.map((e) => (e.id === edge.id ? edge : e)),
@@ -92,12 +87,6 @@ export function applyMapAction(
       const node = doc.nodes.find((n) => n.id === action.id);
       if (!node) return doc;
       const updated = { ...node, ...action.changes };
-      // Moving a node to another layer would strand its paths that walk.
-      if (
-        updated.layer !== node.layer &&
-        doc.edges.some((e) => e.nodes.includes(node.id) && !e.teleport)
-      )
-        return doc;
       return {
         ...doc,
         nodes: doc.nodes.map((n) => (n.id === action.id ? updated : n)),
@@ -121,23 +110,24 @@ export function applyMapAction(
     }
     case "addEdge": {
       const { edge } = action;
-      if (!fits(edge.nodes, edge.teleport)) return doc;
+      if (!fits(edge.nodes)) return doc;
+      const step = doc.edges.length + 1;
       return {
         ...doc,
-        edges: [...doc.edges, { ...edge, step: doc.edges.length + 1 }],
+        edges: [...doc.edges, { color: stepColor(step), ...edge, step }],
       };
     }
     case "extendEdge": {
       const edge = doc.edges.find((e) => e.id === action.id);
       if (!edge) return doc;
       const nodes = [...edge.nodes, action.node];
-      return fits(nodes, edge.teleport) ? replace({ ...edge, nodes }) : doc;
+      return fits(nodes) ? replace({ ...edge, nodes }) : doc;
     }
     case "updateEdge": {
       const edge = doc.edges.find((e) => e.id === action.id);
       if (!edge) return doc;
       const updated = { ...edge, ...action.changes };
-      return fits(updated.nodes, updated.teleport) ? replace(updated) : doc;
+      return fits(updated.nodes) ? replace(updated) : doc;
     }
     case "removeEdge":
       if (!doc.edges.some((e) => e.id === action.id)) return doc;
@@ -237,15 +227,14 @@ export function historyReducer(
 }
 
 /**
- * The stretches of a path to draw on `layer`, as lines of map points. A
- * teleport's jumps aren't drawn.
+ * The stretches of a path to draw on `layer`, as lines of map points. Jumps
+ * between layers aren't drawn.
  */
 export function edgeRuns(
   edge: MapEdge,
   nodes: ReadonlyMap<string, MapNode>,
   layer: LayerId,
 ): Point[][] {
-  if (edge.teleport) return [];
   const runs: Point[][] = [];
   let run: Point[] = [];
   for (const id of edge.nodes) {

@@ -5,7 +5,8 @@ import type { MapDocument, MapNode, RouteRules } from "../domain/types";
 // coordinates. Jumps count as a short walk, so they win over long paths but
 // not over the next pin along.
 export const FAST_TRAVEL_COST = 200;
-const TELEPORT_COST = 100;
+/** A hop between two layers: a waygate. */
+const WAYGATE_COST = 100;
 /** Unexplored gaps are guessed as straight lines to this many nearest nodes. */
 const GUESS_NEIGHBOURS = 6;
 /** A guess costs more than a drawn path of the same length, so drawn paths win. */
@@ -14,9 +15,7 @@ const DLC_LAYERS = new Set(["dlc", "dlc-underground"]);
 
 /** How one step of a route is travelled. */
 export type Via =
-  | { kind: "edge"; id: string; teleport: boolean }
-  | { kind: "guess" }
-  | { kind: "fast-travel" };
+  { kind: "edge"; id: string } | { kind: "guess" } | { kind: "fast-travel" };
 export type Step = { from: string; to: string; via: Via; cost: number };
 
 type Arc = { to: string; via: Via; cost: number };
@@ -60,11 +59,12 @@ export function buildGraph(
       const from = nodes.get(edge.nodes[i - 1]);
       const to = nodes.get(id);
       if (!from || !to) continue;
-      const cost = edge.teleport
-        ? TELEPORT_COST
-        : Math.hypot(to.x - from.x, to.y - from.y);
+      const cost =
+        from.layer === to.layer
+          ? Math.hypot(to.x - from.x, to.y - from.y)
+          : WAYGATE_COST;
       group.set(root(from.id), root(to.id));
-      const via: Via = { kind: "edge", id: edge.id, teleport: edge.teleport };
+      const via: Via = { kind: "edge", id: edge.id };
       add(from.id, { to: to.id, via, cost });
       if (!edge.oneWay) add(to.id, { to: from.id, via, cost });
     }

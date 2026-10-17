@@ -307,7 +307,6 @@ function EdgePanel(props: Props & { edgeId: string }) {
       <header className="flex items-baseline justify-between gap-2">
         <h2 className="font-serif text-lg text-gold">
           {t("Step {step}", { step: edge.step })}
-          {edge.teleport && ` · ${t("Teleport")}`}
         </h2>
         {doc.edges.length > 1 && (
           <button className="chip" onClick={() => setMoving(true)}>
@@ -377,20 +376,6 @@ function EdgePanel(props: Props & { edgeId: string }) {
           />
           {t("One way (in drawing order)")}
         </label>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={edge.teleport}
-            disabled={crossesLayers}
-            onChange={(e) => update({ teleport: e.target.checked })}
-          />
-          {t("Teleport, such as a waygate")}
-        </label>
-        {crossesLayers && (
-          <p className="text-xs text-muted">
-            {t("A path between layers is always a teleport.")}
-          </p>
-        )}
       </div>
       <div className="space-y-1">
         <label className="block space-y-1">

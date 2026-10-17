@@ -7,7 +7,7 @@ import {
   travelTimes,
   wishlistTargets,
 } from "../src/routing/order";
-import { newPath } from "../src/map/editing";
+import { drawn } from "./paths";
 import { buildGraph } from "../src/routing/route";
 
 const node = (id: string, x: number, y = 0): MapNode => ({
@@ -22,10 +22,10 @@ const node = (id: string, x: number, y = 0): MapNode => ({
 /** Points on a line, joined by paths in the given order. */
 function line(ids: string[], xs: number[]): MapDocument {
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     nodes: ids.map((id, i) => node(id, xs[i])),
     edges: ids.slice(1).map((id, i) => ({
-      ...newPath(`e${i}`, [ids[i], id]),
+      ...drawn(`e${i}`, [ids[i], id]),
       step: i + 1,
     })),
   };
@@ -59,7 +59,7 @@ describe("visit order", () => {
     // On a line from 0: nearest neighbour goes to a (+1 km), back past the
     // start to b (−2 km), then out to c (+10 km): 16 km. b, a, c is 14 km.
     const spread: MapDocument = {
-      schemaVersion: 3,
+      schemaVersion: 4,
       nodes: [
         node("s", 0),
         node("a", 1000),
@@ -80,7 +80,7 @@ describe("visit order", () => {
 describe("route targets", () => {
   it("takes needed wishlist items that have a pin", () => {
     const map: MapDocument = {
-      schemaVersion: 3,
+      schemaVersion: 4,
       nodes: [
         { ...node("pin", 0), kind: "item", ref: "weapon/1" },
         { ...node("got", 0), kind: "item", ref: "weapon/2" },

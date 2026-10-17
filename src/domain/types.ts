@@ -45,7 +45,9 @@ export type MapNode = {
 /**
  * A path the player drew: one line through pins, in drawing order, with one
  * step number. A pin can be a game grace by its catalog id ("grace/<row>"),
- * which the map shows without storing. Only a teleport may join layers.
+ * which the map shows without storing. A hop between pins on two layers is a
+ * jump, such as a waygate: it isn't drawn, and the route planner costs it as
+ * a short fixed distance.
  */
 export type MapEdge = {
   id: string;
@@ -55,11 +57,6 @@ export type MapEdge = {
   line: PathLine;
   /** Travelled only in drawing order, such as a drop off a cliff. */
   oneWay: boolean;
-  /**
-   * Each hop is a jump, such as a waygate: not drawn as a line, and nearly
-   * free to the route planner. A path that joins two layers is always one.
-   */
-  teleport: boolean;
   /** Player-written note, such as the key or boss a requirement needs. */
   note: string;
   /** Show the note on the map beside the path. */
@@ -73,7 +70,7 @@ export type MapEdge = {
 
 /** A profile's own nodes and paths. Game graces are not stored here. */
 export type MapDocument = {
-  schemaVersion: 3;
+  schemaVersion: 4;
   nodes: MapNode[];
   edges: MapEdge[];
 };

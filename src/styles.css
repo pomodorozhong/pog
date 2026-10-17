@@ -172,7 +172,7 @@ body {
   box-shadow: 0 0 0 2px var(--color-ink);
 }
 /* A path's step in the player's walk, centred halfway along it. */
-.path-step span {
+.path-step .step-number {
   position: absolute;
   transform: translate(-50%, -50%);
   min-width: calc(var(--step-font) * 1.6);
@@ -185,15 +185,15 @@ body {
   box-shadow: 0 0 0 1px rgb(238 233 219 / 0.5);
   cursor: pointer;
 }
-.path-step.is-highlighted span {
+.path-step.is-highlighted .step-number {
   background: #ffd84a;
   color: var(--color-ink);
   font-size: calc(var(--step-font) * 1.25);
 }
-/* A path's note, shown on the map when the player asks for it. */
-.path-note span {
+/* A path's note, shown under its step number when the player asks for it. */
+.path-step .step-note {
   position: absolute;
-  transform: translate(-50%, 60%);
+  transform: translate(-50%, calc(var(--step-font) * 0.8 + 3px));
   max-width: 14rem;
   width: max-content;
   padding: 1px 6px;
@@ -203,11 +203,15 @@ body {
   color: var(--color-text);
   font: 12px / 1.4 var(--font-sans);
   white-space: pre-wrap;
+  cursor: pointer;
 }
 /* A step number held on the screen edge while its path is off screen. */
-.path-step.is-pinned span {
+.path-step.is-pinned .step-number {
   opacity: 0.75;
   border: 1px dashed currentColor;
+}
+.path-step.is-pinned .step-note {
+  display: none;
 }
 /* Step number size, chosen in the toolbar. */
 .steps-small {

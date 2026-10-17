@@ -4,7 +4,7 @@ import { drawTo, dropJunction, type Draft } from "../src/map/drawing";
 import { applyMapAction } from "../src/map/editing";
 import { validDocument } from "../src/storage/schema";
 
-const empty: MapDocument = { schemaVersion: 3, nodes: [], edges: [] };
+const empty: MapDocument = { schemaVersion: 4, nodes: [], edges: [] };
 const find = (doc: MapDocument, id?: string) =>
   doc.nodes.find((n) => n.id === id);
 
@@ -98,7 +98,7 @@ describe("drawing a path through pins", () => {
     ]);
   });
 
-  it("jumps to another layer as a teleport, then draws on as a new path", () => {
+  it("jumps to another layer on the same path", () => {
     const { doc } = clicks(
       [
         [0, 0],
@@ -109,11 +109,7 @@ describe("drawing a path through pins", () => {
       ["overworld", "overworld", "underground", "underground"],
     );
     expect(doc.nodes).toHaveLength(4);
-    expect(doc.edges.map((e) => [e.nodes.length, e.teleport])).toEqual([
-      [2, false],
-      [2, true],
-      [2, false],
-    ]);
+    expect(doc.edges.map((e) => e.nodes.length)).toEqual([4]);
     expect(validDocument("map", doc)).toBe(true);
   });
 });

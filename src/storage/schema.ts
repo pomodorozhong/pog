@@ -48,7 +48,7 @@ function checkMap(value: unknown): value is MapDocument {
     !Array.isArray(v.edges)
   )
     return false;
-  const layerOf = new Map<string, string>();
+  const nodeIds = new Set<string>();
   for (const n of v.nodes) {
     if (
       !hasExactKeys(n, ["id", "layer", "x", "y", "kind", "label", "ref"]) ||
@@ -56,7 +56,7 @@ function checkMap(value: unknown): value is MapDocument {
       GRACE_ID.test(n.id) ||
       // Graces are game data, shown on every map; a map stores none.
       n.kind === "grace" ||
-      layerOf.has(n.id) ||
+      nodeIds.has(n.id) ||
       !includes(LAYERS, n.layer) ||
       !isCoordinate(n.x) ||
       !isCoordinate(n.y) ||
@@ -65,12 +65,12 @@ function checkMap(value: unknown): value is MapDocument {
       !(n.ref === null || typeof n.ref === "string")
     )
       return false;
-    layerOf.set(n.id, n.layer);
+    nodeIds.add(n.id);
   }
   const edgeIds = new Set<string>();
   const steps = new Set<number>();
   const end = (id: unknown) =>
-    typeof id === "string" && (layerOf.has(id) || GRACE_ID.test(id));
+    typeof id === "string" && (nodeIds.has(id) || GRACE_ID.test(id));
   return v.edges.every((e) => {
     const ok =
       hasExactKeys(e, [
@@ -79,7 +79,6 @@ function checkMap(value: unknown): value is MapDocument {
         "color",
         "line",
         "oneWay",
-        "teleport",
         "note",
         "showNote",
         "step",
@@ -92,13 +91,7 @@ function checkMap(value: unknown): value is MapDocument {
       includes(PATH_COLORS, e.color) &&
       includes(PATH_LINES, e.line) &&
       typeof e.oneWay === "boolean" &&
-      typeof e.teleport === "boolean" &&
       typeof e.showNote === "boolean" &&
-      // A game grace's layer is game data, so only the profile's own nodes
-      // are checked for joining layers here.
-      (e.teleport ||
-        new Set(e.nodes.map((id) => layerOf.get(id)).filter(Boolean)).size <=
-          1) &&
       typeof e.note === "string" &&
       // Steps run 1..N with no gaps or repeats.
       Number.isInteger(e.step) &&
@@ -216,7 +209,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
 
 export const FIRST_PROFILE_ID = "profile-1";
 const PLAYER_VERSION = 10;
-const MAP_VERSION = 3;
+const MAP_VERSION = 4;
 const DEFAULT_STEP_SIZE = "medium";
 const PROFILE_ID = /^[a-z0-9-]{1,64}$/;
 
@@ -321,8 +314,10 @@ type MapV1 = {
 
 function upgradeMap(value: object): unknown {
   const v = value as { schemaVersion: unknown };
-  if (v.schemaVersion === 1) return upgradeMapV2(upgradeMapV1(v as MapV1));
-  if (v.schemaVersion === 2) return upgradeMapV2(v as MapV2);
+  if (v.schemaVersion === 1)
+    return upgradeMapV3(upgradeMapV2(upgradeMapV1(v as MapV1)));
+  if (v.schemaVersion === 2) return upgradeMapV3(upgradeMapV2(v));
+  if (v.schemaVersion === 3) return upgradeMapV3(v);
   return v;
 }
 
@@ -365,7 +360,7 @@ function upgradeMapV1(v: MapV1): unknown {
 
 type MapV2 = { schemaVersion: 2; nodes: unknown; edges: unknown };
 
-/** How each version 2 path type looked; version 3 keeps the look. */
+/** How each version 2 path type looked; later versions keep the look. */
 const TYPE_LOOK: Record<string, { color: string; line: string }> = {
   road: { color: "gold", line: "solid" },
   torrent: { color: "green", line: "solid" },
@@ -382,7 +377,7 @@ function upgradeMapV2(value: unknown): unknown {
   const v = value as MapV2;
   if (!v || v.schemaVersion !== 2 || !Array.isArray(v.edges)) return v;
   // Version 3 dropped path types: a path keeps its look, and the types that
-  // changed routing become options (one way, teleport).
+  // changed routing became options (one way, teleport).
   const edges = v.edges.map((e: unknown) => {
     if (!e || typeof e !== "object" || !("type" in e)) return e;
     const { type, ...rest } = e as { type: unknown };
@@ -395,6 +390,20 @@ function upgradeMapV2(value: unknown): unknown {
       teleport: type === "waygate",
       showNote: false,
     };
+  });
+  return { ...v, schemaVersion: 3, edges };
+}
+
+function upgradeMapV3(value: unknown): unknown {
+  const v = value as { schemaVersion: unknown; edges: unknown };
+  if (!v || v.schemaVersion !== 3 || !Array.isArray(v.edges)) return v;
+  // Version 4 dropped the teleport option: a hop between layers is a jump,
+  // and a waygate within one layer is an ordinary path.
+  const edges = v.edges.map((e: unknown) => {
+    if (!e || typeof e !== "object" || !("teleport" in e)) return e;
+    const rest: Record<string, unknown> = { ...e };
+    delete rest.teleport;
+    return rest;
   });
   return { ...v, schemaVersion: MAP_VERSION, edges };
 }
