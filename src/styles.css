@@ -234,3 +234,28 @@ body {
 .leaflet-container {
   font: inherit;
 }
+
+/* Narrow windows: zoom buttons match the round map controls. */
+.narrow-map .leaflet-bar {
+  overflow: hidden;
+  border: 0;
+  border-radius: 9999px;
+  background: rgb(11 19 17 / 0.8);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.4);
+}
+.narrow-map .leaflet-bar a {
+  width: 32px;
+  height: 32px;
+  border-bottom-color: var(--color-line);
+  background: transparent;
+  color: var(--color-text);
+  font: 400 18px/32px var(--font-sans);
+}
+.narrow-map .leaflet-bar a:hover {
+  background: transparent;
+  color: var(--color-gold);
+}
+.narrow-map .leaflet-bar a.leaflet-disabled {
+  color: var(--color-muted);
+  opacity: 0.5;
+}

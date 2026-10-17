@@ -158,5 +158,20 @@
   "Path numbers": "路徑編號",
   "Small": "小",
   "Medium": "中",
-  "Large": "大"
+  "Large": "大",
+  "Goal and constraints": "目標與限制",
+  "No DLC": "不含 DLC",
+  "Avoids {paths}": "避開：{paths}",
+  "Items in route order": "依路線順序的道具",
+  "{acquired} of {total} acquired": "已取得 {acquired}／{total}",
+  "The wishlist is empty.": "願望清單是空的。",
+  "Not on the route yet": "尚未排入路線",
+  "{item}: acquired": "{item}：已取得",
+  "Tool hint": "工具提示",
+  "Menu": "選單",
+  "Route and editing": "路線與編輯",
+  "Route": "路線",
+  "Edit": "編輯",
+  "Shrink panel": "縮小面板",
+  "Expand panel": "展開面板"
 }

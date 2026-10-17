@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   EDGE_TYPES,
   LAYERS,
@@ -46,6 +46,88 @@ export function ProfileSwitcher({
         </option>
       ))}
     </select>
+  );
+}
+
+/** The active playthrough's goal and constraints, read-only, for narrow windows. */
+export function ProfileSummary({
+  t,
+  player,
+  setPlayer,
+  actions,
+  children,
+}: {
+  t: Translate;
+  player: PlayerDocument;
+  setPlayer(player: PlayerDocument): void;
+  /** Buttons at the end of the goal line. */
+  actions?: ReactNode;
+  children?: ReactNode;
+}) {
+  const { name, goal, constraints, rules } = activeProfile(player);
+  const tags = [
+    // Including the DLC is the usual case; only leaving it out is worth a tag.
+    ...(rules.dlc ? [] : [t("No DLC")]),
+    ...(rules.avoid.length
+      ? [
+          t("Avoids {paths}", {
+            paths: rules.avoid.map((type) => t(EDGE_NAMES[type])).join(", "),
+          }),
+        ]
+      : []),
+  ];
+  return (
+    <section
+      aria-label={t("Goal and constraints")}
+      className="space-y-1 px-3 py-2"
+    >
+      <div className="flex items-center gap-2">
+        {/* The goal is the playthrough switcher: a native select laid over it. */}
+        <label className="relative flex min-w-0 flex-1 cursor-pointer items-baseline gap-1.5 font-serif text-lg leading-snug text-gold hover:text-text">
+          <span className="min-w-0 whitespace-pre-line">
+            <span className="sr-only">{t("Goal")}: </span>
+            {goal.trim() || profileName(t, name)}
+          </span>
+          <span aria-hidden="true" className="shrink-0 text-xs text-muted">
+            ▾
+          </span>
+          <select
+            aria-label={t("Playthrough")}
+            className="absolute inset-0 cursor-pointer opacity-0"
+            value={player.activeProfile}
+            onChange={(event) =>
+              setPlayer({ ...player, activeProfile: event.target.value })
+            }
+          >
+            {player.profiles.map((p) => (
+              <option key={p.id} value={p.id}>
+                {profileName(t, p.name)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {actions}
+      </div>
+      {(constraints.trim() || tags.length > 0) && (
+        <p className="text-xs leading-relaxed text-muted">
+          {constraints.trim() && (
+            <span className="mr-1.5 whitespace-pre-line">
+              <span className="sr-only">{t("Constraints")}: </span>
+              {constraints}
+            </span>
+          )}
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              className="mr-1 inline-block rounded-full bg-line/70 px-2 text-[11px] text-text/80"
+            >
+              {tag}
+            </span>
+          ))}
+        </p>
+      )}
+      {children}
+    </section>
   );
 }
 
