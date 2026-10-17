@@ -2,11 +2,19 @@
 
 ## In progress
 
-None.
+### feat/uniform-paths
+
+- Task: #38 One uniform path with appearance, note and show-note options (decisions recorded on the issue)
+- PR: none yet; the finished branch awaits the player's approval to push and open it (see P-01)
+- Code checkpoint: d36d789 (local, not pushed; the branch exists on GitHub from `gh issue develop` at main)
+- State: built. Paths have a look (8 colors, solid/dashed), note with "show on map", one way, and teleport (locked on for paths between layers). Routing is by distance, no time estimates; the avoid list is gone. Maps upgrade to v3, player.json to v10.
+- Verification: lint, typecheck, test (87), build pass; checked in the browser on a copy of the player's data at 1400px (upgrade keeps paths gold, editor options, note on map, one-way arrow, cross-layer drawing makes a locked teleport, real data untouched). Next stops and the pin hint without times are covered by typecheck only: the player's data has no needed pinned items.
+- Pending: P-01 push `feat/uniform-paths` and open a PR closing #38 (blocks review and merge)
+- Next action: on approval, push and open the PR; then player review
 
 ## Ranked work
 
-1. #38 One uniform path: decide how routing works without path types (blocks the path model)
+1. #38 One uniform path with look, note and routing options (built, awaiting PR)
 2. #40 One pin tool; items attach to any node (reshapes nodes before #39 and #10)
 3. #41 Edit a selected path (insert a node between two others)
 4. #39 Notes on any pin, optionally shown on the map
@@ -18,13 +26,14 @@ None.
 10. #44 Show which way a path goes
 11. #33 Step numbers pinned to the screen edge can overlap (small)
 12. #36 Layer summary misses paths drawn only through graces (small)
-13. #19 Bring over chosen paths from another map, with a preview
-14. #22 Note what feels awkward (all ten flows tried; keep adding notes)
-15. #6 Save import review shows "Apply" when nothing changed (small)
-16. #27 Ashen Capital graces read as undiscovered (small; affects fast travel after Leyndell burns)
-17. #8 Spike: item locations from map layout files or community sources (no UI, so it can run before M5)
-18. #3 Add end-to-end browser tests
-19. #7 Check English and zh-TW together
+13. #48 Spike: waygate locations and destinations from game data
+14. #19 Bring over chosen paths from another map, with a preview
+15. #22 Note what feels awkward (all ten flows tried; keep adding notes)
+16. #6 Save import review shows "Apply" when nothing changed (small)
+17. #27 Ashen Capital graces read as undiscovered (small; affects fast travel after Leyndell burns)
+18. #8 Spike: item locations from map layout files or community sources (no UI, so it can run before M5)
+19. #3 Add end-to-end browser tests
+20. #7 Check English and zh-TW together
 
 ## Pending
 
