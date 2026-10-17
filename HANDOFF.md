@@ -5,12 +5,11 @@
 ### feat/uniform-paths
 
 - Task: #38 One uniform path with appearance, note and show-note options (decisions recorded on the issue)
-- PR: #49 open for review (Closes #38); the pushed version predates the follow-up below
-- Code checkpoint: 295a490 (local; the PR has 59d7083)
-- State: follow-up built on the player's request: no Teleport option (a hop between layers is a waygate jump, drawing continues across layers on one path), new paths colored by step, shown note under the step number. Maps go to schema v4, upgrading the v3 files the PR's first build saved (the player's real data is v3 since trying the PR).
+- PR: #49 open for review (Closes #38), awaiting the player's review; description updated for the follow-up
+- Code checkpoint: 295a490 (pushed)
+- State: follow-up (pushed) built on the player's request: no Teleport option (a hop between layers is a waygate jump, drawing continues across layers on one path), new paths colored by step, shown note under the step number. Maps go to schema v4, upgrading the v3 files the PR's first build saved (the player's real data is v3 since trying the PR).
 - Verification: lint, typecheck, test (88), build pass; browser check on a fresh copy of the player's data at 1400px (v3 files load and save as v4, colors white/red/blue for steps 3–5, a path across layers draws as one path with the jump pin marked, editor has no Teleport box, notes under numbers). The player's dev servers on ports 5173/5174 run this checkout on real data and hot-reload edits.
-- Pending: P-01 push 295a490 to `feat/uniform-paths` and update #49's description to match (blocks review of the follow-up)
-- Next action: on approval, push and update the PR body; then player review
+- Next action: player reviews #49; address review comments, or on acceptance remove this subsection and update `Ranked work` before merge
 
 ## Ranked work
 
