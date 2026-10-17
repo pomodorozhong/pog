@@ -3,6 +3,7 @@ import type { Map as LeafletMap } from "leaflet";
 import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LayerId, MapNode } from "../src/domain/types";
+import { newPath } from "../src/map/editing";
 import type { GameData } from "../src/map/catalog";
 import { MapCanvas } from "../src/map/MapCanvas";
 
@@ -67,15 +68,7 @@ describe("cross-layer waygate numbers", () => {
           info={info}
           view={{ layer, x: 100, y: 100, zoom: 1 }}
           nodes={nodes}
-          edges={[
-            {
-              id: "gate",
-              nodes: ["surface", "below"],
-              type: "waygate",
-              note: "",
-              step: 1,
-            },
-          ]}
+          edges={[{ ...newPath("gate", ["surface", "below"], true), step: 1 }]}
           selection={null}
           draft={null}
           editable={false}
@@ -148,19 +141,47 @@ const canvasProps = (): ComponentProps<typeof MapCanvas> => ({
   onViewChange: vi.fn(),
 });
 
+describe("path options", () => {
+  it("draws no line for a teleport on one layer and marks both ends", () => {
+    const { container } = render(
+      <MapCanvas
+        {...canvasProps()}
+        edges={[
+          { ...newPath("belfry", ["grace/1", "grace/3"], true), step: 1 },
+        ]}
+      />,
+    );
+    expect(container.querySelector(".leaflet-overlay-pane path")).toBeNull();
+    expect(container.querySelectorAll(".map-node.has-portal")).toHaveLength(2);
+    expect(container.querySelectorAll(".path-step")).toHaveLength(1);
+  });
+
+  it("shows a path's note on the map only when asked, as plain text", () => {
+    const path = {
+      ...newPath("walk", ["grace/1", "grace/2"]),
+      note: "<b>Needs</b> the key",
+      step: 1,
+    };
+    const { container, rerender } = render(
+      <MapCanvas {...canvasProps()} edges={[path]} />,
+    );
+    expect(container.querySelector(".path-note")).toBeNull();
+    rerender(
+      <MapCanvas {...canvasProps()} edges={[{ ...path, showNote: true }]} />,
+    );
+    const note = container.querySelector(".path-note")!;
+    expect(note).toHaveTextContent("<b>Needs</b> the key");
+    expect(note.querySelector("b")).toBeNull();
+  });
+});
+
 describe("grace visibility", () => {
   it("preserves paths, step numbers and retained grace markers when the filter changes", () => {
     const props = {
       ...canvasProps(),
       view: { layer: "overworld" as const, x: 100, y: 100, zoom: 6 },
       edges: [
-        {
-          id: "walk",
-          nodes: ["grace/1", "grace/2", "grace/3"],
-          type: "road" as const,
-          note: "",
-          step: 1,
-        },
+        { ...newPath("walk", ["grace/1", "grace/2", "grace/3"]), step: 1 },
       ],
     };
     const { container, rerender } = render(<MapCanvas {...props} />);
@@ -195,13 +216,7 @@ describe("grace visibility", () => {
       ...props,
       hideUnusedGraces: true,
       edges: [
-        {
-          id: "walk",
-          nodes: ["grace/1", "grace/2", "grace/3"],
-          type: "road" as const,
-          note: "",
-          step: 1,
-        },
+        { ...newPath("walk", ["grace/1", "grace/2", "grace/3"]), step: 1 },
       ],
     };
     rerender(<MapCanvas {...filtered} />);

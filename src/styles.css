@@ -53,6 +53,13 @@ body {
   .swatch {
     @apply inline-block h-1 w-5 rounded align-middle;
   }
+  /* A color choice in the path editor. */
+  .color-pick {
+    @apply size-6 rounded-full border-2 border-transparent;
+  }
+  .color-pick[aria-pressed="true"] {
+    @apply border-text ring-2 ring-ink;
+  }
   /* The Move… list: paths in walking order, with slots to put a path in. */
   .move-row {
     @apply flex items-center gap-2 rounded px-1 py-1 outline-none hover:bg-ink focus-visible:bg-ink;
@@ -182,6 +189,20 @@ body {
   background: #ffd84a;
   color: var(--color-ink);
   font-size: calc(var(--step-font) * 1.25);
+}
+/* A path's note, shown on the map when the player asks for it. */
+.path-note span {
+  position: absolute;
+  transform: translate(-50%, 60%);
+  max-width: 14rem;
+  width: max-content;
+  padding: 1px 6px;
+  border: 1px solid;
+  border-radius: 6px;
+  background: rgb(20 18 14 / 0.85);
+  color: var(--color-text);
+  font: 12px / 1.4 var(--font-sans);
+  white-space: pre-wrap;
 }
 /* A step number held on the screen edge while its path is off screen. */
 .path-step.is-pinned span {

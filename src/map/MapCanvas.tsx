@@ -19,10 +19,10 @@ import {
 } from "./catalog";
 import type { RouteLine } from "../routing/order";
 import type { Draft } from "./drawing";
-import { edgeRuns, isOneWay } from "./editing";
+import { edgeRuns } from "./editing";
 import { enableGestures } from "./gestures";
 import { placeStep } from "./stepPlacement";
-import { EDGE_STYLE, NODE_SYMBOL } from "./style";
+import { NODE_SYMBOL, pathStyle } from "./style";
 import { isGameGrace } from "./graces";
 
 export type Selection = { kind: "node" | "edge"; id: string } | null;
@@ -241,17 +241,11 @@ export function MapCanvas(props: Props) {
     const portalEnds = new Set<string>();
 
     for (const edge of edges) {
-      // Pins a waygate jumps between are marked instead of drawn.
-      edge.nodes.forEach((id, i) => {
-        const [a, b] = [byId.get(edge.nodes[i - 1]), byId.get(id)];
-        if (a && b && a.layer !== b.layer) {
-          portalEnds.add(a.id);
-          portalEnds.add(b.id);
-        }
-      });
+      // Pins a teleport jumps between are marked instead of drawn.
+      if (edge.teleport) for (const id of edge.nodes) portalEnds.add(id);
       const runs = edgeRuns(edge, byId, layer);
-      // A waygate may have only isolated endpoints on this layer. Its number
-      // still belongs here, even though the jump itself has no drawn line.
+      // A teleport has only isolated pins on this layer. Its number still
+      // belongs here, even though the jump itself has no drawn line.
       const stepRuns = runs.length
         ? runs
         : edge.nodes.flatMap((id): Point[][] => {
@@ -261,7 +255,7 @@ export function MapCanvas(props: Props) {
       if (!stepRuns.length) continue;
       const selected = selection?.kind === "edge" && selection.id === edge.id;
       const highlighted = highlight === edge.id;
-      const style = EDGE_STYLE[edge.type];
+      const style = pathStyle(edge);
       const select = (event: L.LeafletEvent) => {
         L.DomEvent.stop(event);
         latest.current.onEdgeClick(edge.id);
@@ -286,7 +280,7 @@ export function MapCanvas(props: Props) {
         L.polyline(line, { ...style, opacity: 0.95 })
           .on("click", select)
           .addTo(group);
-        if (isOneWay(edge.type))
+        if (edge.oneWay)
           addArrow(
             group,
             line[line.length - 2],
@@ -307,6 +301,17 @@ export function MapCanvas(props: Props) {
         .on("click", select)
         .addTo(group);
       steps.current.push({ marker, runs: stepRuns });
+      if (edge.showNote && edge.note.trim())
+        L.marker(toLatLng(notePoint(stepRuns[0])), {
+          icon: L.divIcon({
+            className: "path-note",
+            html: `<span style="border-color: ${style.color}">${escapeHtml(edge.note)}</span>`,
+            iconSize: [0, 0],
+          }),
+          keyboard: false,
+        })
+          .on("click", select)
+          .addTo(group);
     }
     placeAllSteps();
 
@@ -492,6 +497,13 @@ function placeSteps(
     marker.setLatLng(instance.containerPointToLatLng(labelPoint));
     marker.getElement()?.classList.toggle("is-pinned", pinned);
   }
+}
+
+/** Where a path's note sits: the middle of its middle hop. */
+function notePoint(run: Point[]): Point {
+  const k = Math.max(0, Math.floor((run.length - 1) / 2));
+  const [a, b] = [run[k], run[k + 1] ?? run[k]];
+  return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
 }
 
 const escapeHtml = (text: string) =>

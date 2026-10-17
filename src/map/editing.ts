@@ -1,5 +1,4 @@
 import type {
-  EdgeType,
   LayerId,
   MapDocument,
   MapEdge,
@@ -13,6 +12,27 @@ export const newId = (prefix: string) =>
 /** A path to add: it always becomes the last step. */
 export type NewEdge = Omit<MapEdge, "step">;
 
+/** A new path through `nodes`, drawn the default way. */
+export const newPath = (
+  id: string,
+  nodes: string[],
+  teleport = false,
+): NewEdge => ({
+  id,
+  nodes,
+  color: teleport ? "purple" : "gold",
+  line: teleport ? "dashed" : "solid",
+  oneWay: false,
+  teleport,
+  note: "",
+  showNote: false,
+});
+
+/** What the path editor can change. */
+export type EdgeChanges = Partial<
+  Pick<MapEdge, "color" | "line" | "oneWay" | "teleport" | "note" | "showNote">
+>;
+
 export type MapAction =
   | { type: "addNode"; node: MapNode }
   | { type: "updateNode"; id: string; changes: Partial<Omit<MapNode, "id">> }
@@ -23,7 +43,7 @@ export type MapAction =
   | {
       type: "updateEdge";
       id: string;
-      changes: Partial<Pick<MapEdge, "type" | "note">>;
+      changes: EdgeChanges;
     }
   | { type: "removeEdge"; id: string }
   /** Give a path another step; the paths in between shift by one. */
@@ -51,14 +71,14 @@ export function applyMapAction(
 ): MapDocument {
   const find = (id: string) =>
     doc.nodes.find((n) => n.id === id) ?? fixed.get(id);
-  const fits = (pins: string[], type: EdgeType) => {
+  const fits = (pins: string[], teleport: boolean) => {
     const nodes = pins.map(find);
     return (
       pins.length >= 2 &&
       nodes.every(Boolean) &&
       pins.every((id, i) => id !== pins[i - 1]) &&
-      // Only a waygate joins layers.
-      (type === "waygate" || nodes.every((n) => n!.layer === nodes[0]!.layer))
+      // Only a teleport joins layers.
+      (teleport || nodes.every((n) => n!.layer === nodes[0]!.layer))
     );
   };
   const replace = (edge: MapEdge) => ({
@@ -72,10 +92,10 @@ export function applyMapAction(
       const node = doc.nodes.find((n) => n.id === action.id);
       if (!node) return doc;
       const updated = { ...node, ...action.changes };
-      // Moving a node to another layer would strand its non-waygate paths.
+      // Moving a node to another layer would strand its paths that walk.
       if (
         updated.layer !== node.layer &&
-        doc.edges.some((e) => e.nodes.includes(node.id) && e.type !== "waygate")
+        doc.edges.some((e) => e.nodes.includes(node.id) && !e.teleport)
       )
         return doc;
       return {
@@ -101,7 +121,7 @@ export function applyMapAction(
     }
     case "addEdge": {
       const { edge } = action;
-      if (!fits(edge.nodes, edge.type)) return doc;
+      if (!fits(edge.nodes, edge.teleport)) return doc;
       return {
         ...doc,
         edges: [...doc.edges, { ...edge, step: doc.edges.length + 1 }],
@@ -111,13 +131,13 @@ export function applyMapAction(
       const edge = doc.edges.find((e) => e.id === action.id);
       if (!edge) return doc;
       const nodes = [...edge.nodes, action.node];
-      return fits(nodes, edge.type) ? replace({ ...edge, nodes }) : doc;
+      return fits(nodes, edge.teleport) ? replace({ ...edge, nodes }) : doc;
     }
     case "updateEdge": {
       const edge = doc.edges.find((e) => e.id === action.id);
       if (!edge) return doc;
       const updated = { ...edge, ...action.changes };
-      return fits(updated.nodes, updated.type) ? replace(updated) : doc;
+      return fits(updated.nodes, updated.teleport) ? replace(updated) : doc;
     }
     case "removeEdge":
       if (!doc.edges.some((e) => e.id === action.id)) return doc;
@@ -216,18 +236,16 @@ export function historyReducer(
   }
 }
 
-/** Edges that can only be travelled from `from` to `to`. */
-export const isOneWay = (type: EdgeType) => type === "one-way-drop";
-
 /**
  * The stretches of a path to draw on `layer`, as lines of map points. A
- * waygate's jumps between layers aren't drawn.
+ * teleport's jumps aren't drawn.
  */
 export function edgeRuns(
   edge: MapEdge,
   nodes: ReadonlyMap<string, MapNode>,
   layer: LayerId,
 ): Point[][] {
+  if (edge.teleport) return [];
   const runs: Point[][] = [];
   let run: Point[] = [];
   for (const id of edge.nodes) {

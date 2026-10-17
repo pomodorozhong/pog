@@ -1,5 +1,5 @@
-import type { EdgeType, LayerId, MapNode, Point } from "../domain/types";
-import { newId, type MapAction } from "./editing";
+import type { LayerId, MapNode, Point } from "../domain/types";
+import { newId, newPath, type MapAction } from "./editing";
 
 /**
  * The path being drawn: the pin it has reached, and the path itself once it
@@ -10,18 +10,26 @@ export type Draft = { from: string; edge: string | null };
 /**
  * Draw path mode: take the path being drawn on to `to`, as one undo step.
  * The first two pins make a path; each later pin extends it, so a whole line
- * is one path until Esc ends it. A pin on another layer starts a new path,
- * unless the path is a waygate.
+ * is one path until Esc ends it. A pin on another layer is a jump, such as
+ * a waygate: it becomes a teleport path of its own, and drawing goes on from
+ * there as a new path.
  */
 export function drawTo(
   draft: Draft | null,
   from: MapNode | undefined,
   to: MapNode,
-  type: EdgeType,
 ): { action: MapAction | null; draft: Draft } {
-  if (!draft || !from || (from.layer !== to.layer && type !== "waygate"))
+  if (!draft || !from)
     return { action: null, draft: { from: to.id, edge: null } };
   if (from.id === to.id) return { action: null, draft };
+  if (from.layer !== to.layer)
+    return {
+      action: {
+        type: "addEdge",
+        edge: newPath(newId("path"), [from.id, to.id], true),
+      },
+      draft: { from: to.id, edge: null },
+    };
   if (draft.edge)
     return {
       action: { type: "extendEdge", id: draft.edge, node: to.id },
@@ -31,7 +39,7 @@ export function drawTo(
   return {
     action: {
       type: "addEdge",
-      edge: { id, nodes: [from.id, to.id], type, note: "" },
+      edge: newPath(id, [from.id, to.id]),
     },
     draft: { from: to.id, edge: id },
   };
@@ -43,7 +51,6 @@ export function dropJunction(
   from: MapNode | undefined,
   layer: LayerId,
   [x, y]: Point,
-  type: EdgeType,
 ): { action: MapAction; draft: Draft } {
   const node: MapNode = {
     id: newId("junction"),
@@ -54,7 +61,7 @@ export function dropJunction(
     label: "",
     ref: null,
   };
-  const next = drawTo(draft, from, node, type);
+  const next = drawTo(draft, from, node);
   return {
     action: {
       type: "batch",

@@ -8,10 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import {
-  EDGE_TYPES,
   LAYERS,
   STEP_SIZES,
-  type EdgeType,
   type LayerId,
   type Language,
   type MapView,
@@ -32,10 +30,9 @@ import {
 import { drawTo, dropJunction, type Draft } from "./map/drawing";
 import { gameGraceNodes, withGameGraces } from "./map/graces";
 import { Inspector } from "./map/Inspector";
-import { EDGE_NAMES, LAYER_NAMES } from "./map/labels";
+import { LAYER_NAMES } from "./map/labels";
 import { MapCanvas, type Selection } from "./map/MapCanvas";
 import { MapDetails } from "./map/MapDetails";
-import { EDGE_STYLE } from "./map/style";
 import {
   ImportFromProfile,
   ProfilePanel,
@@ -54,7 +51,6 @@ import { activeProfile } from "./profiles/profiles";
 import { displayName } from "./map/catalog";
 import { detour, routeLines } from "./routing/order";
 import { RoutePanel } from "./routing/RoutePanel";
-import { formatDuration } from "./routing/format";
 import { usePlannedRoute } from "./routing/usePlannedRoute";
 import { initialDocuments, mapKey } from "./storage/schema";
 import { PinWishlist, WishlistPanel } from "./wishlist/WishlistPanel";
@@ -127,7 +123,6 @@ export default function App() {
   });
   const [player, setPlayer] = useState<PlayerDocument | null>(null);
   const [tool, setTool] = useState<Tool>("select");
-  const [edgeType, setEdgeType] = useState<EdgeType>("road");
   const [selection, setSelection] = useState<Selection>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [highlight, setHighlight] = useState<string | null>(null);
@@ -259,7 +254,7 @@ export default function App() {
       if (activeTool === "select") return setSelection(null);
       if (activeTool === "path") {
         const from = draft ? nodeById.get(draft.from) : undefined;
-        const next = dropJunction(draft, from, layer, point, edgeType);
+        const next = dropJunction(draft, from, layer, point);
         edit(next.action);
         return setDraft(next.draft);
       }
@@ -270,7 +265,7 @@ export default function App() {
         const to = nodeById.get(id);
         if (!to) return;
         const from = draft ? nodeById.get(draft.from) : undefined;
-        const next = drawTo(draft, from, to, edgeType);
+        const next = drawTo(draft, from, to);
         if (next.action) edit(next.action);
         return setDraft(next.draft);
       }
@@ -325,20 +320,17 @@ export default function App() {
     [nodeById, player, layer],
   );
 
-  /** What visiting a node would add to the planned route, in words. */
+  /** Where visiting a node fits best in the planned route, in words. */
   const detourText = (node: string) => {
-    if (!plan) return t("Set your position to estimate the detour.");
-    const cost = detour(plan.times, plan.start, plan.route.order, node);
-    if (!cost) return t("The route can't reach this pin.");
-    const after = cost.after && nodeById.get(cost.after);
+    if (!plan) return t("Set your position to see where this fits the route.");
+    const best = detour(plan.times, plan.start, plan.route.order, node);
+    if (!best) return t("The route can't reach this pin.");
+    const after = best.after && nodeById.get(best.after);
     return after
-      ? t("Adds {time} to the route, best after {stop}.", {
-          time: formatDuration(t, cost.seconds),
+      ? t("Best visited after {stop}.", {
           stop: displayName(data, after, language) || t("a junction"),
         })
-      : t("Adds {time} to the route, best as the first stop.", {
-          time: formatDuration(t, cost.seconds),
-        });
+      : t("Best visited as the first stop.");
   };
 
   /** Go on drawing a path from its last pin. */
@@ -350,7 +342,6 @@ export default function App() {
       showNode(last);
       setSelection(null);
       setTool("path");
-      setEdgeType(edge.type);
       setDraft({ from: last, edge: id });
     },
     [doc.edges, showNode],
@@ -636,30 +627,6 @@ export default function App() {
           >
             ?
           </button>
-          {tool === "path" && (
-            <label className="ml-2 flex items-center gap-2">
-              <span className="text-muted">{t("Path type")}</span>
-              <select
-                className="field"
-                value={edgeType}
-                onChange={(event) => {
-                  setEdgeType(event.target.value as EdgeType);
-                  // A path has one type: a new type starts a new path from here.
-                  if (draft) setDraft({ from: draft.from, edge: null });
-                }}
-              >
-                {EDGE_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {t(EDGE_NAMES[type])}
-                  </option>
-                ))}
-              </select>
-              <span
-                className="swatch"
-                style={{ background: EDGE_STYLE[edgeType].color }}
-              />
-            </label>
-          )}
           {!narrow && (
             <label className="ml-auto flex items-center gap-2">
               <span className="text-muted">{t("Path numbers")}</span>

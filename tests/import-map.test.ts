@@ -5,6 +5,7 @@ import type {
   MapEdge,
   MapNode,
 } from "../src/domain/types";
+import { newPath } from "../src/map/editing";
 import { applyMapAction } from "../src/map/editing";
 import { withGameGraces } from "../src/map/graces";
 import { importMap } from "../src/profiles/importMap";
@@ -23,10 +24,10 @@ const edge = (
   id: string,
   from: string,
   to: string,
-  type: MapEdge["type"] = "road",
-): MapEdge => ({ id, nodes: [from, to], type, note: "", step: 0 });
+  teleport = false,
+): MapEdge => ({ ...newPath(id, [from, to], teleport), step: 0 });
 const doc = (nodes: MapNode[], edges: MapEdge[] = []): MapDocument => ({
-  schemaVersion: 2,
+  schemaVersion: 3,
   nodes,
   // Paths are walked in the order given.
   edges: edges.map((e, i) => ({ ...e, step: i + 1 })),
@@ -41,7 +42,7 @@ const copy = (target: MapDocument, source: MapDocument, layer?: LayerId) =>
 describe("import from another profile", () => {
   const source = doc(
     [node("j"), node("cave", { layer: "underground", kind: "entrance" })],
-    [edge("road", "grace/1", "j"), edge("down", "j", "cave", "waygate")],
+    [edge("road", "grace/1", "j"), edge("down", "j", "cave", true)],
   );
 
   it("copies nodes and paths, with paths ending at game graces", () => {
@@ -63,7 +64,7 @@ describe("import from another profile", () => {
     });
   });
 
-  it("copies one layer, keeping waygates to nodes already on the map", () => {
+  it("copies one layer, keeping teleports to nodes already on the map", () => {
     const overworld = copy(doc([]), source, "overworld");
     expect(overworld.nodes.map((n) => n.id)).toEqual(["j"]);
     expect(overworld.edges.map((e) => e.id)).toEqual(["road"]);

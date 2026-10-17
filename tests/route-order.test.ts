@@ -7,6 +7,7 @@ import {
   travelTimes,
   wishlistTargets,
 } from "../src/routing/order";
+import { newPath } from "../src/map/editing";
 import { buildGraph } from "../src/routing/route";
 
 const node = (id: string, x: number, y = 0): MapNode => ({
@@ -18,50 +19,47 @@ const node = (id: string, x: number, y = 0): MapNode => ({
   label: "",
   ref: null,
 });
-/** Points on a line, joined by a road in the given order. */
+/** Points on a line, joined by paths in the given order. */
 function line(ids: string[], xs: number[]): MapDocument {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     nodes: ids.map((id, i) => node(id, xs[i])),
     edges: ids.slice(1).map((id, i) => ({
-      id: `e${i}`,
-      nodes: [ids[i], id],
-      type: "road" as const,
-      note: "",
+      ...newPath(`e${i}`, [ids[i], id]),
       step: i + 1,
     })),
   };
 }
-const open = { avoid: [], dlc: true };
+const open = { dlc: true };
 
 describe("visit order", () => {
-  // Along one road: start at 0, targets at 1400, 2800 and 5600 metres.
+  // Along one path: start at 0, targets at 1400, 2800 and 5600 metres.
   const map = line(["s", "a", "b", "c"], [0, 1400, 2800, 5600]);
   const times = travelTimes(buildGraph(map, open, []));
 
   it("visits targets along the way in order", () => {
     const route = planRoute(times, "s", ["c", "a", "b"]);
     expect(route.order).toEqual(["a", "b", "c"]);
-    expect(route.seconds).toBe(400);
+    expect(route.cost).toBe(5600);
     expect(route.legs.map((leg) => leg.length)).toEqual([1, 1, 1]);
     expect(route.unreachable).toEqual([]);
   });
 
-  it("estimates the detour for a new target", () => {
+  it("finds where a new target fits best", () => {
     // b sits on the way from a to c: it costs nothing extra.
     expect(detour(times, "s", ["a", "c"], "b")).toEqual({
-      seconds: 0,
+      cost: 0,
       after: "a",
     });
     // Starting with a lone far target, a nearer one goes first.
-    expect(detour(times, "s", ["c"], "a")).toEqual({ seconds: 0, after: null });
+    expect(detour(times, "s", ["c"], "a")).toEqual({ cost: 0, after: null });
   });
 
   it("improves on nearest neighbour with 2-opt", () => {
     // On a line from 0: nearest neighbour goes to a (+1 km), back past the
     // start to b (−2 km), then out to c (+10 km): 16 km. b, a, c is 14 km.
     const spread: MapDocument = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       nodes: [
         node("s", 0),
         node("a", 1000),
@@ -82,7 +80,7 @@ describe("visit order", () => {
 describe("route targets", () => {
   it("takes needed wishlist items that have a pin", () => {
     const map: MapDocument = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       nodes: [
         { ...node("pin", 0), kind: "item", ref: "weapon/1" },
         { ...node("got", 0), kind: "item", ref: "weapon/2" },
