@@ -5,11 +5,12 @@
 ### feat/uniform-paths
 
 - Task: #38 One uniform path with appearance, note and show-note options (decisions recorded on the issue)
-- PR: opened for review (Closes #38); awaiting review and merge
-- Code checkpoint: d36d789 (pushed)
-- State: built. Paths have a look (8 colors, solid/dashed), note with "show on map", one way, and teleport (locked on for paths between layers). Routing is by distance, no time estimates; the avoid list is gone. Maps upgrade to v3, player.json to v10.
-- Verification: lint, typecheck, test (87), build pass; checked in the browser on a copy of the player's data at 1400px (upgrade keeps paths gold, editor options, note on map, one-way arrow, cross-layer drawing makes a locked teleport, real data untouched). Next stops and the pin hint without times are covered by typecheck only: the player's data has no needed pinned items.
-- Next action: player review of the PR, including Next stops without minutes on a map with pinned wishlist items; address comments, then merge when accepted
+- PR: #49 open for review (Closes #38); the pushed version predates the follow-up below
+- Code checkpoint: 295a490 (local; the PR has 59d7083)
+- State: follow-up built on the player's request: no Teleport option (a hop between layers is a waygate jump, drawing continues across layers on one path), new paths colored by step, shown note under the step number. Maps go to schema v4, upgrading the v3 files the PR's first build saved (the player's real data is v3 since trying the PR).
+- Verification: lint, typecheck, test (88), build pass; browser check on a fresh copy of the player's data at 1400px (v3 files load and save as v4, colors white/red/blue for steps 3–5, a path across layers draws as one path with the jump pin marked, editor has no Teleport box, notes under numbers). The player's dev servers on ports 5173/5174 run this checkout on real data and hot-reload edits.
+- Pending: P-01 push 295a490 to `feat/uniform-paths` and update #49's description to match (blocks review of the follow-up)
+- Next action: on approval, push and update the PR body; then player review
 
 ## Ranked work
 
