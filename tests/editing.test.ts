@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MapDocument, MapNode } from "../src/domain/types";
-import { applyMapAction, historyReducer } from "../src/map/editing";
+import { applyMapAction, historyReducer, newPath } from "../src/map/editing";
+import { drawn } from "./paths";
 import {
   initialDocuments,
   upgradeDocument,
@@ -17,51 +18,46 @@ const node = (id: string, layer: MapNode["layer"] = "overworld"): MapNode => ({
   ref: null,
 });
 const doc = (...nodes: MapNode[]): MapDocument => ({
-  schemaVersion: 2,
+  schemaVersion: 4,
   nodes,
   edges: [],
 });
-const edge = (
-  id: string,
-  nodes: string[],
-  type: "road" | "waygate" = "road",
-) => ({ id, nodes, type, note: "" });
+const edge = drawn;
 
 describe("map editing", () => {
-  it("joins layers only with waygates", () => {
+  it("lets a path jump between layers", () => {
     const start = doc(node("a"), node("b", "underground"));
-    expect(
-      applyMapAction(start, { type: "addEdge", edge: edge("e", ["a", "b"]) }),
-    ).toBe(start);
     const linked = applyMapAction(start, {
       type: "addEdge",
-      edge: edge("e", ["a", "b"], "waygate"),
+      edge: edge("e", ["a", "b"]),
     });
-    expect(linked.edges).toEqual([
-      { ...edge("e", ["a", "b"], "waygate"), step: 1 },
-    ]);
+    expect(linked.edges).toEqual([{ ...edge("e", ["a", "b"]), step: 1 }]);
     expect(validDocument("map", linked)).toBe(true);
-    expect(
-      applyMapAction(linked, {
-        type: "updateEdge",
-        id: "e",
-        changes: { type: "road" },
-      }),
-    ).toBe(linked);
   });
 
-  it("removes a node's paths with it and keeps nodes on their path's layer", () => {
+  it("colors new paths by step, unless they bring a color", () => {
+    const start = doc(node("a"), node("b"));
+    const added = ["p", "q", "r"].reduce(
+      (next, id) =>
+        applyMapAction(next, {
+          type: "addEdge",
+          edge: newPath(id, ["a", "b"]),
+        }),
+      start,
+    );
+    expect(added.edges.map((e) => e.color)).toEqual(["gold", "blue", "white"]);
+    const kept = applyMapAction(added, {
+      type: "addEdge",
+      edge: { ...newPath("s", ["a", "b"]), color: "pink" },
+    });
+    expect(kept.edges[3].color).toBe("pink");
+  });
+
+  it("removes a node's paths with it", () => {
     const linked = applyMapAction(doc(node("a"), node("b")), {
       type: "addEdge",
       edge: edge("e", ["a", "b"]),
     });
-    expect(
-      applyMapAction(linked, {
-        type: "updateNode",
-        id: "a",
-        changes: { layer: "dlc" },
-      }),
-    ).toBe(linked);
     expect(applyMapAction(linked, { type: "removeNode", id: "a" })).toEqual(
       doc(node("b")),
     );
@@ -224,18 +220,77 @@ describe("upgrading a version 1 map", () => {
     };
     const upgraded = upgradeDocument("map", v1);
     expect(upgraded).toEqual({
-      schemaVersion: 2,
+      schemaVersion: 4,
       nodes: [node("a"), node("b"), { ...node("e-bend-1"), x: 5, y: 6 }],
       edges: [
         {
-          id: "e",
-          nodes: ["a", "e-bend-1", "b"],
-          type: "road",
+          ...edge("e", ["a", "e-bend-1", "b"]),
           note: "n",
           step: 1,
         },
-        { id: "f", nodes: ["b", "grace/1"], type: "foot", note: "", step: 2 },
+        {
+          ...edge("f", ["b", "grace/1"]),
+          color: "white",
+          line: "dashed",
+          step: 2,
+        },
       ],
+    });
+    expect(validDocument("map", upgraded)).toBe(true);
+  });
+});
+
+describe("upgrading a version 2 map", () => {
+  it("keeps each path's look and turns one-way drops into an option", () => {
+    const v2 = {
+      schemaVersion: 2,
+      nodes: [node("a"), node("b"), node("c", "underground")],
+      edges: [
+        { id: "r", nodes: ["a", "b"], type: "road", note: "n", step: 1 },
+        { id: "d", nodes: ["b", "a"], type: "one-way-drop", note: "", step: 2 },
+        { id: "w", nodes: ["b", "c"], type: "waygate", note: "", step: 3 },
+      ],
+    };
+    const upgraded = upgradeDocument("map", v2);
+    expect(upgraded).toEqual({
+      schemaVersion: 4,
+      nodes: v2.nodes,
+      edges: [
+        { ...edge("r", ["a", "b"]), note: "n", step: 1 },
+        {
+          ...edge("d", ["b", "a"]),
+          color: "red",
+          line: "dashed",
+          oneWay: true,
+          step: 2,
+        },
+        { ...edge("w", ["b", "c"]), color: "purple", line: "dashed", step: 3 },
+      ],
+    });
+    expect(validDocument("map", upgraded)).toBe(true);
+  });
+});
+
+describe("upgrading a version 3 map", () => {
+  it("drops the teleport option, keeping everything else", () => {
+    const v3 = {
+      schemaVersion: 3,
+      nodes: [node("a"), node("b")],
+      edges: [
+        {
+          ...edge("e", ["a", "b"]),
+          note: "n",
+          showNote: true,
+          teleport: false,
+          step: 1,
+        },
+      ],
+    };
+    const upgraded = upgradeDocument("map", v3);
+    expect(upgraded).toEqual({
+      schemaVersion: 4,
+      nodes: v3.nodes,
+      edges: [{ ...edge("e", ["a", "b"]), note: "n", showNote: true, step: 1 }],
     });
     expect(validDocument("map", upgraded)).toBe(true);
   });

@@ -25,7 +25,7 @@ export function wishlistTargets(
   });
 }
 
-/** Shortest paths from each node asked about, computed once. */
+/** Shortest paths from each node asked about, computed once. Costs are metres. */
 export function travelTimes(graph: Graph) {
   const cache = new Map<string, ShortestPaths>();
   const from = (node: string) => {
@@ -37,7 +37,7 @@ export function travelTimes(graph: Graph) {
     return paths;
   };
   return {
-    seconds: (a: string, b: string) => from(a).seconds.get(b) ?? Infinity,
+    cost: (a: string, b: string) => from(a).cost.get(b) ?? Infinity,
     path: (a: string, b: string) => pathTo(from(a), b),
   };
 }
@@ -48,14 +48,14 @@ export type PlannedRoute = {
   order: string[];
   /** The steps of each leg: start to the first target, then target to target. */
   legs: Step[][];
-  seconds: number;
+  cost: number;
   /** Targets the route can't reach, for example DLC pins with the DLC left out. */
   unreachable: string[];
 };
 
-const routeSeconds = (times: TravelTimes, start: string, order: string[]) =>
+const routeCost = (times: TravelTimes, start: string, order: string[]) =>
   order.reduce(
-    (sum, node, i) => sum + times.seconds(i ? order[i - 1] : start, node),
+    (sum, node, i) => sum + times.cost(i ? order[i - 1] : start, node),
     0,
   );
 
@@ -66,16 +66,14 @@ export function planRoute(
   targets: string[],
 ): PlannedRoute {
   const unique = [...new Set(targets)].filter((t) => t !== start);
-  const unreachable = unique.filter(
-    (t) => times.seconds(start, t) === Infinity,
-  );
+  const unreachable = unique.filter((t) => times.cost(start, t) === Infinity);
   const left = new Set(unique.filter((t) => !unreachable.includes(t)));
   const order: string[] = [];
   for (let at = start; left.size;) {
     let next = "";
     let best = Infinity;
     for (const t of left) {
-      const s = times.seconds(at, t);
+      const s = times.cost(at, t);
       if (s < best) [next, best] = [t, s];
     }
     // Reachable from the start doesn't mean reachable from here (one-way drops).
@@ -86,7 +84,7 @@ export function planRoute(
   }
 
   // 2-opt: reverse a stretch of the route while that makes it shorter.
-  let total = routeSeconds(times, start, order);
+  let total = routeCost(times, start, order);
   for (let improved = true; improved;) {
     improved = false;
     for (let i = 0; i < order.length - 1; i++)
@@ -96,10 +94,10 @@ export function planRoute(
           ...order.slice(i, j + 1).reverse(),
           ...order.slice(j + 1),
         ];
-        const seconds = routeSeconds(times, start, candidate);
-        if (seconds < total - 1e-6) {
+        const cost = routeCost(times, start, candidate);
+        if (cost < total - 1e-6) {
           order.splice(0, order.length, ...candidate);
-          total = seconds;
+          total = cost;
           improved = true;
         }
       }
@@ -110,32 +108,32 @@ export function planRoute(
     legs: order.map(
       (node, i) => times.path(i ? order[i - 1] : start, node) ?? [],
     ),
-    seconds: total,
+    cost: total,
     unreachable,
   };
 }
 
 /**
- * What adding `node` to a planned route costs: the cheapest place to slot it
- * in, as extra seconds and the stop to visit it after (null: go there first).
+ * Where adding `node` to a planned route costs least: the extra cost and the
+ * stop to visit it after (null: go there first).
  */
 export function detour(
   times: TravelTimes,
   start: string,
   order: string[],
   node: string,
-): { seconds: number; after: string | null } | null {
-  let best: { seconds: number; after: string | null } | null = null;
+): { cost: number; after: string | null } | null {
+  let best: { cost: number; after: string | null } | null = null;
   for (let i = 0; i <= order.length; i++) {
     const before = i ? order[i - 1] : start;
     const after = order[i];
     const extra =
-      times.seconds(before, node) +
+      times.cost(before, node) +
       (after === undefined
         ? 0
-        : times.seconds(node, after) - times.seconds(before, after));
-    if (extra < Infinity && (!best || extra < best.seconds))
-      best = { seconds: extra, after: i ? before : null };
+        : times.cost(node, after) - times.cost(before, after));
+    if (extra < Infinity && (!best || extra < best.cost))
+      best = { cost: extra, after: i ? before : null };
   }
   return best;
 }

@@ -13,6 +13,7 @@ import {
   walkOrder,
 } from "../src/wishlist/wishlist";
 import type { MapDocument, MapNode, WishlistItem } from "../src/domain/types";
+import { drawn } from "./paths";
 
 const STARS = "weapon/11050000";
 
@@ -58,7 +59,7 @@ describe("wishlist", () => {
     const player = initialDocuments().player;
     const v2 = {
       ...player,
-      schemaVersion: 2,
+      schemaVersion: 4,
       profiles: [{ id: "profile-1", name: "", goal: "", constraints: "" }],
     };
     expect(upgradeDocument("player", v2)).toEqual(initialDocuments().player);
@@ -103,7 +104,7 @@ describe("walk order", () => {
 
   it("sorts items by the lowest step of a path through their pin", () => {
     const map: MapDocument = {
-      schemaVersion: 2,
+      schemaVersion: 4,
       nodes: [
         pin("a", "weapon/a"),
         pin("b", "weapon/b"),
@@ -112,9 +113,9 @@ describe("walk order", () => {
         pin("j", null, "junction"),
       ],
       edges: [
-        { id: "e1", nodes: ["j", "b2"], type: "road", note: "", step: 1 },
-        { id: "e2", nodes: ["b2", "a"], type: "road", note: "", step: 2 },
-        { id: "e3", nodes: ["a", "b"], type: "road", note: "", step: 3 },
+        { ...drawn("e1", ["j", "b2"]), step: 1 },
+        { ...drawn("e2", ["b2", "a"]), step: 2 },
+        { ...drawn("e3", ["a", "b"]), step: 3 },
       ],
     };
     const wishlist = ["weapon/a", "weapon/c", "weapon/b", "weapon/d"].map(want);

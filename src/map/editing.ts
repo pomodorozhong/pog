@@ -1,17 +1,56 @@
-import type {
-  EdgeType,
-  LayerId,
-  MapDocument,
-  MapEdge,
-  MapNode,
-  Point,
+import {
+  type LayerId,
+  type MapDocument,
+  type MapEdge,
+  type MapNode,
+  type PathColor,
+  type Point,
 } from "../domain/types";
 
 export const newId = (prefix: string) =>
   `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
 
-/** A path to add: it always becomes the last step. */
-export type NewEdge = Omit<MapEdge, "step">;
+/**
+ * A path to add: it always becomes the last step. Without a color, it takes
+ * its step's color.
+ */
+export type NewEdge = Omit<MapEdge, "step" | "color"> &
+  Partial<Pick<MapEdge, "color">>;
+
+/** A new path through `nodes`, drawn the default way. */
+export const newPath = (id: string, nodes: string[]): NewEdge => ({
+  id,
+  nodes,
+  line: "solid",
+  oneWay: false,
+  note: "",
+  showNote: false,
+});
+
+/**
+ * The colors in the order new paths take them. Each color is far from the
+ * next one in hue or lightness, also for red-green color blindness, so
+ * neighbouring steps (and the last and first) are easy to tell apart.
+ */
+const STEP_COLORS: readonly PathColor[] = [
+  "gold",
+  "blue",
+  "white",
+  "red",
+  "teal",
+  "pink",
+  "green",
+  "purple",
+];
+
+/** A new path's color: the step colors in turn, so neighbouring steps differ. */
+export const stepColor = (step: number) =>
+  STEP_COLORS[(step - 1) % STEP_COLORS.length];
+
+/** What the path editor can change. */
+export type EdgeChanges = Partial<
+  Pick<MapEdge, "color" | "line" | "oneWay" | "note" | "showNote">
+>;
 
 export type MapAction =
   | { type: "addNode"; node: MapNode }
@@ -23,7 +62,7 @@ export type MapAction =
   | {
       type: "updateEdge";
       id: string;
-      changes: Partial<Pick<MapEdge, "type" | "note">>;
+      changes: EdgeChanges;
     }
   | { type: "removeEdge"; id: string }
   /** Give a path another step; the paths in between shift by one. */
@@ -51,16 +90,8 @@ export function applyMapAction(
 ): MapDocument {
   const find = (id: string) =>
     doc.nodes.find((n) => n.id === id) ?? fixed.get(id);
-  const fits = (pins: string[], type: EdgeType) => {
-    const nodes = pins.map(find);
-    return (
-      pins.length >= 2 &&
-      nodes.every(Boolean) &&
-      pins.every((id, i) => id !== pins[i - 1]) &&
-      // Only a waygate joins layers.
-      (type === "waygate" || nodes.every((n) => n!.layer === nodes[0]!.layer))
-    );
-  };
+  const fits = (pins: string[]) =>
+    pins.length >= 2 && pins.every((id, i) => find(id) && id !== pins[i - 1]);
   const replace = (edge: MapEdge) => ({
     ...doc,
     edges: doc.edges.map((e) => (e.id === edge.id ? edge : e)),
@@ -72,12 +103,6 @@ export function applyMapAction(
       const node = doc.nodes.find((n) => n.id === action.id);
       if (!node) return doc;
       const updated = { ...node, ...action.changes };
-      // Moving a node to another layer would strand its non-waygate paths.
-      if (
-        updated.layer !== node.layer &&
-        doc.edges.some((e) => e.nodes.includes(node.id) && e.type !== "waygate")
-      )
-        return doc;
       return {
         ...doc,
         nodes: doc.nodes.map((n) => (n.id === action.id ? updated : n)),
@@ -101,23 +126,24 @@ export function applyMapAction(
     }
     case "addEdge": {
       const { edge } = action;
-      if (!fits(edge.nodes, edge.type)) return doc;
+      if (!fits(edge.nodes)) return doc;
+      const step = doc.edges.length + 1;
       return {
         ...doc,
-        edges: [...doc.edges, { ...edge, step: doc.edges.length + 1 }],
+        edges: [...doc.edges, { color: stepColor(step), ...edge, step }],
       };
     }
     case "extendEdge": {
       const edge = doc.edges.find((e) => e.id === action.id);
       if (!edge) return doc;
       const nodes = [...edge.nodes, action.node];
-      return fits(nodes, edge.type) ? replace({ ...edge, nodes }) : doc;
+      return fits(nodes) ? replace({ ...edge, nodes }) : doc;
     }
     case "updateEdge": {
       const edge = doc.edges.find((e) => e.id === action.id);
       if (!edge) return doc;
       const updated = { ...edge, ...action.changes };
-      return fits(updated.nodes, updated.type) ? replace(updated) : doc;
+      return fits(updated.nodes) ? replace(updated) : doc;
     }
     case "removeEdge":
       if (!doc.edges.some((e) => e.id === action.id)) return doc;
@@ -216,12 +242,9 @@ export function historyReducer(
   }
 }
 
-/** Edges that can only be travelled from `from` to `to`. */
-export const isOneWay = (type: EdgeType) => type === "one-way-drop";
-
 /**
- * The stretches of a path to draw on `layer`, as lines of map points. A
- * waygate's jumps between layers aren't drawn.
+ * The stretches of a path to draw on `layer`, as lines of map points. Jumps
+ * between layers aren't drawn.
  */
 export function edgeRuns(
   edge: MapEdge,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MapDocument, MapEdge, MapNode } from "../src/domain/types";
+import { drawn } from "./paths";
 import type { CatalogGrace } from "../src/map/catalog";
 import { applyMapAction } from "../src/map/editing";
 import { gameGraceNodes, withGameGraces } from "../src/map/graces";
@@ -28,14 +29,12 @@ const node = (
   kind: MapNode["kind"] = "junction",
   ref: string | null = null,
 ): MapNode => ({ id, layer: "overworld", x, y, kind, label: "", ref });
-const edge = (
-  id: string,
-  from: string,
-  to: string,
-  type: MapEdge["type"] = "road",
-): MapEdge => ({ id, nodes: [from, to], type, note: "", step: 0 });
+const edge = (id: string, from: string, to: string): MapEdge => ({
+  ...drawn(id, [from, to]),
+  step: 0,
+});
 const doc = (nodes: MapNode[] = [], edges: MapEdge[] = []): MapDocument => ({
-  schemaVersion: 2,
+  schemaVersion: 4,
   nodes,
   // Paths are walked in the order given.
   edges: edges.map((e, i) => ({ ...e, step: i + 1 })),
@@ -95,14 +94,6 @@ describe("game graces", () => {
       { type: "removeNode", id: "grace/1" },
     ] as const)
       expect(applyMapAction(joined, action, fixed)).toBe(joined);
-    // Only waygates join layers, game graces included.
-    expect(
-      applyMapAction(
-        start,
-        { type: "addEdge", edge: edge("e", "j", "grace/4") },
-        fixed,
-      ),
-    ).toBe(start);
     // Without the game graces, a path to one has nowhere to end.
     expect(
       applyMapAction(start, {

@@ -53,6 +53,13 @@ body {
   .swatch {
     @apply inline-block h-1 w-5 rounded align-middle;
   }
+  /* A color choice in the path editor. */
+  .color-pick {
+    @apply size-6 rounded-full border-2 border-transparent;
+  }
+  .color-pick[aria-pressed="true"] {
+    @apply border-text ring-2 ring-ink;
+  }
   /* The Move… list: paths in walking order, with slots to put a path in. */
   .move-row {
     @apply flex items-center gap-2 rounded px-1 py-1 outline-none hover:bg-ink focus-visible:bg-ink;
@@ -165,7 +172,7 @@ body {
   box-shadow: 0 0 0 2px var(--color-ink);
 }
 /* A path's step in the player's walk, centred halfway along it. */
-.path-step span {
+.path-step .step-number {
   position: absolute;
   transform: translate(-50%, -50%);
   min-width: calc(var(--step-font) * 1.6);
@@ -178,15 +185,33 @@ body {
   box-shadow: 0 0 0 1px rgb(238 233 219 / 0.5);
   cursor: pointer;
 }
-.path-step.is-highlighted span {
+.path-step.is-highlighted .step-number {
   background: #ffd84a;
   color: var(--color-ink);
   font-size: calc(var(--step-font) * 1.25);
 }
+/* A path's note, shown under its step number when the player asks for it. */
+.path-step .step-note {
+  position: absolute;
+  transform: translate(-50%, calc(var(--step-font) * 0.8 + 3px));
+  max-width: 14rem;
+  width: max-content;
+  padding: 1px 6px;
+  border: 1px solid;
+  border-radius: 6px;
+  background: rgb(20 18 14 / 0.85);
+  color: var(--color-text);
+  font: 12px / 1.4 var(--font-sans);
+  white-space: pre-wrap;
+  cursor: pointer;
+}
 /* A step number held on the screen edge while its path is off screen. */
-.path-step.is-pinned span {
+.path-step.is-pinned .step-number {
   opacity: 0.75;
   border: 1px dashed currentColor;
+}
+.path-step.is-pinned .step-note {
+  display: none;
 }
 /* Step number size, chosen in the toolbar. */
 .steps-small {

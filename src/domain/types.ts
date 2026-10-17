@@ -13,18 +13,19 @@ export type LayerId = (typeof LAYERS)[number];
 export const NODE_KINDS = ["grace", "junction", "item", "entrance"] as const;
 export type NodeKind = (typeof NODE_KINDS)[number];
 
-export const EDGE_TYPES = [
-  "road",
-  "torrent",
-  "foot",
-  "one-way-drop",
-  "lift",
-  "waygate",
-  "spiritspring",
-  "requires-key",
-  "requires-flag",
+export const PATH_COLORS = [
+  "gold",
+  "green",
+  "white",
+  "red",
+  "blue",
+  "purple",
+  "teal",
+  "pink",
 ] as const;
-export type EdgeType = (typeof EDGE_TYPES)[number];
+export type PathColor = (typeof PATH_COLORS)[number];
+export const PATH_LINES = ["solid", "dashed"] as const;
+export type PathLine = (typeof PATH_LINES)[number];
 
 export type Point = [x: number, y: number];
 
@@ -44,15 +45,22 @@ export type MapNode = {
 /**
  * A path the player drew: one line through pins, in drawing order, with one
  * step number. A pin can be a game grace by its catalog id ("grace/<row>"),
- * which the map shows without storing. Only a waygate may join layers.
+ * which the map shows without storing. A hop between pins on two layers is a
+ * jump, such as a waygate: it isn't drawn, and the route planner costs it as
+ * a short fixed distance.
  */
 export type MapEdge = {
   id: string;
   /** The pins the line runs through, in order: at least two, none twice in a row. */
   nodes: string[];
-  type: EdgeType;
+  color: PathColor;
+  line: PathLine;
+  /** Travelled only in drawing order, such as a drop off a cliff. */
+  oneWay: boolean;
   /** Player-written note, such as the key or boss a requirement needs. */
   note: string;
+  /** Show the note on the map beside the path. */
+  showNote: boolean;
   /**
    * The path's place in the player's walk, shown on the map. Steps run 1..N
    * across the whole map, with no gaps or repeats.
@@ -62,7 +70,7 @@ export type MapEdge = {
 
 /** A profile's own nodes and paths. Game graces are not stored here. */
 export type MapDocument = {
-  schemaVersion: 2;
+  schemaVersion: 4;
   nodes: MapNode[];
   edges: MapEdge[];
 };
@@ -98,8 +106,6 @@ export type Progress = {
 
 /** Constraints routing follows. The free-text constraints stay as a note beside them. */
 export type RouteRules = {
-  /** Path types this playthrough doesn't use, such as "torrent". */
-  avoid: EdgeType[];
   /** Whether Shadow of the Erdtree is part of this playthrough. */
   dlc: boolean;
 };
@@ -132,7 +138,7 @@ export type Profile = {
 };
 
 export type PlayerDocument = {
-  schemaVersion: 9;
+  schemaVersion: 10;
   language: Language;
   view: MapView;
   stepSize: StepSize;

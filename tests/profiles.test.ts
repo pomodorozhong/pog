@@ -67,19 +67,20 @@ describe("routing rules", () => {
     profiles: [{ ...player.profiles[0], rules }],
   });
 
-  it("accepts known path types once each", () => {
+  it("holds only whether the DLC is included", () => {
+    expect(validDocument("player", withRules({ dlc: false }))).toBe(true);
     expect(
-      validDocument("player", withRules({ avoid: ["torrent"], dlc: false })),
-    ).toBe(true);
-    expect(
-      validDocument("player", withRules({ avoid: ["teleport"], dlc: true })),
+      validDocument("player", withRules({ avoid: ["torrent"], dlc: true })),
     ).toBe(false);
+  });
+
+  it("drops the path types a version 9 profile avoided", () => {
     expect(
-      validDocument(
-        "player",
-        withRules({ avoid: ["torrent", "torrent"], dlc: true }),
-      ),
-    ).toBe(false);
+      upgradeDocument("player", {
+        ...withRules({ avoid: ["torrent"], dlc: false }),
+        schemaVersion: 9,
+      }),
+    ).toEqual(withRules({ dlc: false }));
   });
 
   it("gives version 5 profiles the default rules", () => {

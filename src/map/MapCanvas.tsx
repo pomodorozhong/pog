@@ -19,10 +19,10 @@ import {
 } from "./catalog";
 import type { RouteLine } from "../routing/order";
 import type { Draft } from "./drawing";
-import { edgeRuns, isOneWay } from "./editing";
+import { edgeRuns } from "./editing";
 import { enableGestures } from "./gestures";
 import { placeStep } from "./stepPlacement";
-import { EDGE_STYLE, NODE_SYMBOL } from "./style";
+import { NODE_SYMBOL, pathStyle } from "./style";
 import { isGameGrace } from "./graces";
 
 export type Selection = { kind: "node" | "edge"; id: string } | null;
@@ -241,7 +241,7 @@ export function MapCanvas(props: Props) {
     const portalEnds = new Set<string>();
 
     for (const edge of edges) {
-      // Pins a waygate jumps between are marked instead of drawn.
+      // Pins a path jumps between layers at are marked instead of drawn.
       edge.nodes.forEach((id, i) => {
         const [a, b] = [byId.get(edge.nodes[i - 1]), byId.get(id)];
         if (a && b && a.layer !== b.layer) {
@@ -261,7 +261,7 @@ export function MapCanvas(props: Props) {
       if (!stepRuns.length) continue;
       const selected = selection?.kind === "edge" && selection.id === edge.id;
       const highlighted = highlight === edge.id;
-      const style = EDGE_STYLE[edge.type];
+      const style = pathStyle(edge);
       const select = (event: L.LeafletEvent) => {
         L.DomEvent.stop(event);
         latest.current.onEdgeClick(edge.id);
@@ -286,7 +286,7 @@ export function MapCanvas(props: Props) {
         L.polyline(line, { ...style, opacity: 0.95 })
           .on("click", select)
           .addTo(group);
-        if (isOneWay(edge.type))
+        if (edge.oneWay)
           addArrow(
             group,
             line[line.length - 2],
@@ -294,11 +294,16 @@ export function MapCanvas(props: Props) {
             style.color,
           );
       }
-      // One step number per path, placed by placeSteps.
+      // One step number per path, placed by placeSteps. The note, when shown,
+      // sits under it and moves with it.
+      const note =
+        edge.showNote && edge.note.trim()
+          ? `<span class="step-note" style="border-color: ${style.color}">${escapeHtml(edge.note)}</span>`
+          : "";
       const marker = L.marker(toLatLng(stepRuns[0][0]), {
         icon: L.divIcon({
           className: highlighted ? "path-step is-highlighted" : "path-step",
-          html: `<span>${edge.step}</span>`,
+          html: `<span class="step-number">${edge.step}</span>${note}`,
           iconSize: [0, 0],
         }),
         keyboard: false,

@@ -2,7 +2,6 @@ import type { Language, MapDocument } from "../domain/types";
 import type { Translate } from "../i18n/translation";
 import { displayName, iconUrl, isItem, type GameData } from "../map/catalog";
 import { NODE_KIND_NAMES } from "../map/labels";
-import { formatDuration } from "./format";
 import type { RoutePlan } from "./usePlannedRoute";
 
 /** "Next stops": the planned route, stop by stop. */
@@ -46,13 +45,8 @@ export function RoutePanel({
           {route.order.length > 0 && (
             <p className="text-muted">
               {route.order.length === 1
-                ? t("1 stop, about {time}", {
-                    time: formatDuration(t, route.seconds),
-                  })
-                : t("{count} stops, about {time}", {
-                    count: route.order.length,
-                    time: formatDuration(t, route.seconds),
-                  })}
+                ? t("1 stop")
+                : t("{count} stops", { count: route.order.length })}
             </p>
           )}
           <ol className="space-y-1">
@@ -61,6 +55,11 @@ export function RoutePanel({
               const node = doc.nodes.find((n) => n.id === stop);
               const entry = node?.ref ? data.byId.get(node.ref) : undefined;
               const travel = leg.find((s) => s.via.kind === "fast-travel");
+              const notes = [
+                travel &&
+                  t("fast travel to {grace}", { grace: name(travel.to) }),
+                leg.some((s) => s.via.kind === "guess") && t("path is a guess"),
+              ].filter(Boolean);
               return (
                 <li key={stop} className="flex items-start gap-2">
                   <span className="stop-number">{i + 1}</span>
@@ -79,18 +78,11 @@ export function RoutePanel({
                     >
                       {name(stop)}
                     </button>
-                    <span className="block text-xs text-muted">
-                      {formatDuration(
-                        t,
-                        leg.reduce((sum, s) => sum + s.seconds, 0),
-                      )}
-                      {travel &&
-                        ` · ${t("fast travel to {grace}", {
-                          grace: name(travel.to),
-                        })}`}
-                      {leg.some((s) => s.via.kind === "guess") &&
-                        ` · ${t("path is a guess")}`}
-                    </span>
+                    {notes.length > 0 && (
+                      <span className="block text-xs text-muted">
+                        {notes.join(" · ")}
+                      </span>
+                    )}
                   </span>
                 </li>
               );

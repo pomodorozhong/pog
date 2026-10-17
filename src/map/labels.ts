@@ -1,4 +1,4 @@
-import type { EdgeType, LayerId, NodeKind } from "../domain/types";
+import type { LayerId, NodeKind, PathColor } from "../domain/types";
 
 // English interface text; translated through data/localization/ui.zh-TW.json.
 export const LAYER_NAMES: Record<LayerId, string> = {
@@ -8,16 +8,15 @@ export const LAYER_NAMES: Record<LayerId, string> = {
   "dlc-underground": "Realm of Shadow · Underground",
 };
 
-export const EDGE_NAMES: Record<EdgeType, string> = {
-  road: "Road",
-  torrent: "Torrent",
-  foot: "On foot",
-  "one-way-drop": "One-way drop",
-  lift: "Lift",
-  waygate: "Waygate",
-  spiritspring: "Spiritspring",
-  "requires-key": "Needs a key",
-  "requires-flag": "Needs progress",
+export const PATH_COLOR_NAMES: Record<PathColor, string> = {
+  gold: "Gold",
+  green: "Green",
+  white: "White",
+  red: "Red",
+  blue: "Blue",
+  purple: "Purple",
+  teal: "Teal",
+  pink: "Pink",
 };
 
 export const NODE_KIND_NAMES: Record<NodeKind, string> = {

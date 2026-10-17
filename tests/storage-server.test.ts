@@ -107,7 +107,7 @@ describe("file store", () => {
           name: "",
           goal: "",
           constraints: "",
-          rules: { avoid: [], dlc: true },
+          rules: { dlc: true },
           wishlist: [],
           progress: { flags: [], position: null },
           save: null,

@@ -30,7 +30,7 @@ export function addProfile(
   const profile: Profile = {
     ...structuredClone(template),
     id: newId("profile"),
-    rules: { avoid: [], dlc: true },
+    rules: { dlc: true },
     progress: { flags: [], position: null },
     save: null,
   };

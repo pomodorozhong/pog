@@ -4,7 +4,7 @@ import { drawTo, dropJunction, type Draft } from "../src/map/drawing";
 import { applyMapAction } from "../src/map/editing";
 import { validDocument } from "../src/storage/schema";
 
-const empty: MapDocument = { schemaVersion: 2, nodes: [], edges: [] };
+const empty: MapDocument = { schemaVersion: 4, nodes: [], edges: [] };
 const find = (doc: MapDocument, id?: string) =>
   doc.nodes.find((n) => n.id === id);
 
@@ -20,13 +20,7 @@ function clicks(
   let { doc, draft } = start;
   points.forEach((point, i) => {
     const layer = layers[i] ?? "overworld";
-    const next = dropJunction(
-      draft,
-      find(doc, draft?.from),
-      layer,
-      point,
-      "road",
-    );
+    const next = dropJunction(draft, find(doc, draft?.from), layer, point);
     doc = applyMapAction(doc, next.action);
     draft = next.draft;
   });
@@ -73,7 +67,6 @@ describe("drawing a path through pins", () => {
       state.draft,
       find(state.doc, state.draft?.from),
       grace,
-      "road",
     );
     state = {
       doc: applyMapAction(state.doc, through.action!),
@@ -105,15 +98,18 @@ describe("drawing a path through pins", () => {
     ]);
   });
 
-  it("starts afresh on another layer", () => {
+  it("jumps to another layer on the same path", () => {
     const { doc } = clicks(
       [
         [0, 0],
+        [5, 0],
         [10, 0],
+        [20, 0],
       ],
-      ["overworld", "underground"],
+      ["overworld", "overworld", "underground", "underground"],
     );
-    expect(doc.nodes).toHaveLength(2);
-    expect(doc.edges).toEqual([]);
+    expect(doc.nodes).toHaveLength(4);
+    expect(doc.edges.map((e) => e.nodes.length)).toEqual([4]);
+    expect(validDocument("map", doc)).toBe(true);
   });
 });

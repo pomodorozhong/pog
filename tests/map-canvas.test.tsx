@@ -3,6 +3,7 @@ import type { Map as LeafletMap } from "leaflet";
 import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LayerId, MapNode } from "../src/domain/types";
+import { drawn } from "./paths";
 import type { GameData } from "../src/map/catalog";
 import { MapCanvas } from "../src/map/MapCanvas";
 
@@ -67,15 +68,7 @@ describe("cross-layer waygate numbers", () => {
           info={info}
           view={{ layer, x: 100, y: 100, zoom: 1 }}
           nodes={nodes}
-          edges={[
-            {
-              id: "gate",
-              nodes: ["surface", "below"],
-              type: "waygate",
-              note: "",
-              step: 1,
-            },
-          ]}
+          edges={[{ ...drawn("gate", ["surface", "below"]), step: 1 }]}
           selection={null}
           draft={null}
           editable={false}
@@ -148,20 +141,33 @@ const canvasProps = (): ComponentProps<typeof MapCanvas> => ({
   onViewChange: vi.fn(),
 });
 
+describe("path options", () => {
+  it("shows a path's note under its step number only when asked, as plain text", () => {
+    const path = {
+      ...drawn("walk", ["grace/1", "grace/2"]),
+      note: "<b>Needs</b> the key",
+      step: 1,
+    };
+    const { container, rerender } = render(
+      <MapCanvas {...canvasProps()} edges={[path]} />,
+    );
+    expect(container.querySelector(".step-note")).toBeNull();
+    rerender(
+      <MapCanvas {...canvasProps()} edges={[{ ...path, showNote: true }]} />,
+    );
+    const note = container.querySelector(".path-step .step-note")!;
+    expect(note).toHaveTextContent("<b>Needs</b> the key");
+    expect(note.previousElementSibling).toHaveTextContent("1");
+    expect(note.querySelector("b")).toBeNull();
+  });
+});
+
 describe("grace visibility", () => {
   it("preserves paths, step numbers and retained grace markers when the filter changes", () => {
     const props = {
       ...canvasProps(),
       view: { layer: "overworld" as const, x: 100, y: 100, zoom: 6 },
-      edges: [
-        {
-          id: "walk",
-          nodes: ["grace/1", "grace/2", "grace/3"],
-          type: "road" as const,
-          note: "",
-          step: 1,
-        },
-      ],
+      edges: [{ ...drawn("walk", ["grace/1", "grace/2", "grace/3"]), step: 1 }],
     };
     const { container, rerender } = render(<MapCanvas {...props} />);
     const step = container.querySelector(".path-step")!;
@@ -194,15 +200,7 @@ describe("grace visibility", () => {
     const filtered = {
       ...props,
       hideUnusedGraces: true,
-      edges: [
-        {
-          id: "walk",
-          nodes: ["grace/1", "grace/2", "grace/3"],
-          type: "road" as const,
-          note: "",
-          step: 1,
-        },
-      ],
+      edges: [{ ...drawn("walk", ["grace/1", "grace/2", "grace/3"]), step: 1 }],
     };
     rerender(<MapCanvas {...filtered} />);
     expect(visible()).toHaveLength(3);

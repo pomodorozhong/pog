@@ -63,7 +63,7 @@ Everything below comes from the player's own install, read natively on macOS in 
 Three kinds, kept separate:
 
 1. **Game data (generated):** `game-data/catalog.json`, `icons/`, `map/`. Never edited by hand, never committed.
-2. **Player-authored map data, one file per profile:** `maps/<profile id>.json` in the app data folder. Nodes (junction, item, entrance) in native map pixels of their layer, and paths (`edges`: each one typed line through an ordered list of nodes, with its `step` in the player's walk; only waygates join layers). A path can run through a game grace by its grace ID (`grace/<row>`).
+2. **Player-authored map data, one file per profile:** `maps/<profile id>.json` in the app data folder. Nodes (junction, item, entrance) in native map pixels of their layer, and paths (`edges`: each one line through an ordered list of nodes, with its look, options and `step` in the player's walk; a hop between two layers is a waygate jump). A path can run through a game grace by its grace ID (`grace/<row>`).
    - **Upgrade:** a version 1 map file (paths between two nodes, with bends) becomes version 2: each bend becomes a junction, and paths are numbered in file order. A bend on a path between two game graces is dropped, since its layer isn't known without the game data. The player accepted this loss for the upgrade because the tool has not been put into use yet.
    - **Upgrade:** the single `map.json` of earlier versions becomes the first profile's map (`profile-1`) the first time it is read.
    - **Profile IDs** are lowercase letters, digits and dashes, since they name files.
@@ -95,8 +95,8 @@ Changing the grace filter only attaches or detaches the affected grace markers. 
 ### Path graph
 
 - **Nodes:** graces, junctions, item pins, dungeon entrances.
-- **Paths:** lines through nodes, typed `road`, `torrent`, `foot`, `one-way-drop`, `lift`, `waygate`, `spiritspring`, `requires-key`, `requires-flag`. The type sets cost and rules; routing treats each pair of neighbouring nodes on a path as one hop.
-- **Drawing:** a path is the whole line drawn in one go. In Draw path mode each click on the map drops a junction on the path, and a click on a node takes the path through it; Esc ends the path. Undo and Redo end drawing before changing the map history. Junctions double as bends. A path has one type, so changing the type while drawing starts a new path from the last node. Afterwards a path can be extended from its last node, or split in two at an inner node.
+- **Paths:** lines through nodes, all one kind: the player doesn't pick a type. Each path has a look (one of eight colors, solid or dashed; a new path takes the next color by its step, so neighbouring steps differ), a note that can be shown on the map under the path's step number, and **one way** (travelled only in drawing order, such as a drop), the one option that changes routing. A hop between pins on two layers is a waygate jump: it isn't drawn, and its pins are marked instead. Waygates within one layer are drawn as ordinary paths until they can come from game data (#48). Routing treats each pair of neighbouring nodes on a path as one hop.
+- **Drawing:** a path is the whole line drawn in one go. In Draw path mode each click on the map drops a junction on the path, and a click on a node takes the path through it; Esc ends the path. Undo and Redo end drawing before changing the map history. Junctions double as bends. A click on a node on another layer is a waygate jump on the same path. Afterwards a path can be extended from its last node, or split in two at an inner node.
 - **Steps:** paths are numbered in the order the player will walk them, like a guide's steps, with one number per path, shown halfway along the part of it on screen; when the whole path is off screen, its number is held on the nearest screen edge. A waygate with no drawn line on a layer shows its number beside a local endpoint, or on the screen edge when the endpoints are off screen. The number size (small, medium, large) is an app setting. Steps run 1..N across the whole map with no gaps or repeats: a new path goes last, removing one closes the gap, and imported paths follow the last step in their own order. "Move…" on a selected path lists every path in order to put it anywhere. Steps are the player's own order, separate from the planned route's stop numbers.
 - **Unexplored areas:** fall back to a straight line between points, shown as "path is a guess" until the player draws a real one. Guesses only bridge unconnected pieces, so they never undercut drawn paths.
 
@@ -117,10 +117,10 @@ Create, rename, switch (header) and delete. A new profile starts with no nodes o
 
 Everything here runs for the active profile.
 
-- **Constraints:** filter the graph and the targets: path types that aren't allowed (for example no Torrent), DLC in or out. The free-text note stays alongside the structured fields, which grow as routing needs them.
-- **Travel cost:** shortest path (Dijkstra) over the graph. Edge cost = length × the type's speed factor, plus fixed costs (lift, waygate); the numbers live in `src/routing/route.ts`. Fast travel to any grace this profile has discovered is a cheap jump, except where it's blocked (inside legacy dungeons before their grace).
+- **Constraints:** DLC in or out, which leaves the DLC layers off the graph. The free-text note stays alongside the structured fields, which grow as routing needs them. There's no avoiding paths by kind: the player just doesn't draw paths they won't take.
+- **Travel cost:** distance, since paths say nothing about speed. Shortest path (Dijkstra) over the graph: a drawn hop costs its length in metres (one map pixel), a hop between layers and fast travel to any grace this profile has discovered cost a short fixed distance; the numbers live in `src/routing/route.ts`. Fast travel will be blocked where the game blocks it (inside legacy dungeons before their grace). The app shows no time estimates: distance alone can't tell how long a stretch takes.
 - **Visit order:** an ordering problem with prerequisites. Nearest neighbor plus 2-opt is enough for a few dozen targets.
-- **Rerouting:** when an item is added to the profile's wishlist, fit it into the current route at the cheapest point and show the extra cost ("+4 min, best after the Liurnia grace") before committing.
+- **Rerouting:** when an item is added to the profile's wishlist, fit it into the current route at the cheapest point and say where ("best after the Liurnia grace") before committing.
 - **Views:** "Next stops" (the active route, drawn on the map) and "Blocked by X" ("beating Radahn unlocks 4 of your wishlist items", including items a quest step can make missable).
 
 ### OBS viewer

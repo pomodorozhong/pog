@@ -6,9 +6,9 @@ import {
   type ReactNode,
 } from "react";
 import {
-  EDGE_TYPES,
   NODE_KINDS,
-  type EdgeType,
+  PATH_COLORS,
+  PATH_LINES,
   type Language,
   type LayerId,
   type MapDocument,
@@ -25,11 +25,16 @@ import {
   searchCatalog,
   type GameData,
 } from "./catalog";
-import { inStepOrder, newId, type MapAction } from "./editing";
+import {
+  inStepOrder,
+  newId,
+  type EdgeChanges,
+  type MapAction,
+} from "./editing";
 import { isGameGrace } from "./graces";
 import type { Selection } from "./MapCanvas";
-import { EDGE_NAMES, LAYER_NAMES, NODE_KIND_NAMES } from "./labels";
-import { EDGE_STYLE } from "./style";
+import { LAYER_NAMES, NODE_KIND_NAMES, PATH_COLOR_NAMES } from "./labels";
+import { PATH_COLOR, pathStyle } from "./style";
 
 type Props = {
   t: Translate;
@@ -246,7 +251,7 @@ function NodePanel({
                 >
                   <span
                     className="swatch"
-                    style={{ background: EDGE_STYLE[e.type].color }}
+                    style={{ background: PATH_COLOR[e.color] }}
                   />{" "}
                   {t("Step {step}", { step: e.step })} ·{" "}
                   {pathEnds(t, language, data, nodes, e)}
@@ -292,7 +297,7 @@ function EdgePanel(props: Props & { edgeId: string }) {
   const pins = edge.nodes.map((id) => doc.nodes.find((n) => n.id === id)!);
   const ends = [pins[0], pins[pins.length - 1]];
   const crossesLayers = pins.some((n) => n.layer !== pins[0].layer);
-  const update = (changes: { type?: EdgeType; note?: string }) =>
+  const update = (changes: EdgeChanges) =>
     edit({ type: "updateEdge", id: edge.id, changes });
 
   if (moving)
@@ -301,7 +306,7 @@ function EdgePanel(props: Props & { edgeId: string }) {
     <section className="space-y-4" aria-label={t("Selected path")}>
       <header className="flex items-baseline justify-between gap-2">
         <h2 className="font-serif text-lg text-gold">
-          {t("Step {step}", { step: edge.step })} · {t(EDGE_NAMES[edge.type])}
+          {t("Step {step}", { step: edge.step })}
         </h2>
         {doc.edges.length > 1 && (
           <button className="chip" onClick={() => setMoving(true)}>
@@ -324,31 +329,73 @@ function EdgePanel(props: Props & { edgeId: string }) {
           </li>
         ))}
       </ol>
-      <label className="block space-y-1">
-        <span className="label">{t("Path type")}</span>
-        <select
-          className="field w-full"
-          value={edge.type}
-          onChange={(e) => update({ type: e.target.value as EdgeType })}
-        >
-          {EDGE_TYPES.filter(
-            (type) => !crossesLayers || type === "waygate",
-          ).map((type) => (
-            <option key={type} value={type}>
-              {t(EDGE_NAMES[type])}
-            </option>
+      <div className="space-y-1">
+        <span className="label">{t("Look")}</span>
+        <div className="flex flex-wrap gap-1.5">
+          {PATH_COLORS.map((color) => (
+            <button
+              key={color}
+              className="color-pick"
+              style={{ background: PATH_COLOR[color] }}
+              aria-label={t(PATH_COLOR_NAMES[color])}
+              aria-pressed={edge.color === color}
+              onClick={() => update({ color })}
+            />
           ))}
-        </select>
-      </label>
-      <label className="block space-y-1">
-        <span className="label">{t("Your note")}</span>
-        <input
-          className="field w-full"
-          value={edge.note}
-          placeholder={t("For example the key or boss this path needs")}
-          onChange={(e) => update({ note: e.target.value })}
-        />
-      </label>
+        </div>
+        <div className="flex gap-1">
+          {PATH_LINES.map((line) => (
+            <button
+              key={line}
+              className="chip flex items-center gap-2"
+              aria-pressed={edge.line === line}
+              onClick={() => update({ line })}
+            >
+              <svg width="24" height="8" aria-hidden="true">
+                <line
+                  x1="0"
+                  y1="4"
+                  x2="24"
+                  y2="4"
+                  stroke={PATH_COLOR[edge.color]}
+                  strokeWidth="3"
+                  strokeDasharray={pathStyle({ ...edge, line }).dashArray}
+                />
+              </svg>
+              {line === "solid" ? t("Solid") : t("Dashed")}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-1 text-sm">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={edge.oneWay}
+            onChange={(e) => update({ oneWay: e.target.checked })}
+          />
+          {t("One way (in drawing order)")}
+        </label>
+      </div>
+      <div className="space-y-1">
+        <label className="block space-y-1">
+          <span className="label">{t("Your note")}</span>
+          <input
+            className="field w-full"
+            value={edge.note}
+            placeholder={t("For example the key or boss this path needs")}
+            onChange={(e) => update({ note: e.target.value })}
+          />
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={edge.showNote}
+            onChange={(e) => update({ showNote: e.target.checked })}
+          />
+          {t("Show note on the map")}
+        </label>
+      </div>
       <p className="text-xs text-muted">
         {t("Through {count} pins", { count: pins.length })}
       </p>
@@ -471,7 +518,7 @@ function MoveList({
               </span>
               <span
                 className="swatch shrink-0"
-                style={{ background: EDGE_STYLE[e.type].color }}
+                style={{ background: PATH_COLOR[e.color] }}
               />
               <span className="min-w-0 flex-1 truncate">
                 {pathEnds(t, language, data, nodes, e)}
@@ -512,27 +559,6 @@ function Summary({
             .length,
         })}
       </p>
-      <div>
-        <h3 className="label mb-1">{t("Path types")}</h3>
-        <ul className="space-y-1">
-          {EDGE_TYPES.map((type) => (
-            <li key={type} className="flex items-center gap-2">
-              <svg width="28" height="8" aria-hidden="true">
-                <line
-                  x1="0"
-                  y1="4"
-                  x2="28"
-                  y2="4"
-                  stroke={EDGE_STYLE[type].color}
-                  strokeWidth="3"
-                  strokeDasharray={EDGE_STYLE[type].dashArray}
-                />
-              </svg>
-              {t(EDGE_NAMES[type])}
-            </li>
-          ))}
-        </ul>
-      </div>
     </section>
   );
 }

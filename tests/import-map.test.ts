@@ -5,6 +5,7 @@ import type {
   MapEdge,
   MapNode,
 } from "../src/domain/types";
+import { drawn } from "./paths";
 import { applyMapAction } from "../src/map/editing";
 import { withGameGraces } from "../src/map/graces";
 import { importMap } from "../src/profiles/importMap";
@@ -19,14 +20,12 @@ const node = (id: string, changes: Partial<MapNode> = {}): MapNode => ({
   ref: null,
   ...changes,
 });
-const edge = (
-  id: string,
-  from: string,
-  to: string,
-  type: MapEdge["type"] = "road",
-): MapEdge => ({ id, nodes: [from, to], type, note: "", step: 0 });
+const edge = (id: string, from: string, to: string): MapEdge => ({
+  ...drawn(id, [from, to]),
+  step: 0,
+});
 const doc = (nodes: MapNode[], edges: MapEdge[] = []): MapDocument => ({
-  schemaVersion: 2,
+  schemaVersion: 4,
   nodes,
   // Paths are walked in the order given.
   edges: edges.map((e, i) => ({ ...e, step: i + 1 })),
@@ -41,7 +40,7 @@ const copy = (target: MapDocument, source: MapDocument, layer?: LayerId) =>
 describe("import from another profile", () => {
   const source = doc(
     [node("j"), node("cave", { layer: "underground", kind: "entrance" })],
-    [edge("road", "grace/1", "j"), edge("down", "j", "cave", "waygate")],
+    [edge("road", "grace/1", "j"), edge("down", "j", "cave")],
   );
 
   it("copies nodes and paths, with paths ending at game graces", () => {

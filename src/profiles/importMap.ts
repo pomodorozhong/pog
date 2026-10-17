@@ -34,11 +34,11 @@ export function importMap(
     placed.get(id) ?? (nodeIds.has(id) ? id : undefined);
 
   const edgeIds = new Set(target.edges.map((e) => e.id));
-  // A path of the same type through the same pins, either way, is already drawn.
+  // A path through the same pins, either way, is already drawn.
   const drawn = new Set(
     target.edges.flatMap((e) => [
-      `${e.type} ${e.nodes.join(" ")}`,
-      `${e.type} ${[...e.nodes].reverse().join(" ")}`,
+      e.nodes.join(" "),
+      [...e.nodes].reverse().join(" "),
     ]),
   );
   const edges: MapEdge[] = [];
@@ -46,7 +46,7 @@ export function importMap(
     const pins = edge.nodes.map(endOf);
     if (edgeIds.has(edge.id) || pins.some((id) => !id)) continue;
     const nodes = pins as string[];
-    if (drawn.has(`${edge.type} ${nodes.join(" ")}`)) continue;
+    if (drawn.has(nodes.join(" "))) continue;
     edges.push({ ...edge, nodes });
   }
 

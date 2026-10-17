@@ -1,9 +1,10 @@
 import {
-  EDGE_TYPES,
   GRACE_NAME_MODES,
   LANGUAGES,
   LAYERS,
   NODE_KINDS,
+  PATH_COLORS,
+  PATH_LINES,
   STEP_SIZES,
   WISHLIST_STATUSES,
   type DocumentKey,
@@ -47,7 +48,7 @@ function checkMap(value: unknown): value is MapDocument {
     !Array.isArray(v.edges)
   )
     return false;
-  const layerOf = new Map<string, string>();
+  const nodeIds = new Set<string>();
   for (const n of v.nodes) {
     if (
       !hasExactKeys(n, ["id", "layer", "x", "y", "kind", "label", "ref"]) ||
@@ -55,7 +56,7 @@ function checkMap(value: unknown): value is MapDocument {
       GRACE_ID.test(n.id) ||
       // Graces are game data, shown on every map; a map stores none.
       n.kind === "grace" ||
-      layerOf.has(n.id) ||
+      nodeIds.has(n.id) ||
       !includes(LAYERS, n.layer) ||
       !isCoordinate(n.x) ||
       !isCoordinate(n.y) ||
@@ -64,26 +65,33 @@ function checkMap(value: unknown): value is MapDocument {
       !(n.ref === null || typeof n.ref === "string")
     )
       return false;
-    layerOf.set(n.id, n.layer);
+    nodeIds.add(n.id);
   }
   const edgeIds = new Set<string>();
   const steps = new Set<number>();
   const end = (id: unknown) =>
-    typeof id === "string" && (layerOf.has(id) || GRACE_ID.test(id));
+    typeof id === "string" && (nodeIds.has(id) || GRACE_ID.test(id));
   return v.edges.every((e) => {
     const ok =
-      hasExactKeys(e, ["id", "nodes", "type", "note", "step"]) &&
+      hasExactKeys(e, [
+        "id",
+        "nodes",
+        "color",
+        "line",
+        "oneWay",
+        "note",
+        "showNote",
+        "step",
+      ]) &&
       typeof e.id === "string" &&
       !edgeIds.has(e.id) &&
       Array.isArray(e.nodes) &&
       e.nodes.length >= 2 &&
       e.nodes.every((id, i) => end(id) && id !== e.nodes[i - 1]) &&
-      includes(EDGE_TYPES, e.type) &&
-      // A game grace's layer is game data, so only the profile's own nodes
-      // are checked for joining layers here.
-      (e.type === "waygate" ||
-        new Set(e.nodes.map((id) => layerOf.get(id)).filter(Boolean)).size <=
-          1) &&
+      includes(PATH_COLORS, e.color) &&
+      includes(PATH_LINES, e.line) &&
+      typeof e.oneWay === "boolean" &&
+      typeof e.showNote === "boolean" &&
       typeof e.note === "string" &&
       // Steps run 1..N with no gaps or repeats.
       Number.isInteger(e.step) &&
@@ -127,15 +135,8 @@ function checkProgress(value: unknown): value is Progress {
 }
 
 function checkRules(value: unknown): value is RouteRules {
-  if (!hasExactKeys(value, ["avoid", "dlc"])) return false;
-  const v = value as RouteRules;
-  return (
-    Array.isArray(v.avoid) &&
-    v.avoid.every(
-      (t, i) => includes(EDGE_TYPES, t) && v.avoid.indexOf(t) === i,
-    ) &&
-    typeof v.dlc === "boolean"
-  );
+  if (!hasExactKeys(value, ["dlc"])) return false;
+  return typeof (value as RouteRules).dlc === "boolean";
 }
 
 function checkSaveLink(value: unknown): value is SaveLink | null {
@@ -207,8 +208,8 @@ function checkPlayer(value: unknown): value is PlayerDocument {
 }
 
 export const FIRST_PROFILE_ID = "profile-1";
-const PLAYER_VERSION = 9;
-const MAP_VERSION = 2;
+const PLAYER_VERSION = 10;
+const MAP_VERSION = 4;
 const DEFAULT_STEP_SIZE = "medium";
 const PROFILE_ID = /^[a-z0-9-]{1,64}$/;
 
@@ -225,7 +226,7 @@ const firstProfile = () => ({
   name: "",
   goal: "",
   constraints: "",
-  rules: { avoid: [], dlc: true },
+  rules: { dlc: true },
   wishlist: [],
   progress: { flags: [], position: null },
   save: null,
@@ -267,6 +268,7 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
   ) {
     // Later versions added the wishlist (3), progress (4), save link (5),
     // routing rules (6), step number size (7), grace filter (8) and names (9).
+    // Version 10 dropped the path types routing avoided, since paths have none.
     const added = firstProfile();
     v = {
       ...v,
@@ -278,7 +280,7 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
         p && typeof p === "object"
           ? {
               ...p,
-              rules: "rules" in p ? p.rules : added.rules,
+              rules: "rules" in p ? withoutAvoid(p.rules) : added.rules,
               wishlist: "wishlist" in p ? p.wishlist : added.wishlist,
               progress: "progress" in p ? p.progress : added.progress,
               save: "save" in p ? p.save : added.save,
@@ -288,6 +290,13 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
     };
   }
   return v;
+}
+
+function withoutAvoid(rules: unknown) {
+  if (!rules || typeof rules !== "object" || !("avoid" in rules)) return rules;
+  const rest: Record<string, unknown> = { ...rules };
+  delete rest.avoid;
+  return rest;
 }
 
 type MapV1 = {
@@ -304,13 +313,16 @@ type MapV1 = {
 };
 
 function upgradeMap(value: object): unknown {
-  const v = value as MapV1;
-  if (
-    v.schemaVersion !== 1 ||
-    !Array.isArray(v.nodes) ||
-    !Array.isArray(v.edges)
-  )
-    return v;
+  const v = value as { schemaVersion: unknown };
+  if (v.schemaVersion === 1)
+    return upgradeMapV3(upgradeMapV2(upgradeMapV1(v as MapV1)));
+  if (v.schemaVersion === 2) return upgradeMapV3(upgradeMapV2(v));
+  if (v.schemaVersion === 3) return upgradeMapV3(v);
+  return v;
+}
+
+function upgradeMapV1(v: MapV1): unknown {
+  if (!Array.isArray(v.nodes) || !Array.isArray(v.edges)) return v;
   // Version 2 made a path one numbered line through pins. A version 1 path
   // ran between two nodes, possibly with bends; its bends become junctions,
   // and paths are numbered in file order.
@@ -340,10 +352,60 @@ function upgradeMap(value: object): unknown {
   });
   return {
     ...v,
-    schemaVersion: MAP_VERSION,
+    schemaVersion: 2,
     nodes: [...v.nodes, ...bends],
     edges,
   };
+}
+
+type MapV2 = { schemaVersion: 2; nodes: unknown; edges: unknown };
+
+/** How each version 2 path type looked; later versions keep the look. */
+const TYPE_LOOK: Record<string, { color: string; line: string }> = {
+  road: { color: "gold", line: "solid" },
+  torrent: { color: "green", line: "solid" },
+  foot: { color: "white", line: "dashed" },
+  "one-way-drop": { color: "red", line: "dashed" },
+  lift: { color: "blue", line: "solid" },
+  waygate: { color: "purple", line: "dashed" },
+  spiritspring: { color: "teal", line: "solid" },
+  "requires-key": { color: "gold", line: "dashed" },
+  "requires-flag": { color: "pink", line: "dashed" },
+};
+
+function upgradeMapV2(value: unknown): unknown {
+  const v = value as MapV2;
+  if (!v || v.schemaVersion !== 2 || !Array.isArray(v.edges)) return v;
+  // Version 3 dropped path types: a path keeps its look, and the types that
+  // changed routing became options (one way, teleport).
+  const edges = v.edges.map((e: unknown) => {
+    if (!e || typeof e !== "object" || !("type" in e)) return e;
+    const { type, ...rest } = e as { type: unknown };
+    const look = typeof type === "string" ? TYPE_LOOK[type] : undefined;
+    if (!look) return e;
+    return {
+      ...rest,
+      ...look,
+      oneWay: type === "one-way-drop",
+      teleport: type === "waygate",
+      showNote: false,
+    };
+  });
+  return { ...v, schemaVersion: 3, edges };
+}
+
+function upgradeMapV3(value: unknown): unknown {
+  const v = value as { schemaVersion: unknown; edges: unknown };
+  if (!v || v.schemaVersion !== 3 || !Array.isArray(v.edges)) return v;
+  // Version 4 dropped the teleport option: a hop between layers is a jump,
+  // and a waygate within one layer is an ordinary path.
+  const edges = v.edges.map((e: unknown) => {
+    if (!e || typeof e !== "object" || !("teleport" in e)) return e;
+    const rest: Record<string, unknown> = { ...e };
+    delete rest.teleport;
+    return rest;
+  });
+  return { ...v, schemaVersion: MAP_VERSION, edges };
 }
 
 const checks: {
