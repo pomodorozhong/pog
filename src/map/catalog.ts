@@ -20,9 +20,24 @@ export type CatalogGrace = CatalogName & {
   /** Inside a legacy dungeon, cave or catacomb, projected onto the open-world map. */
   legacy: boolean;
 };
+/**
+ * A boss with a "beaten" flag, named after its health bar. Duos and bosses with
+ * a second phase list the other health bars' names too.
+ */
+export type CatalogBoss = CatalogName & {
+  /** Event flag set once the boss is beaten. A few bosses share one. */
+  flag: number;
+  otherNames?: Localized[];
+  /** Where it's fought, when the game data says. */
+  layer?: LayerId;
+  x?: number;
+  y?: number;
+  legacy?: boolean;
+};
 export type Catalog = {
   items: CatalogItem[];
   graces: CatalogGrace[];
+  bosses: CatalogBoss[];
   places: CatalogName[];
   npcs: CatalogName[];
 };
@@ -54,10 +69,13 @@ export async function loadGameData(
       },
     ),
   );
+  // A catalog extracted before bosses were added has none.
+  catalog.bosses ??= [];
   const byId = new Map<string, CatalogItem | CatalogName>();
   for (const entry of [
     ...catalog.items,
     ...catalog.graces,
+    ...catalog.bosses,
     ...catalog.places,
     ...catalog.npcs,
   ])

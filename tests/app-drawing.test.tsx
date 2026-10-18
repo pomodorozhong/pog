@@ -40,7 +40,7 @@ async function startDrawing() {
     vi.fn(async (url: string) => {
       const body =
         url === "/game-data/catalog.json"
-          ? { items: [], graces: [], places: [], npcs: [] }
+          ? { items: [], graces: [], bosses: [], places: [], npcs: [] }
           : url === "/game-data/map/index.json"
             ? Object.fromEntries(
                 ["overworld", "underground", "dlc", "dlc-underground"].map(

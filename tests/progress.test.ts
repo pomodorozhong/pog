@@ -26,7 +26,7 @@ const grace = (id: string, flag: number): CatalogGrace => ({
 });
 const graces = [grace("place/1", 71000), grace("place/2", 71001)];
 const data = {
-  catalog: { items: [], graces, places: [], npcs: [] },
+  catalog: { items: [], graces, bosses: [], places: [], npcs: [] },
   graceFlags: new Map(graces.map((g) => [g.id, g.flag])),
 } as unknown as GameData;
 const node = (id: string, kind: MapNode["kind"], ref: string | null) => ({

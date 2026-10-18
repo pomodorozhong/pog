@@ -66,6 +66,7 @@ it("persists one filter across profiles and reloads, while routing still uses hi
       flag: 101 + i,
       legacy: false,
     })),
+    bosses: [],
     places: [],
     npcs: [],
   };

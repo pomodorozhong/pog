@@ -122,7 +122,7 @@ Create and switch (the header's switcher), rename and delete. A new profile star
 
 ### Progress from the save
 
-"Import progress from save" reads the character's event flags and marks discovered graces in the active profile (items and bosses follow once their flags are extracted).
+"Import progress from save" reads the character's event flags and marks discovered graces and beaten bosses in the active profile (items follow once their flags are extracted). The review lists each boss by name, with every boss sharing a flag.
 
 - **Where:** `drive_c/users/crossover/AppData/Roaming/EldenRing/<Steam ID>/ER0000.sl2` in the CrossOver bottle: an unencrypted BND4 with 10 character slots, each behind an MD5 checksum.
 - **Safety:** the app never writes the save; it copies the file, checks each slot's MD5, and parses the copy.
