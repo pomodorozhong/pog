@@ -28,7 +28,7 @@ export function RoutePanel({
   };
   const { route } = plan ?? {};
   return (
-    <section className="space-y-2 px-1 text-sm" aria-label={t("Next stops")}>
+    <section className="card space-y-2 text-sm" aria-label={t("Next stops")}>
       <h3 className="label">{t("Next stops")}</h3>
       {!plan || !route ? (
         <p className="text-xs text-muted">

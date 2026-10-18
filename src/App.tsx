@@ -33,7 +33,8 @@ import { MapCanvas, type Selection } from "./map/MapCanvas";
 import { MapDetails } from "./map/MapDetails";
 import {
   ImportFromProfile,
-  PlaythroughActions,
+  DeletePlaythrough,
+  ImportFromAnother,
   ProfilePanel,
   ProfileSummary,
 } from "./profiles/ProfilePanel";
@@ -498,11 +499,10 @@ export default function App() {
           />
         </>
       }
-      profileActions={
-        <PlaythroughActions
+      mapActions={
+        <ImportFromAnother
           t={t}
           player={player}
-          setPlayer={setPlayer}
           importer={
             <ImportFromProfile
               key={player.activeProfile}
@@ -514,6 +514,9 @@ export default function App() {
             />
           }
         />
+      }
+      profileActions={
+        <DeletePlaythrough t={t} player={player} setPlayer={setPlayer} />
       }
       nodeControls={(node) => (
         <>

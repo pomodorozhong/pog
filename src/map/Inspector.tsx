@@ -62,7 +62,9 @@ type Props = {
   recovery?: string;
   /** Shown above the layer summary when nothing is selected. */
   profile: ReactNode;
-  /** Shown below the layer summary when nothing is selected. */
+  /** Actions on this map, in its card when nothing is selected. */
+  mapActions?: ReactNode;
+  /** Shown last when nothing is selected. */
   profileActions?: ReactNode;
   /** Playthrough controls for the selected node, such as its progress. */
   nodeControls(node: MapNode): ReactNode;
@@ -105,7 +107,9 @@ export function Inspector(props: Props) {
       ) : (
         <>
           {props.profile}
-          <Summary t={t} doc={doc} layer={layer} />
+          <Summary t={t} doc={doc} layer={layer}>
+            {props.mapActions}
+          </Summary>
           {props.profileActions}
         </>
       )}
@@ -789,14 +793,17 @@ function MoveList({
   );
 }
 
+/** This map's card: what's drawn on the shown layer, and actions on the map. */
 function Summary({
   t,
   doc,
   layer,
+  children,
 }: {
   t: Translate;
   doc: MapDocument;
   layer: LayerId;
+  children?: ReactNode;
 }) {
   // The player's own nodes; game graces are on every map.
   const here = doc.nodes.filter((n) => n.layer === layer && !isGameGrace(n.id));
@@ -806,21 +813,21 @@ function Summary({
   ).length;
   return (
     <section
-      aria-label={t(LAYER_NAMES[layer])}
-      className="grid grid-cols-2 gap-2 text-sm"
+      aria-label={t("This map")}
+      className="card flex flex-col gap-2.5 text-sm"
     >
-      <p className="card py-2.5">
-        <span className="block font-serif text-2xl">{here.length}</span>
-        <span className="text-xs text-muted">
-          {t("nodes on {layer}", { layer: t(LAYER_NAMES[layer]) })}
+      <h3 className="label">{t("This map")}</h3>
+      <p>
+        <span className="text-gold">{t(LAYER_NAMES[layer])}</span>
+        <span className="text-muted">
+          {" · "}
+          {t("{nodes} nodes and {edges} paths", {
+            nodes: here.length,
+            edges: paths,
+          })}
         </span>
       </p>
-      <p className="card py-2.5">
-        <span className="block font-serif text-2xl">{paths}</span>
-        <span className="text-xs text-muted">
-          {t("paths on {layer}", { layer: t(LAYER_NAMES[layer]) })}
-        </span>
-      </p>
+      {children}
     </section>
   );
 }

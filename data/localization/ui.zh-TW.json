@@ -193,11 +193,11 @@
   "Search the wishlist": "搜尋願望清單",
   "Show": "顯示",
   "Start from": "起始內容",
-  "nodes on {layer}": "個節點，位於{layer}",
   "of {total}": "／{total}",
-  "paths on {layer}": "條路徑，位於{layer}",
   "{place} · not on a path yet": "{place} · 尚未在路徑上",
   "“{name}”, with its wishlist of {count} items": "「{name}」，含 {count} 項願望清單",
   "Hide notes": "收合筆記",
-  "Notes and status": "筆記與狀態"
+  "Notes and status": "筆記與狀態",
+  "This map": "這張地圖",
+  "{nodes} nodes and {edges} paths": "{nodes} 個節點、{edges} 條路徑"
 }

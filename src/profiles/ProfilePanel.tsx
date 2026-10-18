@@ -203,54 +203,63 @@ export function ProfilePanel({
   );
 }
 
-/** The rarely used playthrough actions: import another's map, and delete. */
-export function PlaythroughActions({
+/** Copying another playthrough's map, opened from this map's card. */
+export function ImportFromAnother({
   t,
   player,
-  setPlayer,
   importer,
 }: {
   t: Translate;
   player: PlayerDocument;
-  setPlayer(player: PlayerDocument): void;
   /** The import form, shown when opened. */
   importer: ReactNode;
 }) {
-  const profile = activeProfile(player);
   const [importing, setImporting] = useState(false);
-  const canImport = player.profiles.length > 1;
+  if (player.profiles.length < 2) return null;
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
-        {canImport && (
-          <button
-            className="chip text-xs"
-            aria-pressed={importing}
-            onClick={() => setImporting(!importing)}
-          >
-            {t("Import from another playthrough…")}
-          </button>
-        )}
-        {player.profiles.length > 1 && (
-          <button
-            className="chip chip--danger text-xs"
-            onClick={() => {
-              if (
-                window.confirm(
-                  t("Delete the playthrough “{name}”?", {
-                    name: profileName(t, profile.name),
-                  }),
-                )
-              )
-                setPlayer(removeProfile(player, profile.id));
-            }}
-          >
-            {t("Delete playthrough")}
-          </button>
-        )}
-      </div>
-      {canImport && importing && <div className="card">{importer}</div>}
-    </div>
+    <>
+      <button
+        className="chip self-start text-xs"
+        aria-pressed={importing}
+        onClick={() => setImporting(!importing)}
+      >
+        {t("Import from another playthrough…")}
+      </button>
+      {importing && (
+        <div className="border-t border-[#22352e] pt-3">{importer}</div>
+      )}
+    </>
+  );
+}
+
+/** Delete the active playthrough, at the very end of its details. */
+export function DeletePlaythrough({
+  t,
+  player,
+  setPlayer,
+}: {
+  t: Translate;
+  player: PlayerDocument;
+  setPlayer(player: PlayerDocument): void;
+}) {
+  const profile = activeProfile(player);
+  if (player.profiles.length < 2) return null;
+  return (
+    <button
+      className="chip chip--danger mt-2 self-start text-xs"
+      onClick={() => {
+        if (
+          window.confirm(
+            t("Delete the playthrough “{name}”?", {
+              name: profileName(t, profile.name),
+            }),
+          )
+        )
+          setPlayer(removeProfile(player, profile.id));
+      }}
+    >
+      {t("Delete playthrough")}
+    </button>
   );
 }
 
@@ -304,7 +313,6 @@ export function ImportFromProfile({
       className="space-y-2"
       aria-label={t("Import from another playthrough")}
     >
-      <h3 className="label">{t("Import from another playthrough")}</h3>
       <p className="text-xs text-muted">
         {t(
           "Copies its nodes and paths onto this map. Nodes already here are kept.",
