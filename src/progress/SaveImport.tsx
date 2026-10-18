@@ -35,10 +35,19 @@ export function SaveImport({
 }) {
   const profile = activeProfile(player);
   const [step, setStep] = useState<Step>({ kind: "idle" });
-  const known = data.catalog.graces.map((g) => g.flag);
+  const bossName = new Map<number, string>();
+  for (const b of data.catalog.bosses)
+    bossName.set(
+      b.flag,
+      [bossName.get(b.flag), b.name[language]].filter(Boolean).join(" / "),
+    );
   const graceName = new Map(
     data.catalog.graces.map((g) => [g.flag, g.name[language]]),
   );
+  const known = [...new Set([...graceName.keys(), ...bossName.keys()])];
+  const isBoss = (flag: number) => !graceName.has(flag) && bossName.has(flag);
+  const count = (flags: number[], bosses: boolean) =>
+    flags.filter((f) => isBoss(f) === bosses).length;
   const slotName = (link: { slot: number; name: string }) =>
     t("{name} (slot {slot})", { name: link.name, slot: link.slot + 1 });
 
@@ -177,10 +186,23 @@ export function SaveImport({
             <p className="text-muted">{t("Nothing has changed.")}</p>
           ) : (
             <p className="text-muted">
-              {t("+{added} graces discovered, −{removed} not discovered", {
-                added: step.plan.added.length,
-                removed: step.plan.removed.length,
-              })}
+              {(
+                [
+                  [
+                    false,
+                    "+{added} graces discovered, −{removed} not discovered",
+                  ],
+                  [true, "+{added} bosses beaten, −{removed} not beaten"],
+                ] as const
+              )
+                .map(([bosses, text]) => ({
+                  text,
+                  added: count(step.plan.added, bosses),
+                  removed: count(step.plan.removed, bosses),
+                }))
+                .filter((part) => part.added + part.removed > 0)
+                .map(({ text, ...counts }) => t(text, counts))
+                .join(" · ")}
             </p>
           )}
           {step.plan.added.length + step.plan.removed.length > 0 && (
@@ -188,17 +210,23 @@ export function SaveImport({
               {step.plan.added.map((flag) => (
                 <li key={`+${flag}`}>
                   +{" "}
-                  {t("Discovered {grace}", {
-                    grace: graceName.get(flag) ?? flag,
-                  })}
+                  {isBoss(flag)
+                    ? t("Beaten {boss}", { boss: bossName.get(flag) ?? flag })
+                    : t("Discovered {grace}", {
+                        grace: graceName.get(flag) ?? flag,
+                      })}
                 </li>
               ))}
               {step.plan.removed.map((flag) => (
                 <li key={`-${flag}`} className="text-danger">
                   −{" "}
-                  {t("Not discovered: {grace}", {
-                    grace: graceName.get(flag) ?? flag,
-                  })}
+                  {isBoss(flag)
+                    ? t("Not beaten: {boss}", {
+                        boss: bossName.get(flag) ?? flag,
+                      })
+                    : t("Not discovered: {grace}", {
+                        grace: graceName.get(flag) ?? flag,
+                      })}
                 </li>
               ))}
             </ul>

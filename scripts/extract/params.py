@@ -1,4 +1,4 @@
-"""Read the item params out of regulation.bin."""
+"""Read the item, grace and boss params out of regulation.bin."""
 
 from __future__ import annotations
 
@@ -32,6 +32,12 @@ LAYOUTS = {
         "posY": (40, "<f"),
         "posZ": (44, "<f"),
         "textId1": (48, "<i"),
+    },
+    "GameAreaParam": {
+        "size": 96,
+        "defeatBossFlagId": (68, "<I"),
+        "bossPos": (72, "<3f"),
+        "bossMap": (84, "<BBB"),  # area, block (grid x), map (grid z), as in BonfireWarpParam
     },
     "WorldMapLegacyConvParam": {
         "size": 48,

@@ -39,7 +39,7 @@ const nodes: MapNode[] = [
 ];
 const info = { mapId: "test", tileSize: 256, maxZoom: 0, size: 1000 };
 const data: GameData = {
-  catalog: { items: [], graces: [], places: [], npcs: [] },
+  catalog: { items: [], graces: [], bosses: [], places: [], npcs: [] },
   layers: {
     overworld: info,
     underground: info,
