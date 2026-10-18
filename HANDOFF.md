@@ -5,13 +5,13 @@
 ### feat/desktop-layout
 
 - Task: #46 Rework the full-size layout, with #45 (wishlist find and search) and #42 (simpler playthrough panel); one PR closing all three. Mockup approved by the player (Desktop layout mockup artifact), then the detailed plan.
-- PR: none yet; awaiting the player's approval to push and open it
-- Code checkpoint: d83bdf1 (local only, not pushed)
+- PR: being opened (push and PR approved by the player); awaiting review
+- Code checkpoint: d83bdf1 (pushed)
 - State: built. One layout at every width from the narrow layout's parts: goal line as header and switcher, Undo/Redo and ☰ menu (path numbers, language, New playthrough… with optional template) at its right; round map buttons and layer pill everywhere; from 640px up the tools are pills on the map (icons only below 1024px) and the hint is bottom right, below 640px the edit toolbar row stays. Side panel is the bottom sheet as a 384px column: walk list with search (name in either language, pin label or grace name, note) and status filter; pencil switches to Edit, and any selection does too. Edit with nothing selected: playthrough cards (read-first goal with pencil, progress with save import, next-stop timeline, folded wishlist editor, layer count tiles, import/delete pills). Node and path details as cards with a close button, segmented Kind, inline label/note, switches. `.chip` is now a soft pill app-wide; new `.segmented`, `.card`, `.popover`, `.map-pill`, `.inline-field`, `.switch`.
 - Verification: lint, typecheck, test (112, including new tests/app-layout.test.tsx), build, Prettier pass. Browser check on an empty scratch data folder at 1280, 960 and 375px: header, map pills, list with the 46-item template (search "盾" finds the shields), Edit cards, grace details, narrow edit toolbar, zh-TW; no console errors.
 - Checks not run: not checked on a copy of the player's real data; Next stops with a planned route and the save import flow only seen empty.
 - Deviation from the plan: the wishlist editor in Edit is folded behind "Notes and status" so the panel stays short (the list mode shows the wishlist).
-- Next action: player approves the push and PR; link the branch to #46 when pushing
+- Next action: player reviews the PR closing #46, #45 and #42; address review comments
 
 ## Ranked work
 
