@@ -121,3 +121,29 @@ def read_mtmsk(data: bytes) -> dict[tuple[int, int, int], int]:
         x, y = divmod(coords, 100)
         masks[(lod, x, y)] = int(entry.get("mask"))
     return masks
+
+
+Instruction = tuple[int, int, bytes]  # bank, id, argument bytes
+
+
+def read_emevd(data: bytes) -> dict[int, tuple[list[Instruction], list[tuple[int, int, int, int]]]]:
+    """Return {event id: (instructions, parameters)} for a 64-bit EMEVD event script.
+
+    Each parameter (instruction index, target byte, source byte, length) copies
+    bytes of the event's own arguments over one instruction's arguments.
+    """
+    if data[:4] != b"EVD\0":
+        raise ValueError("not an EMEVD")
+    q = lambda offset: struct.unpack_from("<q", data, offset)[0]
+    event_count, events_at, instructions_at = q(0x10), q(0x18), q(0x28)
+    params_at, args_at = q(0x58), q(0x78)
+    events = {}
+    for e in range(event_count):
+        event_id, count, offset, param_count, param_offset = struct.unpack_from("<qqqqq", data, events_at + e * 0x30)
+        instructions = []
+        for i in range(count):
+            bank, instruction_id, length, arg_offset = struct.unpack_from("<iiqq", data, instructions_at + offset + i * 0x20)
+            instructions.append((bank, instruction_id, data[args_at + arg_offset : args_at + arg_offset + length]))
+        params = [struct.unpack_from("<qqqi", data, params_at + param_offset + p * 0x20) for p in range(param_count)]
+        events[event_id] = (instructions, params)
+    return events

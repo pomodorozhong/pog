@@ -33,13 +33,14 @@ Everything below comes from the player's own install, read natively on macOS in 
 
 **Extracted (`game-data/`):**
 
-- **Catalog:** 3,714 items (weapons, armor, talismans, goods, Ashes of War), 674 of them DLC, plus 419 graces, 1,007 places and 483 NPCs. Every entry has official English and zh-TW names.
+- **Catalog:** 3,714 items (weapons, armor, talismans, goods, Ashes of War), 674 of them DLC, plus 419 graces, 211 bosses, 1,007 places and 483 NPCs. Every entry has official English and zh-TW names.
   - All 46 seed wishlist items are found. 5 of the seed's zh-TW names were community translations and are replaced by the official ones.
   - Place names repeat under several IDs (region name vs. area name), so search shows each name once.
   - Goods carry a `goodsType`, which can separate spells, spirit ashes, key items and consumables later.
 - **Icons:** 2,650 item icons (256 px WebP).
 - **Map tiles:** fully revealed Leaflet tile pyramids for 4 layers: `overworld` (M00), `underground` (M01), `dlc` (M10), `dlc-underground` (M11). The full-resolution layers are 10,496 px square (8,704 px for `dlc-underground`), zoom 0–6.
 - **Graces:** 419 of the 422 `BonfireWarpParam` rows, with official names, "discovered" event flags and map pixel positions (3 rows are unnamed or unreachable). Graces at boss arenas are named after the boss.
+- **Bosses:** 211 of the 212 `GameAreaParam` rows with a "beaten" flag, each with its official name, flag and map position (`bossMap*No` and `bossPos*`, projected like graces); 39 are in the DLC. The param has no name (`foundBossTextId` is the generic "boss found" message), so the name comes from the boss health bar the map's event script (`event/<map>.emevd`) shows: its `NpcName` text and the entity it's on. The row's own ID, then its flag, is usually that entity. Field bosses run a shared event from `common_func.emevd`, so its arguments are filled in first, and a bar whose event uses the flag also counts. Duos and second phases give several names (Godfrey and Hoarah Loux); the first is the main one. The one row left is a second Scadutree Avatar row with no bar of its own.
 - **Event-flag block table:** `eventflag_bst.txt`, downloaded by `npm run extract` from ER-Save-Lib at a pinned commit (unlicensed, so not committed). It can't be derived from the game files.
 
 **World-to-map transform (exact, no calibration needed):** one transform fits every layer: map pixel = (world x − 7040, 16512 − world z), one pixel per meter. World x/z come from area 60 or 61 grid cells (`grid × 256 + position`). Graces inside legacy dungeons, caves and catacombs are moved into area 60/61 by following `WorldMapLegacyConvParam` rows, which work in both directions and sometimes chain (Deeproot → Leyndell sewers → Leyndell → overworld). Checked by eye on churches, forts and castles in the overworld, the underground and the DLC.
@@ -54,6 +55,7 @@ Everything below comes from the player's own install, read natively on macOS in 
 
 - Event flags (grace discovered, item picked up, boss beaten) tie these sources together. They are the natural keys for each profile's progress and for prerequisites.
 - **Patches can change formats:** `regulation.bin` switched from Kraken to ZSTD compression in a recent patch. Param field offsets come from Paramdex and are checked against row size, so a layout change fails loudly. After a game patch, rerun `npm run extract`.
+- **Some bosses share a flag:** the Night's Cavalry at `1039510800` and the Deathbird at `1044530800` have the Bell Bearing Hunter's flag `1043530800` in the game's own param, so the save can't tell them apart.
 - **`dlc-underground` has no graces:** every DLC grace has display mask 0, so the surface/underground bit doesn't apply there.
 - **Known gaps:** about 120 tiny archive files use an Oodle codec we don't decode, and 3 icons referenced by items don't exist. Neither affects the app.
 - JavaScript's `&` is signed; use `>>> 0` for handle masks. Filenames that differ only in case clash on macOS.
