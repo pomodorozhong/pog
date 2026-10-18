@@ -5,13 +5,12 @@
 ### feat/graces-like-pins
 
 - Task: #51 Graces work like pins: label, entrance, items (plan approved by the player)
-- PR: none yet; awaiting the player's approval to push and open it
-- Code checkpoint: 094e6d6 (local only, not pushed)
+- PR: being opened (push and PR approved by the player); awaiting review
+- Code checkpoint: f5dd72a (pushed)
 - State: built. Game graces take a label (beside the official name), Kind Grace or Entrance (its place in a new `place` field, since a grace's `ref` stays its grace ID) and items. Stored in the map's optional `graces` object by grace ID, only while set; merged onto graces by `withGameGraces`. A grace with items keeps its marker and shows the first item's icon as a badge with "+N"; a grace with a label, entrance or items stays visible when unused graces are hidden. Import merges grace items and fills a missing label or entrance. Maps stay at schema v4.
-- Verification: lint, typecheck, test (108), build pass. Browser check at 800px on an empty scratch data folder: label, entrance and two items on a grace; badge and "+1" don't overlap; grace stays shown with "Hide graces without paths" on and nothing selected; reload keeps everything; saved file holds only `graces`; zh-TW panel reads correctly; no console errors.
+- Verification: lint, typecheck, test (108), build pass. Browser check at 800px on an empty scratch data folder: label, entrance and two items on a grace; badge and "+1" don't overlap; grace stays shown with "Hide graces without paths" on and nothing selected; reload keeps everything; saved file holds only `graces`; zh-TW panel reads correctly; no console errors. Header stays 68px when switching between a pin and a grace.
 - Checks not run: not checked on a copy of the player's real data (copying it was blocked); import between two profiles checked only by tests.
-- Branch link: not linked to #51 on GitHub yet; link when pushing (`gh issue develop` would create the remote branch).
-- Next action: player approves the push and PR, then address review comments
+- Next action: player reviews the PR closing #51; address review comments
 
 ## Ranked work
 
