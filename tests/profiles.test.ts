@@ -18,6 +18,13 @@ import {
 } from "../src/storage/schema";
 
 describe("playthrough profiles", () => {
+  it("starts every new playthrough at The First Step", () => {
+    const start = initialDocuments().player;
+    expect(activeProfile(start).progress.position).toBe("grace/61423601");
+    const added = addProfile(start);
+    expect(activeProfile(added).progress.position).toBe("grace/61423601");
+  });
+
   it("adds, edits and removes profiles, always keeping one active", () => {
     const start = initialDocuments().player;
     const added = addProfile(start);

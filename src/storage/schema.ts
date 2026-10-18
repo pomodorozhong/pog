@@ -6,6 +6,7 @@ import {
   PATH_COLORS,
   PATH_LINES,
   STEP_SIZES,
+  START_POSITION,
   WISHLIST_STATUSES,
   type DocumentKey,
   type DocumentName,
@@ -267,7 +268,7 @@ const firstProfile = () => ({
   constraints: "",
   rules: { dlc: true },
   wishlist: [],
-  progress: { flags: [], position: null },
+  progress: { flags: [], position: START_POSITION },
   save: null,
 });
 

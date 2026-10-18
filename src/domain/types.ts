@@ -131,6 +131,12 @@ export type WishlistItem = {
   note: string;
 };
 
+/**
+ * Where a new playthrough starts: The First Step, the game's first grace. Its
+ * catalog id comes from the game data's grace rows, which patches don't renumber.
+ */
+export const START_POSITION = "grace/61423601";
+
 /** How far the player has got in this playthrough. */
 export type Progress = {
   /**
