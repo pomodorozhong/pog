@@ -12,6 +12,7 @@ import { iconUrl, isItem, searchCatalog, type GameData } from "../map/catalog";
 import { activeProfile } from "../profiles/profiles";
 import {
   addToWishlist,
+  combinedWishlist,
   countByStatus,
   removeFromWishlist,
   updateWishlistItem,
@@ -42,15 +43,16 @@ export function WishlistPanel({
   showNode,
 }: Props & { doc: MapDocument; showNode(id: string): void }) {
   const profile = activeProfile(player);
+  const wishlist = combinedWishlist(doc, profile.wishlist);
   const [query, setQuery] = useState("");
   // The route list shows the wishlist; this one, for notes and statuses,
   // stays folded so the panel stays short.
   const [open, setOpen] = useState(false);
-  const listed = new Set(profile.wishlist.map((w) => w.item));
+  const listed = new Set(wishlist.map((w) => w.item));
   const results = searchCatalog(data.catalog.items, query, 10).filter(
     (item) => !listed.has(item.id),
   );
-  const counts = countByStatus(profile.wishlist);
+  const counts = countByStatus(wishlist);
   const other = language === "en" ? "zh-TW" : "en";
 
   return (
@@ -58,7 +60,7 @@ export function WishlistPanel({
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
           <h3 className="label">{t("Wishlist")}</h3>
-          {profile.wishlist.length > 0 && (
+          {wishlist.length > 0 && (
             <p className="text-xs text-muted">
               {t("{needed} needed · {acquired} acquired · {skipped} skipped", {
                 ...counts,
@@ -66,7 +68,7 @@ export function WishlistPanel({
             </p>
           )}
         </div>
-        {profile.wishlist.length > 0 && (
+        {wishlist.length > 0 && (
           <button
             className="chip shrink-0 text-xs"
             aria-expanded={open}
@@ -116,7 +118,7 @@ export function WishlistPanel({
       )}
       {open && (
         <ul className="space-y-3">
-          {profile.wishlist.map((entry) => {
+          {wishlist.map((entry) => {
             const item = data.byId.get(entry.item);
             const pin = doc.nodes.find((n) => pinItems(n).includes(entry.item));
             return (
@@ -181,16 +183,23 @@ export function WishlistPanel({
                       {t("Not on the map yet: place an item pin and link it.")}
                     </span>
                   )}
-                  <button
-                    className="link ml-auto"
-                    onClick={() =>
-                      setPlayer(
-                        removeFromWishlist(player, profile.id, entry.item),
-                      )
-                    }
-                  >
-                    {t("Remove")}
-                  </button>
+                  {/* A joined item leaves with its path, so there's nothing to remove. */}
+                  {entry.joined ? (
+                    <span className="ml-auto text-muted">
+                      {t("On a walked path")}
+                    </span>
+                  ) : (
+                    <button
+                      className="link ml-auto"
+                      onClick={() =>
+                        setPlayer(
+                          removeFromWishlist(player, profile.id, entry.item),
+                        )
+                      }
+                    >
+                      {t("Remove")}
+                    </button>
+                  )}
                 </div>
               </li>
             );
@@ -201,20 +210,27 @@ export function WishlistPanel({
   );
 }
 
-/** Wishlist status of the item an item pin is linked to. */
+/**
+ * Wishlist status of an item on a pin. An item on a pin a walked path goes
+ * through is already on the wishlist.
+ */
 export function PinWishlist({
   t,
   player,
   setPlayer,
+  doc,
   item,
   estimate,
 }: Omit<Props, "data" | "language"> & {
+  doc: MapDocument;
   item: string;
   /** What adding this pin would cost the route, already worded. */
   estimate: string;
 }) {
   const profile = activeProfile(player);
-  const entry = profile.wishlist.find((w) => w.item === item);
+  const entry = combinedWishlist(doc, profile.wishlist).find(
+    (w) => w.item === item,
+  );
   if (!entry)
     return (
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">

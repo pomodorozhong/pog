@@ -12,7 +12,12 @@ import { displayName, iconUrl, isItem, type GameData } from "../map/catalog";
 import { NODE_KIND_NAMES } from "../map/labels";
 import { activeProfile } from "../profiles/profiles";
 import { STATUS_NAMES } from "./WishlistPanel";
-import { countByStatus, updateWishlistItem, walkOrder } from "./wishlist";
+import {
+  combinedWishlist,
+  countByStatus,
+  updateWishlistItem,
+  walkOrder,
+} from "./wishlist";
 
 const fold = (text: string) => text.normalize("NFKC").toLowerCase();
 
@@ -40,8 +45,9 @@ export function WalkList({
   const [query, setQuery] = useState("");
   const [shown, setShown] = useState<WishlistStatus | "all">("all");
   const profile = activeProfile(player);
-  const { onRoute, offRoute } = walkOrder(doc, profile.wishlist);
-  const counts = countByStatus(profile.wishlist);
+  const wishlist = combinedWishlist(doc, profile.wishlist);
+  const { onRoute, offRoute } = walkOrder(doc, wishlist);
+  const counts = countByStatus(wishlist);
   // Tapping marks an item acquired; tapping an acquired item marks it needed again.
   const toggle = (entry: WishlistItem) =>
     setPlayer(
@@ -126,7 +132,7 @@ export function WalkList({
       aria-label={t("Items in route order")}
       className="flex min-h-0 flex-1 flex-col text-sm"
     >
-      {profile.wishlist.length > 0 && (
+      {wishlist.length > 0 && (
         <div className="flex flex-col gap-2 px-4 pb-2">
           <input
             className="field w-full"
@@ -149,7 +155,7 @@ export function WalkList({
               >
                 {t(status === "all" ? "All" : STATUS_NAMES[status])}
                 <span className="ml-1.5 text-[11px] opacity-70">
-                  {status === "all" ? profile.wishlist.length : counts[status]}
+                  {status === "all" ? wishlist.length : counts[status]}
                 </span>
               </button>
             ))}
@@ -157,7 +163,7 @@ export function WalkList({
         </div>
       )}
       <div className="min-h-0 overflow-y-auto px-4 pb-2">
-        {profile.wishlist.length === 0 ? (
+        {wishlist.length === 0 ? (
           <p className="text-muted">{t("The wishlist is empty.")}</p>
         ) : (
           !route.length &&
