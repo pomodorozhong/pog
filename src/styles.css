@@ -132,6 +132,31 @@ body {
   border-radius: 3px;
   background: #c9b28d;
 }
+/* A grace holding items: its first item's icon as a badge on the grace. */
+.grace-item {
+  position: absolute;
+  top: -12px;
+  right: -14px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--color-gold);
+  border-radius: 4px;
+  background: radial-gradient(circle, #f3e9cf 40%, #cbb98e);
+  color: var(--color-gold);
+  font-size: 11px;
+}
+.leaflet-marker-pane .map-node .grace-item img {
+  width: 18px !important;
+  height: 18px !important;
+}
+.map-node--grace .item-count {
+  left: auto;
+  right: -22px;
+  bottom: auto;
+  top: 10px;
+}
 /* How many more items a pin holds than the one it shows. */
 .item-count {
   position: absolute;

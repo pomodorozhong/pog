@@ -245,12 +245,19 @@ export function ImportFromProfile({
     setBusy(false);
     if (!map) return setResult(t("That playthrough's map cannot be read."));
     const copied = importMap(doc, map, layer || undefined);
-    if (copied.nodes || copied.edges) edit(copied.action);
+    if (copied.nodes || copied.edges || copied.graces) edit(copied.action);
+    const counts = {
+      nodes: String(copied.nodes),
+      paths: String(copied.edges),
+      graces: String(copied.graces),
+    };
     setResult(
-      t("Copied {nodes} nodes and {paths} paths.", {
-        nodes: String(copied.nodes),
-        paths: String(copied.edges),
-      }),
+      copied.graces
+        ? t(
+            "Copied {nodes} nodes and {paths} paths, and added to {graces} graces.",
+            counts,
+          )
+        : t("Copied {nodes} nodes and {paths} paths.", counts),
     );
   }
 

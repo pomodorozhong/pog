@@ -122,3 +122,41 @@ describe("importing notes", () => {
     ).toEqual([{ ...note("grace/1", "mine"), id: "own" }]);
   });
 });
+
+describe("importing what was added to graces", () => {
+  const source: MapDocument = {
+    ...doc([]),
+    graces: {
+      "grace/1": {
+        label: "theirs",
+        place: "place/7",
+        items: ["weapon/1", "weapon/2"],
+      },
+    },
+  };
+
+  it("adds items to the grace's own, and a label or entrance only if missing", () => {
+    const target: MapDocument = {
+      ...doc([]),
+      graces: { "grace/1": { label: "mine", items: ["weapon/2"] } },
+    };
+    expect(importMap(shown(target), source)).toMatchObject({ graces: 1 });
+    expect(copy(target, source).graces).toEqual({
+      "grace/1": {
+        label: "mine",
+        place: "place/7",
+        items: ["weapon/2", "weapon/1"],
+      },
+    });
+    // Nothing new the second time.
+    expect(importMap(shown(copy(target, source)), source)).toMatchObject({
+      graces: 0,
+    });
+  });
+
+  it("follows the chosen layer", () => {
+    expect(importMap(shown(doc([])), source, "underground")).toMatchObject({
+      graces: 0,
+    });
+  });
+});

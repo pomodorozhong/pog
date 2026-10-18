@@ -18,13 +18,13 @@ import { inStepOrder, type MapAction } from "../map/editing";
  * all its pins are on the target map afterwards, so a waygate can join a
  * reused node on another layer. Copied paths keep their order and follow the
  * target's last step. Note paths come along with their pin, unless the pin
- * already has a note on the target map.
+ * already has a note on the target map. So do what was added to game graces.
  */
 export function importMap(
   target: MapDocument,
   source: MapDocument,
   layer?: LayerId,
-): { action: MapAction; nodes: number; edges: number } {
+): { action: MapAction; nodes: number; edges: number; graces: number } {
   const nodeIds = new Set(target.nodes.map((n) => n.id));
 
   // Where each source node ends up on the target map.
@@ -60,15 +60,37 @@ export function importMap(
     edges.push({ ...edge, nodes });
   }
 
+  // What was added to graces: items join the grace's own, a label or
+  // entrance comes along only if the grace has none here.
+  const graces: MapAction[] = [];
+  for (const [id, added] of Object.entries(source.graces ?? {})) {
+    const grace = target.nodes.find((n) => n.id === id);
+    if (!grace || (layer && grace.layer !== layer)) continue;
+    const own = grace.items ?? [];
+    const items = [
+      ...own,
+      ...(added.items ?? []).filter((i) => !own.includes(i)),
+    ];
+    const changes = {
+      ...(!grace.label && added.label ? { label: added.label } : {}),
+      ...(!grace.place && added.place ? { place: added.place } : {}),
+      ...(items.length > own.length ? { items } : {}),
+    };
+    if (Object.keys(changes).length)
+      graces.push({ type: "updateNode", id, changes });
+  }
+
   return {
     action: {
       type: "batch",
       actions: [
         ...nodes.map((node): MapAction => ({ type: "addNode", node })),
         ...edges.map((edge): MapAction => ({ type: "addEdge", edge })),
+        ...graces,
       ],
     },
     nodes: nodes.length,
     edges: edges.length,
+    graces: graces.length,
   };
 }

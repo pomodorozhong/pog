@@ -40,7 +40,23 @@ const shield = {
   name: { en: "Buckler", "zh-TW": "圓盾" },
 };
 
-async function open(nodes: MapNode[]) {
+const elleh = {
+  id: "grace/1",
+  name: { en: "Church of Elleh", "zh-TW": "艾雷教堂" },
+  dlc: false,
+  layer: "overworld",
+  x: 10,
+  y: 20,
+  flag: 1,
+  legacy: false,
+};
+const cave = {
+  id: "place/7",
+  name: { en: "Murkwater Cave", "zh-TW": "濁流洞窟" },
+  dlc: false,
+};
+
+async function open(nodes: MapNode[], graces: (typeof elleh)[] = []) {
   const documents = initialDocuments();
   documents.map.nodes = nodes;
   vi.stubGlobal(
@@ -48,7 +64,12 @@ async function open(nodes: MapNode[]) {
     vi.fn(async (url: string) => {
       const body =
         url === "/game-data/catalog.json"
-          ? { items: [sword, shield], graces: [], places: [], npcs: [] }
+          ? {
+              items: [sword, shield],
+              graces,
+              places: [cave],
+              npcs: [],
+            }
           : url === "/game-data/map/index.json"
             ? Object.fromEntries(
                 ["overworld", "underground", "dlc", "dlc-underground"].map(
@@ -166,5 +187,38 @@ describe("pin notes", () => {
     );
     fireEvent.change(note, { target: { value: "" } });
     expect(paths()).toEqual([]);
+  });
+});
+
+describe("a game grace", () => {
+  it("takes a label, an entrance and items like a pin, but stays put", async () => {
+    await open([], [elleh]);
+    fireEvent.click(screen.getByRole("button", { name: "grace/1" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Label" }), {
+      target: { value: "rest here" },
+    });
+    pick("Add an item", "Long", "Longsword");
+    fireEvent.change(screen.getByRole("combobox", { name: "Kind" }), {
+      target: { value: "entrance" },
+    });
+    pick("Place name", "Murk", "Murkwater Cave");
+    expect(
+      screen.getByText("rest here · Entrance to Murkwater Cave"),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Delete node" })).toBeNull();
+    expect(mapNodes().find((n) => n.id === "grace/1")).toMatchObject({
+      kind: "grace",
+      x: 10,
+      label: "rest here",
+      place: "place/7",
+      items: ["weapon/1"],
+    });
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Kind" }), {
+      target: { value: "grace" },
+    });
+    expect(mapNodes().find((n) => n.id === "grace/1")).not.toHaveProperty(
+      "place",
+    );
   });
 });

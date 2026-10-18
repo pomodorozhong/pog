@@ -39,13 +39,35 @@ const includes = <T>(list: readonly T[], value: unknown) =>
 /** A game grace's catalog id, which paths use to end at it. */
 const GRACE_ID = /^grace\/\d+$/;
 
+/** Catalog ids, none twice. */
+const isItemList = (value: unknown) =>
+  Array.isArray(value) &&
+  value.every(
+    (item, i) => typeof item === "string" && value.indexOf(item) === i,
+  );
+
+/** What the player added to game graces, by grace id. */
+function checkGraces(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return Object.entries(value).every(
+    ([id, g]) =>
+      GRACE_ID.test(id) &&
+      hasExactKeys(g, [], ["label", "place", "items"]) &&
+      (g.label === undefined || typeof g.label === "string") &&
+      (g.place === undefined || typeof g.place === "string") &&
+      (g.items === undefined || isItemList(g.items)),
+  );
+}
+
 function checkMap(value: unknown): value is MapDocument {
-  if (!hasExactKeys(value, ["schemaVersion", "nodes", "edges"])) return false;
+  if (!hasExactKeys(value, ["schemaVersion", "nodes", "edges"], ["graces"]))
+    return false;
   const v = value as MapDocument;
   if (
     v.schemaVersion !== MAP_VERSION ||
     !Array.isArray(v.nodes) ||
-    !Array.isArray(v.edges)
+    !Array.isArray(v.edges) ||
+    !(v.graces === undefined || checkGraces(v.graces))
   )
     return false;
   const nodeIds = new Set<string>();
@@ -67,14 +89,7 @@ function checkMap(value: unknown): value is MapDocument {
       !includes(NODE_KINDS, n.kind) ||
       typeof n.label !== "string" ||
       !(n.ref === null || typeof n.ref === "string") ||
-      !(
-        n.items === undefined ||
-        (Array.isArray(n.items) &&
-          n.items.every(
-            (item, i) =>
-              typeof item === "string" && n.items!.indexOf(item) === i,
-          ))
-      )
+      !(n.items === undefined || isItemList(n.items))
     )
       return false;
     nodeIds.add(n.id);
