@@ -43,6 +43,9 @@ export function WishlistPanel({
 }: Props & { doc: MapDocument; showNode(id: string): void }) {
   const profile = activeProfile(player);
   const [query, setQuery] = useState("");
+  // The route list shows the wishlist; this one, for notes and statuses,
+  // stays folded so the panel stays short.
+  const [open, setOpen] = useState(false);
   const listed = new Set(profile.wishlist.map((w) => w.item));
   const results = searchCatalog(data.catalog.items, query, 10).filter(
     (item) => !listed.has(item.id),
@@ -51,15 +54,28 @@ export function WishlistPanel({
   const other = language === "en" ? "zh-TW" : "en";
 
   return (
-    <section className="space-y-2" aria-label={t("Wishlist")}>
-      <h3 className="label">{t("Wishlist")}</h3>
-      {profile.wishlist.length > 0 && (
-        <p className="text-xs text-muted">
-          {t("{needed} needed · {acquired} acquired · {skipped} skipped", {
-            ...counts,
-          })}
-        </p>
-      )}
+    <section className="card space-y-2" aria-label={t("Wishlist")}>
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <h3 className="label">{t("Wishlist")}</h3>
+          {profile.wishlist.length > 0 && (
+            <p className="text-xs text-muted">
+              {t("{needed} needed · {acquired} acquired · {skipped} skipped", {
+                ...counts,
+              })}
+            </p>
+          )}
+        </div>
+        {profile.wishlist.length > 0 && (
+          <button
+            className="chip shrink-0 text-xs"
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+          >
+            {open ? t("Hide notes") : t("Notes and status")}
+          </button>
+        )}
+      </div>
       <input
         className="field w-full"
         aria-label={t("Add to wishlist")}
@@ -98,87 +114,89 @@ export function WishlistPanel({
           ))}
         </ul>
       )}
-      <ul className="space-y-3">
-        {profile.wishlist.map((entry) => {
-          const item = data.byId.get(entry.item);
-          const pin = doc.nodes.find((n) => pinItems(n).includes(entry.item));
-          return (
-            <li
-              key={entry.item}
-              className={`space-y-1 ${entry.status === "needed" ? "" : "opacity-70"}`}
-            >
-              <div className="flex items-center gap-2">
-                {item && isItem(item) && item.icon && (
-                  <img
-                    src={iconUrl(item.icon)}
-                    alt=""
-                    className="size-8 rounded bg-ink"
-                    loading="lazy"
-                  />
-                )}
-                <span
-                  className={`min-w-0 flex-1 truncate text-sm ${entry.status === "acquired" ? "line-through" : ""}`}
-                >
-                  {item?.name[language] ?? entry.item}
-                </span>
-                <select
-                  aria-label={t("Status")}
-                  className="field"
-                  value={entry.status}
+      {open && (
+        <ul className="space-y-3">
+          {profile.wishlist.map((entry) => {
+            const item = data.byId.get(entry.item);
+            const pin = doc.nodes.find((n) => pinItems(n).includes(entry.item));
+            return (
+              <li
+                key={entry.item}
+                className={`space-y-1 ${entry.status === "needed" ? "" : "opacity-70"}`}
+              >
+                <div className="flex items-center gap-2">
+                  {item && isItem(item) && item.icon && (
+                    <img
+                      src={iconUrl(item.icon)}
+                      alt=""
+                      className="size-8 rounded bg-ink"
+                      loading="lazy"
+                    />
+                  )}
+                  <span
+                    className={`min-w-0 flex-1 truncate text-sm ${entry.status === "acquired" ? "line-through" : ""}`}
+                  >
+                    {item?.name[language] ?? entry.item}
+                  </span>
+                  <select
+                    aria-label={t("Status")}
+                    className="field"
+                    value={entry.status}
+                    onChange={(e) =>
+                      setPlayer(
+                        updateWishlistItem(player, profile.id, entry.item, {
+                          status: e.target.value as WishlistStatus,
+                        }),
+                      )
+                    }
+                  >
+                    {WISHLIST_STATUSES.map((status) => (
+                      <option key={status} value={status}>
+                        {t(STATUS_NAMES[status])}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <textarea
+                  className="field w-full text-sm"
+                  rows={2}
+                  aria-label={t("Your note")}
+                  placeholder={t("Your note")}
+                  value={entry.note}
                   onChange={(e) =>
                     setPlayer(
                       updateWishlistItem(player, profile.id, entry.item, {
-                        status: e.target.value as WishlistStatus,
+                        note: e.target.value,
                       }),
                     )
                   }
-                >
-                  {WISHLIST_STATUSES.map((status) => (
-                    <option key={status} value={status}>
-                      {t(STATUS_NAMES[status])}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <textarea
-                className="field w-full text-sm"
-                rows={2}
-                aria-label={t("Your note")}
-                placeholder={t("Your note")}
-                value={entry.note}
-                onChange={(e) =>
-                  setPlayer(
-                    updateWishlistItem(player, profile.id, entry.item, {
-                      note: e.target.value,
-                    }),
-                  )
-                }
-              />
-              <div className="flex gap-3 text-xs">
-                {pin ? (
-                  <button className="link" onClick={() => showNode(pin.id)}>
-                    {t("Show on map")}
+                />
+                <div className="flex gap-3 text-xs">
+                  {pin ? (
+                    <button className="link" onClick={() => showNode(pin.id)}>
+                      {t("Show on map")}
+                    </button>
+                  ) : (
+                    <span className="text-muted">
+                      {t("Not on the map yet: place an item pin and link it.")}
+                    </span>
+                  )}
+                  <button
+                    className="link ml-auto"
+                    onClick={() =>
+                      setPlayer(
+                        removeFromWishlist(player, profile.id, entry.item),
+                      )
+                    }
+                  >
+                    {t("Remove")}
                   </button>
-                ) : (
-                  <span className="text-muted">
-                    {t("Not on the map yet: place an item pin and link it.")}
-                  </span>
-                )}
-                <button
-                  className="link ml-auto"
-                  onClick={() =>
-                    setPlayer(
-                      removeFromWishlist(player, profile.id, entry.item),
-                    )
-                  }
-                >
-                  {t("Remove")}
-                </button>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </section>
   );
 }
@@ -199,9 +217,9 @@ export function PinWishlist({
   const entry = profile.wishlist.find((w) => w.item === item);
   if (!entry)
     return (
-      <div className="space-y-1">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <button
-          className="chip"
+          className="chip text-xs"
           onClick={() => setPlayer(addToWishlist(player, profile.id, item))}
         >
           {t("Add to wishlist")}
@@ -210,10 +228,10 @@ export function PinWishlist({
       </div>
     );
   return (
-    <label className="block space-y-1">
-      <span className="label">{t("Wishlist")}</span>
+    <label className="flex items-center justify-between gap-2 text-xs">
+      <span className="text-muted">{t("Wishlist")}</span>
       <select
-        className="field w-full"
+        className="field py-0.5 text-xs"
         value={entry.status}
         onChange={(e) =>
           setPlayer(

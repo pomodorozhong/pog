@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MapCanvasHandlers } from "../src/map/MapCanvas";
 import type { MapEdge, MapNode } from "../src/domain/types";
@@ -113,21 +119,23 @@ describe("the pin tool", () => {
     expect(mapNodes()).toMatchObject([
       { kind: "junction", x: 50, y: 60, ref: null },
     ]);
-    const kind = screen.getByRole("combobox", { name: "Kind" });
+    const kind = screen.getByRole("group", { name: "Kind" });
     expect(
-      [...kind.querySelectorAll("option")].map((o) => o.textContent),
+      within(kind)
+        .getAllByRole("button")
+        .map((o) => o.textContent),
     ).toEqual(["Junction", "Entrance"]);
 
     pick("Add an item", "long", "Longsword");
     pick("Add an item", "buck", "Buckler");
     expect(mapNodes()[0].items).toEqual(["weapon/1", "weapon/2"]);
     expect(screen.getByText("Items (2)")).toBeInTheDocument();
-    fireEvent.change(kind, { target: { value: "entrance" } });
+    fireEvent.click(within(kind).getByRole("button", { name: "Entrance" }));
     expect(mapNodes()[0]).toMatchObject({
       kind: "entrance",
       items: ["weapon/1", "weapon/2"],
     });
-    fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Remove Longsword" }));
     expect(mapNodes()[0].items).toEqual(["weapon/2"]);
   });
 
@@ -171,7 +179,7 @@ describe("pin notes", () => {
     const note = screen.getByRole("textbox", { name: "Your note" });
     fireEvent.change(note, { target: { value: "Chest behind the wall" } });
     fireEvent.click(
-      screen.getByRole("checkbox", { name: "Show note on the map" }),
+      screen.getByRole("switch", { name: "Show note on the map" }),
     );
     expect(paths()).toMatchObject([
       {
@@ -181,9 +189,9 @@ describe("pin notes", () => {
         step: null,
       },
     ]);
-    expect(screen.getByText("Paths (0)")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Paths" })).toBeNull();
     fireEvent.click(
-      screen.getByRole("checkbox", { name: "Show note on the map" }),
+      screen.getByRole("switch", { name: "Show note on the map" }),
     );
     fireEvent.change(note, { target: { value: "" } });
     expect(paths()).toEqual([]);
@@ -198,9 +206,8 @@ describe("a game grace", () => {
       target: { value: "rest here" },
     });
     pick("Add an item", "Long", "Longsword");
-    fireEvent.change(screen.getByRole("combobox", { name: "Kind" }), {
-      target: { value: "entrance" },
-    });
+    const kind = screen.getByRole("group", { name: "Kind" });
+    fireEvent.click(within(kind).getByRole("button", { name: "Entrance" }));
     pick("Place name", "Murk", "Murkwater Cave");
     expect(
       screen.getByText("rest here · Entrance to Murkwater Cave"),
@@ -214,9 +221,7 @@ describe("a game grace", () => {
       items: ["weapon/1"],
     });
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Kind" }), {
-      target: { value: "grace" },
-    });
+    fireEvent.click(within(kind).getByRole("button", { name: "Grace" }));
     expect(mapNodes().find((n) => n.id === "grace/1")).not.toHaveProperty(
       "place",
     );

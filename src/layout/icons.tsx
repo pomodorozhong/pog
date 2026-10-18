@@ -54,3 +54,12 @@ export const SlidersIcon = () => (
     path="M3 5 H8 M12 5 H15 M3 13 H6 M10 13 H15 M10 3 V7 M8 11 V15"
   />
 );
+export const UndoIcon = () => (
+  <Icon path="M6.5 10.5 L3 7 L6.5 3.5 M3 7 H11 a4 4 0 0 1 0 8 H8" />
+);
+export const RedoIcon = () => (
+  <Icon path="M11.5 10.5 L15 7 L11.5 3.5 M15 7 H7 a4 4 0 0 0 0 8 H10" />
+);
+export const CloseIcon = () => (
+  <Icon size={14} path="M4 4 L14 14 M14 4 L4 14" />
+);

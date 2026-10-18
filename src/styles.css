@@ -29,20 +29,74 @@ body {
 }
 
 @layer components {
+  /* A soft rounded button; soft gold while on. */
   .chip {
-    @apply rounded border border-line px-2 py-1 text-sm hover:border-gold disabled:opacity-40 disabled:hover:border-line;
+    @apply rounded-full border border-text/15 bg-text/5 px-3 py-1 text-sm hover:border-gold/60 disabled:opacity-40 disabled:hover:border-text/15;
   }
   .chip[aria-pressed="true"] {
-    @apply border-gold bg-gold/15 text-gold;
+    @apply border-gold/55 bg-gold/20 text-[#f0d49a];
   }
   .chip--danger {
-    @apply border-danger/60 text-danger hover:border-danger;
+    @apply border-danger/35 bg-danger/10 text-danger hover:border-danger/70;
+  }
+  /* A square icon button, such as the menu, undo and redo. */
+  .icon-button {
+    @apply grid size-9 shrink-0 place-items-center rounded-lg border border-line text-text hover:text-gold disabled:opacity-40 disabled:hover:text-text aria-expanded:text-gold;
+  }
+  /* A choice of one option, such as a filter: a dark track, the chosen
+     option filled in soft gold. */
+  .segmented {
+    @apply inline-flex gap-0.5 rounded-full border border-line bg-ink p-0.5;
+  }
+  .segmented > button {
+    @apply h-7 rounded-full px-3 text-sm text-muted hover:text-text;
+  }
+  .segmented > button[aria-pressed="true"] {
+    @apply bg-gold/20 text-[#f0d49a];
+  }
+  /* A group of related details in the side panel. */
+  .card {
+    @apply rounded-xl border border-[#22352e] bg-[#16241f] p-3.5;
+  }
+  /* A menu or list that opens over the page. */
+  .popover {
+    @apply rounded-2xl border border-line bg-panel p-1.5 shadow-xl;
+  }
+  .popover-item {
+    @apply flex min-h-9 w-full items-center rounded-lg px-3 text-left text-sm hover:bg-text/5;
+  }
+  .popover-item[aria-pressed="true"] {
+    @apply bg-gold/20 text-[#f0d49a];
+  }
+  /* A dark rounded control on the map. */
+  .map-pill {
+    @apply flex h-8 items-center gap-1.5 rounded-full bg-ink/80 px-3 text-xs shadow-lg hover:text-gold aria-pressed:text-gold;
+  }
+  .map-pill[aria-pressed="true"] {
+    box-shadow:
+      0 0 0 1px var(--color-gold),
+      0 10px 15px rgb(0 0 0 / 0.3);
+  }
+  /* A field that reads as text until it is edited. */
+  .inline-field {
+    @apply w-full rounded-md border border-transparent bg-transparent px-1.5 py-1 text-text placeholder:text-muted placeholder:italic hover:border-line focus:border-line focus:bg-ink;
+  }
+  /* An on/off switch drawn over a checkbox. */
+  .switch {
+    @apply relative h-5 w-9 shrink-0 cursor-pointer appearance-none rounded-full border border-line bg-ink transition-colors checked:border-gold/60 checked:bg-gold/25;
+  }
+  .switch::after {
+    content: "";
+    @apply absolute top-0.5 left-0.5 size-3.5 rounded-full bg-muted transition-transform;
+  }
+  .switch:checked::after {
+    @apply translate-x-4 bg-gold;
   }
   .chip kbd {
     @apply ml-1 font-sans text-xs text-muted;
   }
   .field {
-    @apply rounded border border-line bg-ink px-2 py-1 text-text;
+    @apply rounded-lg border border-line bg-ink px-2 py-1 text-text;
   }
   .label {
     @apply text-xs tracking-wide text-muted uppercase;
@@ -311,15 +365,15 @@ body {
   font: inherit;
 }
 
-/* Narrow windows: zoom buttons match the round map controls. */
-.narrow-map .leaflet-bar {
+/* Zoom buttons match the round map controls. */
+.map-area .leaflet-bar {
   overflow: hidden;
   border: 0;
   border-radius: 9999px;
   background: rgb(11 19 17 / 0.8);
   box-shadow: 0 4px 12px rgb(0 0 0 / 0.4);
 }
-.narrow-map .leaflet-bar a {
+.map-area .leaflet-bar a {
   width: 32px;
   height: 32px;
   border-bottom-color: var(--color-line);
@@ -327,11 +381,11 @@ body {
   color: var(--color-text);
   font: 400 18px/32px var(--font-sans);
 }
-.narrow-map .leaflet-bar a:hover {
+.map-area .leaflet-bar a:hover {
   background: transparent;
   color: var(--color-gold);
 }
-.narrow-map .leaflet-bar a.leaflet-disabled {
+.map-area .leaflet-bar a.leaflet-disabled {
   color: var(--color-muted);
   opacity: 0.5;
 }

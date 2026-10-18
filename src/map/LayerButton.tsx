@@ -5,7 +5,7 @@ import { LayersIcon } from "../layout/icons";
 import { useDismiss } from "../layout/useDismiss";
 import { LAYER_NAMES } from "./labels";
 
-/** Map layer picker that sits on the map, for narrow windows. */
+/** Map layer picker that sits on the map. */
 export function LayerButton({
   t,
   layer,
@@ -30,12 +30,12 @@ export function LayerButton({
           id={listId}
           role="group"
           aria-label={t("Map layer")}
-          className="flex flex-col gap-0.5 rounded border border-line bg-panel p-1 shadow-xl"
+          className="popover flex flex-col gap-0.5"
         >
           {LAYERS.map((id) => (
             <button
               key={id}
-              className="chip min-h-9 border-transparent text-left"
+              className="popover-item"
               aria-pressed={id === layer}
               onClick={() => {
                 onChange(id);

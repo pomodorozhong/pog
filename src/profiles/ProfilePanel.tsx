@@ -9,44 +9,11 @@ import type { Translate } from "../i18n/translation";
 import type { MapAction } from "../map/editing";
 import { LAYER_NAMES } from "../map/labels";
 import { importMap } from "./importMap";
-import {
-  activeProfile,
-  addProfile,
-  removeProfile,
-  TEMPLATES,
-  updateProfile,
-} from "./profiles";
+import { PencilIcon } from "../layout/icons";
+import { activeProfile, removeProfile, updateProfile } from "./profiles";
 
 export const profileName = (t: Translate, name: string) =>
   name || t("Untitled playthrough");
-
-/** Switch between playthroughs from the header. */
-export function ProfileSwitcher({
-  t,
-  player,
-  setPlayer,
-}: {
-  t: Translate;
-  player: PlayerDocument;
-  setPlayer(player: PlayerDocument): void;
-}) {
-  return (
-    <select
-      aria-label={t("Playthrough")}
-      className="field max-w-48"
-      value={player.activeProfile}
-      onChange={(event) =>
-        setPlayer({ ...player, activeProfile: event.target.value })
-      }
-    >
-      {player.profiles.map((p) => (
-        <option key={p.id} value={p.id}>
-          {profileName(t, p.name)}
-        </option>
-      ))}
-    </select>
-  );
-}
 
 /** The active playthrough's goal and constraints, read-only, for narrow windows. */
 export function ProfileSummary({
@@ -123,7 +90,10 @@ export function ProfileSummary({
   );
 }
 
-/** Name, goal and constraints of the active playthrough. */
+/**
+ * Name, goal and constraints of the active playthrough: read first, with a
+ * pencil to edit them.
+ */
 export function ProfilePanel({
   t,
   player,
@@ -134,69 +104,122 @@ export function ProfilePanel({
   setPlayer(player: PlayerDocument): void;
 }) {
   const profile = activeProfile(player);
+  const [editing, setEditing] = useState(false);
   const update = (changes: Parameters<typeof updateProfile>[2]) =>
     setPlayer(updateProfile(player, profile.id, changes));
   return (
-    <section className="space-y-2" aria-label={t("Playthrough")}>
-      <h3 className="label">{t("Playthrough")}</h3>
-      <label className="block space-y-1">
-        <span className="text-xs text-muted">{t("Name")}</span>
-        <input
-          className="field w-full"
-          value={profile.name}
-          placeholder={t("Untitled playthrough")}
-          onChange={(e) => update({ name: e.target.value })}
-        />
-      </label>
-      <label className="block space-y-1">
-        <span className="text-xs text-muted">{t("Goal")}</span>
-        <textarea
-          className="field w-full"
-          rows={2}
-          value={profile.goal}
-          placeholder={t("For example: a faith build that beats Malenia")}
-          onChange={(e) => update({ goal: e.target.value })}
-        />
-      </label>
-      <label className="block space-y-1">
-        <span className="text-xs text-muted">{t("Constraints")}</span>
-        <textarea
-          className="field w-full"
-          rows={2}
-          value={profile.constraints}
-          placeholder={t("For example: no DLC, rune level 1, no Torrent")}
-          onChange={(e) => update({ constraints: e.target.value })}
-        />
-      </label>
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={profile.rules.dlc}
-          onChange={(e) =>
-            update({ rules: { ...profile.rules, dlc: e.target.checked } })
-          }
-        />
-        {t("Includes Shadow of the Erdtree")}
-      </label>
-      <div className="flex flex-wrap gap-2">
-        <button className="chip" onClick={() => setPlayer(addProfile(player))}>
-          {t("New playthrough")}
+    <section className="card space-y-2" aria-label={t("Playthrough")}>
+      <div className="flex items-center gap-2">
+        <h3 className="min-w-0 flex-1 truncate text-xs text-muted">
+          {profileName(t, profile.name)}
+        </h3>
+        <button
+          className="grid size-7 place-items-center rounded-full text-muted hover:text-gold aria-pressed:text-gold"
+          aria-label={t("Edit name, goal and constraints")}
+          aria-pressed={editing}
+          onClick={() => setEditing(!editing)}
+        >
+          <PencilIcon />
         </button>
-        {TEMPLATES.map((template) => (
+      </div>
+      {editing ? (
+        <div className="space-y-2.5">
+          <label className="block space-y-1">
+            <span className="label">{t("Name")}</span>
+            <input
+              className="field w-full"
+              value={profile.name}
+              placeholder={t("Untitled playthrough")}
+              onChange={(e) => update({ name: e.target.value })}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="label">{t("Goal")}</span>
+            <textarea
+              className="field w-full"
+              rows={2}
+              value={profile.goal}
+              placeholder={t("For example: a faith build that beats Malenia")}
+              onChange={(e) => update({ goal: e.target.value })}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="label">{t("Constraints")}</span>
+            <textarea
+              className="field w-full"
+              rows={2}
+              value={profile.constraints}
+              placeholder={t("For example: no DLC, rune level 1, no Torrent")}
+              onChange={(e) => update({ constraints: e.target.value })}
+            />
+          </label>
+          <label className="flex items-center justify-between gap-2 text-sm">
+            {t("Includes Shadow of the Erdtree")}
+            <input
+              type="checkbox"
+              role="switch"
+              className="switch"
+              checked={profile.rules.dlc}
+              onChange={(e) =>
+                update({ rules: { ...profile.rules, dlc: e.target.checked } })
+              }
+            />
+          </label>
+        </div>
+      ) : (
+        <>
+          <p className="font-serif text-2xl leading-tight whitespace-pre-line text-gold">
+            {profile.goal.trim() || (
+              <span className="text-muted">{t("No goal yet")}</span>
+            )}
+          </p>
+          {profile.constraints.trim() && (
+            <p className="text-sm leading-relaxed whitespace-pre-line text-text/80">
+              {profile.constraints}
+            </p>
+          )}
+          {!profile.rules.dlc && (
+            <span className="inline-block rounded-full bg-line/80 px-2.5 py-0.5 text-[11px] text-text/85">
+              {t("No DLC")}
+            </span>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+/** The rarely used playthrough actions: import another's map, and delete. */
+export function PlaythroughActions({
+  t,
+  player,
+  setPlayer,
+  importer,
+}: {
+  t: Translate;
+  player: PlayerDocument;
+  setPlayer(player: PlayerDocument): void;
+  /** The import form, shown when opened. */
+  importer: ReactNode;
+}) {
+  const profile = activeProfile(player);
+  const [importing, setImporting] = useState(false);
+  const canImport = player.profiles.length > 1;
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        {canImport && (
           <button
-            key={template.name}
-            className="chip"
-            title={t("Starts with its wishlist of {count} items", {
-              count: template.wishlist.length,
-            })}
-            onClick={() => setPlayer(addProfile(player, template))}
+            className="chip text-xs"
+            aria-pressed={importing}
+            onClick={() => setImporting(!importing)}
           >
-            {t("New “{name}” playthrough", { name: template.name })}
+            {t("Import from another playthrough…")}
           </button>
-        ))}
+        )}
         {player.profiles.length > 1 && (
           <button
-            className="chip chip--danger"
+            className="chip chip--danger text-xs"
             onClick={() => {
               if (
                 window.confirm(
@@ -212,7 +235,8 @@ export function ProfilePanel({
           </button>
         )}
       </div>
-    </section>
+      {canImport && importing && <div className="card">{importer}</div>}
+    </div>
   );
 }
 

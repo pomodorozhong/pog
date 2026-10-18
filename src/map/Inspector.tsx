@@ -38,6 +38,7 @@ import {
   type EdgeChanges,
   type MapAction,
 } from "./editing";
+import { CloseIcon } from "../layout/icons";
 import { isGameGrace } from "./graces";
 import type { Selection } from "./MapCanvas";
 import { LAYER_NAMES, NODE_KIND_NAMES, PATH_COLOR_NAMES } from "./labels";
@@ -61,6 +62,8 @@ type Props = {
   recovery?: string;
   /** Shown above the layer summary when nothing is selected. */
   profile: ReactNode;
+  /** Shown below the layer summary when nothing is selected. */
+  profileActions?: ReactNode;
   /** Playthrough controls for the selected node, such as its progress. */
   nodeControls(node: MapNode): ReactNode;
   /** Playthrough controls for an item at the selected node: its wishlist entry. */
@@ -78,7 +81,7 @@ export function Inspector(props: Props) {
       ? inStepOrder(doc.edges).find((e) => e.id === selection.id)
       : undefined;
   return (
-    <aside className="flex max-h-[45vh] w-full flex-col gap-4 overflow-y-auto border-t border-line bg-panel p-4 md:max-h-none md:w-80 md:border-t-0 md:border-l">
+    <aside className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 pt-1 pb-4">
       {props.recovery !== undefined && (
         <div className="rounded border border-danger/60 p-2 text-sm">
           <p>
@@ -103,6 +106,7 @@ export function Inspector(props: Props) {
         <>
           {props.profile}
           <Summary t={t} doc={doc} layer={layer} />
+          {props.profileActions}
         </>
       )}
     </aside>
@@ -169,16 +173,31 @@ function NodePanel({
   };
   const other = language === "en" ? "zh-TW" : "en";
 
+  const kinds = NODE_KINDS.filter((k) =>
+    fixed ? k === "grace" || k === "entrance" : k !== "grace" && k !== "item",
+  );
+  const pickKind = (next: NodeKind) => {
+    if (fixed) {
+      setGraceEntrance(next === "entrance");
+      if (next === "grace") setPlace(null);
+    } else
+      update({
+        kind: next,
+        ref: null,
+        ...(node.kind === "item" && { items }),
+      });
+  };
+
   return (
-    <section className="space-y-4" aria-label={t("Selected node")}>
+    <section className="space-y-3" aria-label={t("Selected node")}>
       {/* One height for every node, so switching between a pin and a grace
           doesn't move the fields below. Each line is cut short to fit. */}
-      <header className="flex h-17 items-start gap-3">
+      <header className="flex h-17 items-start gap-3 px-1">
         {icon && isItem(icon) && (
           <img
             src={iconUrl(icon.icon!)}
             alt=""
-            className="size-14 shrink-0 rounded bg-ink"
+            className="size-14 shrink-0 rounded-lg bg-ink"
           />
         )}
         <div className="min-w-0 flex-1">
@@ -202,41 +221,27 @@ function NodePanel({
             </HeaderLine>
           )}
         </div>
+        <CloseButton t={t} onClick={() => select(null)} />
       </header>
 
-      <label className="block space-y-1">
-        <span className="label">{t("Kind")}</span>
-        <select
-          className="field w-full"
-          value={shownKind}
-          onChange={(e) => {
-            const next = e.target.value as NodeKind;
-            if (fixed) {
-              setGraceEntrance(next === "entrance");
-              if (next === "grace") setPlace(null);
-            } else
-              update({
-                kind: next,
-                ref: null,
-                ...(node.kind === "item" && { items }),
-              });
-          }}
-        >
-          {NODE_KINDS.filter((k) =>
-            fixed
-              ? k === "grace" || k === "entrance"
-              : k !== "grace" && k !== "item",
-          ).map((k) => (
-            <option key={k} value={k}>
+      <div className="flex flex-wrap items-center gap-1.5 px-1">
+        <div className="segmented" role="group" aria-label={t("Kind")}>
+          {kinds.map((k) => (
+            <button
+              key={k}
+              aria-pressed={shownKind === k}
+              onClick={() => pickKind(k)}
+            >
               {t(NODE_KIND_NAMES[k])}
-            </option>
+            </button>
           ))}
-        </select>
-      </label>
+        </div>
+        {nodeControls(node)}
+      </div>
 
       {shownKind === "entrance" && (
-        <div className="space-y-1">
-          <span className="label">{t("Place name")}</span>
+        <section className="card space-y-2" aria-label={t("Place name")}>
+          <h3 className="label">{t("Place name")}</h3>
           {placeEntry && (
             <p className="flex items-center justify-between gap-2 text-sm">
               <span>{placeEntry.name[language]}</span>
@@ -253,19 +258,18 @@ function NodePanel({
             autoFocus={!placeEntry}
             pick={setPlace}
           />
-        </div>
+        </section>
       )}
 
-      {nodeControls(node)}
-
-      <div className="space-y-2">
+      <section className="card space-y-2" aria-label={t("Items")}>
         <h3 className="label">
           {t("Items ({count})", { count: items.length })}
         </h3>
         {items.map((id) => {
           const item = data.byId.get(id);
+          const name = item?.name[language] ?? id;
           return (
-            <div key={id} className="space-y-1">
+            <div key={id} className="space-y-1.5">
               <p className="flex items-center gap-2 text-sm">
                 {item && isItem(item) && item.icon && (
                   <img
@@ -274,14 +278,14 @@ function NodePanel({
                     className="size-8 rounded bg-ink"
                   />
                 )}
-                <span className="min-w-0 flex-1 truncate">
-                  {item?.name[language] ?? id}
-                </span>
+                <span className="min-w-0 flex-1 truncate">{name}</span>
                 <button
-                  className="link"
+                  className="grid size-7 place-items-center rounded-full text-muted hover:text-danger"
+                  aria-label={t("Remove {item}", { item: name })}
+                  title={t("Remove")}
                   onClick={() => setItems(items.filter((i) => i !== id))}
                 >
-                  {t("Remove")}
+                  <CloseIcon />
                 </button>
               </p>
               {itemControls(node, id)}
@@ -292,100 +296,132 @@ function NodePanel({
           t={t}
           language={language}
           label={t("Add an item")}
+          placeholder={t("Add an item · English or 中文")}
+          adding
           entries={refCandidates(data, "item").filter(
             (e) => !items.includes(e.id),
           )}
           pick={(id) => setItems([...items, id])}
         />
-      </div>
+      </section>
 
-      <label className="block space-y-1">
-        <span className="label">{t("Label")}</span>
-        <input
-          className="field w-full"
-          value={node.label}
-          placeholder={
-            fixed
-              ? t("Shown beside the grace's name")
-              : t("Shown when no name is linked")
-          }
-          onChange={(e) => update({ label: e.target.value })}
-        />
-      </label>
-
-      <div className="space-y-1">
-        <label className="block space-y-1">
-          <span className="label">{t("Your note")}</span>
+      <section className="card space-y-2" aria-label={t("Label and note")}>
+        <label className="block">
+          <span className="label">{t("Label")}</span>
           <input
-            className="field w-full"
+            className="inline-field"
+            value={node.label}
+            placeholder={
+              fixed
+                ? t("Shown beside the grace's name")
+                : t("Shown when no name is linked")
+            }
+            onChange={(e) => update({ label: e.target.value })}
+          />
+        </label>
+        <label className="block border-t border-[#22352e] pt-2">
+          <span className="label">{t("Your note")}</span>
+          <textarea
+            className="inline-field resize-none"
+            rows={2}
             value={note?.note ?? ""}
             placeholder={t("For example what to do or remember here")}
             onChange={(e) => setNote({ note: e.target.value })}
           />
         </label>
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center justify-between gap-2 text-sm text-text/85">
+          {t("Show note on the map")}
           <input
             type="checkbox"
+            role="switch"
+            className="switch"
             checked={note?.showNote ?? false}
             onChange={(e) => setNote({ showNote: e.target.checked })}
           />
-          {t("Show note on the map")}
         </label>
-      </div>
+      </section>
 
-      <div className="space-y-1">
-        <h3 className="label">
-          {t("Paths ({count})", { count: connected.length })}
-        </h3>
-        <ul className="space-y-1 text-sm">
-          {connected.map((e) => {
-            // Where the path could be split here: a pin that isn't an end.
-            const at = e.nodes.findIndex(
-              (id, i) => id === node.id && i > 0 && i < e.nodes.length - 1,
-            );
-            return (
-              <li key={e.id} className="flex items-center gap-2">
-                <button
-                  className="link min-w-0 flex-1 truncate text-left"
-                  onClick={() => select({ kind: "edge", id: e.id })}
-                >
-                  <span
-                    className="swatch"
-                    style={{ background: PATH_COLOR[e.color] }}
-                  />{" "}
-                  {t("Step {step}", { step: e.step })} ·{" "}
-                  {pathEnds(t, language, data, nodes, e)}
-                </button>
-                {at > 0 && (
+      {connected.length > 0 && (
+        <section className="card space-y-1 px-2" aria-label={t("Paths")}>
+          <h3 className="label px-1.5">
+            {t("Paths through here ({count})", { count: connected.length })}
+          </h3>
+          <ul className="text-sm">
+            {connected.map((e) => {
+              // Where the path could be split here: a pin that isn't an end.
+              const at = e.nodes.findIndex(
+                (id, i) => id === node.id && i > 0 && i < e.nodes.length - 1,
+              );
+              return (
+                <li key={e.id} className="flex items-center gap-1">
                   <button
-                    className="chip shrink-0 text-xs"
-                    onClick={() =>
-                      edit({
-                        type: "splitEdge",
-                        id: e.id,
-                        at,
-                        newId: newId("path"),
-                      })
-                    }
+                    className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-1.5 py-2 text-left hover:bg-text/5"
+                    onClick={() => select({ kind: "edge", id: e.id })}
                   >
-                    {t("Split here")}
+                    <span
+                      className="grid h-5.5 min-w-6.5 shrink-0 place-items-center rounded-full border-2 bg-ink px-1.5 text-xs font-bold"
+                      style={{
+                        borderColor: PATH_COLOR[e.color],
+                        color: PATH_COLOR[e.color],
+                      }}
+                    >
+                      {e.step}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {pathEnds(t, language, data, nodes, e)}
+                    </span>
                   </button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-
-      <p className="text-xs text-muted">
-        {t(LAYER_NAMES[node.layer])} · {node.x}, {node.y}
-      </p>
-      {!fixed && (
-        <button className="chip chip--danger" onClick={deleteSelection}>
-          {t("Delete node")}
-        </button>
+                  {at > 0 && (
+                    <button
+                      className="chip shrink-0 px-2.5 text-xs"
+                      onClick={() =>
+                        edit({
+                          type: "splitEdge",
+                          id: e.id,
+                          at,
+                          newId: newId("path"),
+                        })
+                      }
+                    >
+                      {t("Split here")}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       )}
+
+      <div className="flex items-center justify-between gap-2 px-1">
+        {!fixed ? (
+          <button
+            className="chip chip--danger text-xs"
+            onClick={deleteSelection}
+          >
+            {t("Delete node")}
+          </button>
+        ) : (
+          <span />
+        )}
+        <p className="text-[11px] text-muted">
+          {t(LAYER_NAMES[node.layer])} · {node.x}, {node.y}
+        </p>
+      </div>
     </section>
+  );
+}
+
+/** The × that closes the details of what's selected. */
+function CloseButton({ t, onClick }: { t: Translate; onClick(): void }) {
+  return (
+    <button
+      className="grid size-8 shrink-0 place-items-center rounded-full text-muted hover:text-gold"
+      aria-label={t("Close details")}
+      onClick={onClick}
+    >
+      <CloseIcon />
+    </button>
   );
 }
 
@@ -414,6 +450,8 @@ function CatalogSearch({
   label,
   entries,
   autoFocus,
+  placeholder,
+  adding = false,
   pick,
 }: {
   t: Translate;
@@ -421,23 +459,45 @@ function CatalogSearch({
   label: string;
   entries: (CatalogItem | CatalogName)[];
   autoFocus?: boolean;
+  placeholder?: string;
+  /** Drawn as a slot for one more entry: a dashed pill with a "+". */
+  adding?: boolean;
   pick(id: string): void;
 }) {
   const [query, setQuery] = useState("");
   const results = query ? searchCatalog(entries, query) : [];
   const other = language === "en" ? "zh-TW" : "en";
+  const input = (
+    <input
+      className={
+        adding
+          ? "h-full min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted"
+          : "field w-full"
+      }
+      aria-label={label}
+      autoFocus={autoFocus}
+      placeholder={placeholder ?? t("Search English or 中文")}
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+    />
+  );
   return (
     <>
-      <input
-        className="field w-full"
-        aria-label={label}
-        autoFocus={autoFocus}
-        placeholder={t("Search English or 中文")}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
+      {adding ? (
+        <div className="flex h-10 items-center gap-2.5 rounded-full border border-dashed border-[#3a5248] bg-ink/50 px-3 text-sm focus-within:border-gold/60">
+          <span
+            aria-hidden="true"
+            className="grid size-5.5 shrink-0 place-items-center rounded-full bg-gold/20 leading-none text-gold"
+          >
+            +
+          </span>
+          {input}
+        </div>
+      ) : (
+        input
+      )}
       {results.length > 0 && (
-        <ul className="max-h-64 overflow-y-auto rounded border border-line">
+        <ul className="max-h-64 overflow-y-auto rounded-xl border border-line bg-panel">
           {results.map((result) => (
             <li key={result.id}>
               <button
@@ -488,18 +548,19 @@ function EdgePanel(props: Props & { edgeId: string }) {
   if (moving)
     return <MoveList {...props} edge={edge} close={() => setMoving(false)} />;
   return (
-    <section className="space-y-4" aria-label={t("Selected path")}>
-      <header className="flex items-baseline justify-between gap-2">
-        <h2 className="font-serif text-lg text-gold">
+    <section className="space-y-3" aria-label={t("Selected path")}>
+      <header className="flex items-center gap-2 px-1">
+        <h2 className="min-w-0 flex-1 font-serif text-lg text-gold">
           {t("Step {step}", { step: edge.step })}
         </h2>
         {walked.length > 1 && (
-          <button className="chip" onClick={() => setMoving(true)}>
+          <button className="chip text-xs" onClick={() => setMoving(true)}>
             {t("Move…")}
           </button>
         )}
+        <CloseButton t={t} onClick={() => props.select(null)} />
       </header>
-      <ol className="space-y-1 text-sm">
+      <ol className="card space-y-1 text-sm">
         {ends.map((end, index) => (
           <li key={index}>
             <span className="text-muted">
@@ -514,8 +575,8 @@ function EdgePanel(props: Props & { edgeId: string }) {
           </li>
         ))}
       </ol>
-      <div className="space-y-1">
-        <span className="label">{t("Look")}</span>
+      <section className="card space-y-2.5" aria-label={t("Look")}>
+        <h3 className="label">{t("Look")}</h3>
         <div className="flex flex-wrap gap-1.5">
           {PATH_COLORS.map((color) => (
             <button
@@ -528,11 +589,11 @@ function EdgePanel(props: Props & { edgeId: string }) {
             />
           ))}
         </div>
-        <div className="flex gap-1">
+        <div className="segmented" role="group" aria-label={t("Line")}>
           {PATH_LINES.map((line) => (
             <button
               key={line}
-              className="chip flex items-center gap-2"
+              className="flex items-center gap-2"
               aria-pressed={edge.line === line}
               onClick={() => update({ line })}
             >
@@ -551,46 +612,52 @@ function EdgePanel(props: Props & { edgeId: string }) {
             </button>
           ))}
         </div>
-      </div>
-      <div className="space-y-1 text-sm">
-        <label className="flex items-center gap-2">
+        <label className="flex items-center justify-between gap-2 border-t border-[#22352e] pt-2.5 text-sm text-text/85">
+          {t("One way (in drawing order)")}
           <input
             type="checkbox"
+            role="switch"
+            className="switch"
             checked={edge.oneWay}
             onChange={(e) => update({ oneWay: e.target.checked })}
           />
-          {t("One way (in drawing order)")}
         </label>
-      </div>
-      <div className="space-y-1">
-        <label className="block space-y-1">
+      </section>
+      <section className="card space-y-2" aria-label={t("Your note")}>
+        <label className="block">
           <span className="label">{t("Your note")}</span>
-          <input
-            className="field w-full"
+          <textarea
+            className="inline-field resize-none"
+            rows={2}
             value={edge.note}
             placeholder={t("For example the key or boss this path needs")}
             onChange={(e) => update({ note: e.target.value })}
           />
         </label>
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center justify-between gap-2 text-sm text-text/85">
+          {t("Show note on the map")}
           <input
             type="checkbox"
+            role="switch"
+            className="switch"
             checked={edge.showNote}
             onChange={(e) => update({ showNote: e.target.checked })}
           />
-          {t("Show note on the map")}
         </label>
-      </div>
-      <p className="text-xs text-muted">
-        {t("Through {count} pins", { count: pins.length })}
-      </p>
-      <div className="flex gap-2">
-        <button className="chip" onClick={() => props.extendPath(edge.id)}>
+      </section>
+      <div className="flex flex-wrap items-center gap-2 px-1">
+        <button
+          className="chip text-xs"
+          onClick={() => props.extendPath(edge.id)}
+        >
           {t("Extend")}
         </button>
-        <button className="chip chip--danger" onClick={deleteSelection}>
+        <button className="chip chip--danger text-xs" onClick={deleteSelection}>
           {t("Delete path")}
         </button>
+        <p className="ml-auto text-[11px] text-muted">
+          {t("Through {count} pins", { count: pins.length })}
+        </p>
       </div>
     </section>
   );
@@ -734,16 +801,25 @@ function Summary({
   // The player's own nodes; game graces are on every map.
   const here = doc.nodes.filter((n) => n.layer === layer && !isGameGrace(n.id));
   const ids = new Set(here.map((n) => n.id));
+  const paths = inStepOrder(doc.edges).filter((e) =>
+    e.nodes.some((id) => ids.has(id)),
+  ).length;
   return (
-    <section className="space-y-4 text-sm">
-      <h2 className="font-serif text-lg text-gold">{t(LAYER_NAMES[layer])}</h2>
-      <p className="text-muted">
-        {t("{nodes} nodes and {edges} paths on this layer.", {
-          nodes: here.length,
-          edges: inStepOrder(doc.edges).filter((e) =>
-            e.nodes.some((id) => ids.has(id)),
-          ).length,
-        })}
+    <section
+      aria-label={t(LAYER_NAMES[layer])}
+      className="grid grid-cols-2 gap-2 text-sm"
+    >
+      <p className="card py-2.5">
+        <span className="block font-serif text-2xl">{here.length}</span>
+        <span className="text-xs text-muted">
+          {t("nodes on {layer}", { layer: t(LAYER_NAMES[layer]) })}
+        </span>
+      </p>
+      <p className="card py-2.5">
+        <span className="block font-serif text-2xl">{paths}</span>
+        <span className="text-xs text-muted">
+          {t("paths on {layer}", { layer: t(LAYER_NAMES[layer]) })}
+        </span>
       </p>
     </section>
   );

@@ -8,7 +8,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  LAYERS,
   STEP_SIZES,
   type LayerId,
   type Language,
@@ -30,24 +29,30 @@ import {
 import { drawTo, dropJunction, type Draft } from "./map/drawing";
 import { gameGraceNodes, withGameGraces } from "./map/graces";
 import { Inspector } from "./map/Inspector";
-import { LAYER_NAMES } from "./map/labels";
 import { MapCanvas, type Selection } from "./map/MapCanvas";
 import { MapDetails } from "./map/MapDetails";
 import {
   ImportFromProfile,
+  PlaythroughActions,
   ProfilePanel,
   ProfileSummary,
-  ProfileSwitcher,
 } from "./profiles/ProfilePanel";
-import { ChevronIcon, MenuIcon, PencilIcon, ToolIcon } from "./layout/icons";
+import {
+  ChevronIcon,
+  MenuIcon,
+  PencilIcon,
+  RedoIcon,
+  ToolIcon,
+  UndoIcon,
+} from "./layout/icons";
 import { useDismiss } from "./layout/useDismiss";
-import { NARROW, useMediaQuery } from "./layout/useMediaQuery";
+import { COMPACT, NARROW, useMediaQuery } from "./layout/useMediaQuery";
 import { LayerButton } from "./map/LayerButton";
 import { WalkList } from "./wishlist/WalkList";
 import { countByStatus } from "./wishlist/wishlist";
 import { NodeProgress, ProgressPanel } from "./progress/ProgressPanel";
 import { undiscoveredGraces } from "./progress/progress";
-import { activeProfile } from "./profiles/profiles";
+import { activeProfile, addProfile, TEMPLATES } from "./profiles/profiles";
 import { displayName } from "./map/catalog";
 import { detour, routeLines } from "./routing/order";
 import { RoutePanel } from "./routing/RoutePanel";
@@ -121,6 +126,13 @@ export default function App() {
   const [sheet, setSheet] = useState<"route" | "edit">("route");
   const [sheetTall, setSheetTall] = useState(false);
   const editing = !narrow || sheet === "edit";
+  // Below this width the tools show as icons with their keys.
+  const compact = useMediaQuery(COMPACT);
+  /** Select something and show its details in the panel. */
+  const selectAndEdit = useCallback((next: Selection) => {
+    setSelection(next);
+    if (next) setSheet("edit");
+  }, []);
   /** The profile whose map is in `history`. */
   const [mapProfile, setMapProfile] = useState<string | null>(null);
   const views = useRef(new Map<LayerId, MapView>());
@@ -255,7 +267,7 @@ export default function App() {
         edit(next.action);
         return setDraft(next.draft);
       }
-      setSelection({ kind: "node", id: addPin(point) });
+      selectAndEdit({ kind: "node", id: addPin(point) });
     },
     onNodeClick(id: string) {
       if (activeTool === "path") {
@@ -266,13 +278,13 @@ export default function App() {
         if (next.action) edit(next.action);
         return setDraft(next.draft);
       }
-      setSelection({ kind: "node", id });
+      selectAndEdit({ kind: "node", id });
     },
     onNodeMove(id: string, [x, y]: Point) {
       edit({ type: "updateNode", id, changes: { x, y } });
     },
     onEdgeClick(id: string) {
-      if (activeTool !== "path") setSelection({ kind: "edge", id });
+      if (activeTool !== "path") selectAndEdit({ kind: "edge", id });
     },
     onViewChange(view: MapView) {
       views.current.set(view.layer, view);
@@ -312,9 +324,9 @@ export default function App() {
           view: { layer: node.layer, x: node.x, y: node.y, zoom },
         });
       }
-      setSelection({ kind: "node", id });
+      selectAndEdit({ kind: "node", id });
     },
-    [nodeById, player, layer],
+    [nodeById, player, layer, selectAndEdit],
   );
 
   /** Where visiting a node fits best in the planned route, in words. */
@@ -448,7 +460,7 @@ export default function App() {
       selection={selection}
       layer={layer}
       edit={edit}
-      select={setSelection}
+      select={selectAndEdit}
       showNode={showNode}
       highlight={setHighlight}
       extendPath={extendPath}
@@ -483,15 +495,24 @@ export default function App() {
             doc={map}
             showNode={showNode}
           />
-          <ImportFromProfile
-            key={player.activeProfile}
-            t={t}
-            player={player}
-            doc={map}
-            readMap={readMap}
-            edit={edit}
-          />
         </>
+      }
+      profileActions={
+        <PlaythroughActions
+          t={t}
+          player={player}
+          setPlayer={setPlayer}
+          importer={
+            <ImportFromProfile
+              key={player.activeProfile}
+              t={t}
+              player={player}
+              doc={map}
+              readMap={readMap}
+              edit={edit}
+            />
+          }
+        />
       }
       nodeControls={(node) => (
         <>
@@ -516,144 +537,191 @@ export default function App() {
     />
   );
 
+  const mapTools = TOOLS.map(({ tool: id, label, key, tip }) => (
+    <button
+      key={id}
+      className={
+        narrow
+          ? "chip relative grid h-9 w-10 place-items-center px-0"
+          : "map-pill"
+      }
+      aria-pressed={tool === id}
+      aria-label={compact ? t(label) : undefined}
+      title={`${t(label)}: ${t(tip)} (${key.toUpperCase()})`}
+      onClick={() => {
+        setTool(id);
+        setDraft(null);
+      }}
+    >
+      <ToolIcon tool={id} />
+      {!compact && t(label)}{" "}
+      <kbd
+        className={
+          narrow
+            ? "absolute right-1 bottom-0 font-sans text-[9px] text-muted"
+            : "font-sans text-[11px] text-muted"
+        }
+      >
+        {key.toUpperCase()}
+      </kbd>
+    </button>
+  ));
+  const historyButtons = (
+    <>
+      <button
+        className="icon-button"
+        aria-label={t("Undo")}
+        title={`${t("Undo")} (⌘Z)`}
+        disabled={!history.past.length}
+        onClick={() => changeHistory("undo")}
+      >
+        <UndoIcon />
+      </button>
+      <button
+        className="icon-button"
+        aria-label={t("Redo")}
+        title={`${t("Redo")} (⇧⌘Z)`}
+        disabled={!history.future.length}
+        onClick={() => changeHistory("redo")}
+      >
+        <RedoIcon />
+      </button>
+    </>
+  );
+  // The route list, or what's being edited: the bottom sheet of a narrow
+  // window, the side column of a wider one.
+  const panel = (
+    <section
+      aria-label={t("Route and editing")}
+      className={
+        narrow
+          ? `flex shrink-0 flex-col border-t border-line bg-panel ${sheetTall ? "h-[75%]" : "max-h-[40%]"}`
+          : "flex min-h-0 w-96 shrink-0 flex-col border-l border-line bg-panel"
+      }
+    >
+      <div className="flex items-center gap-1 py-1 pr-2 pl-4">
+        <h2 className="label flex min-w-0 flex-1 items-baseline gap-2">
+          {sheet === "route" ? (
+            <>
+              {t("Items in route order")}
+              <span className="tracking-normal normal-case">
+                {t("{acquired} of {total} acquired", {
+                  acquired: wishlistCounts.acquired,
+                  total: wishlist.length,
+                })}
+              </span>
+            </>
+          ) : (
+            t("Edit")
+          )}
+        </h2>
+        <button
+          className="grid size-9 place-items-center rounded-lg text-muted hover:text-gold aria-pressed:text-gold"
+          aria-label={t("Edit")}
+          aria-pressed={sheet === "edit"}
+          onClick={() => {
+            setSheet(sheet === "edit" ? "route" : "edit");
+            setDraft(null);
+          }}
+        >
+          <PencilIcon />
+        </button>
+        {narrow && (
+          <button
+            className="grid size-9 place-items-center rounded-lg text-muted hover:text-gold"
+            aria-label={t(sheetTall ? "Shrink panel" : "Expand panel")}
+            onClick={() => setSheetTall(!sheetTall)}
+          >
+            <ChevronIcon up={!sheetTall} />
+          </button>
+        )}
+      </div>
+      {sheet === "route" ? (
+        <WalkList
+          key={player.activeProfile}
+          t={t}
+          language={language}
+          data={data}
+          player={player}
+          setPlayer={setPlayer}
+          doc={map}
+          showNode={showNode}
+        />
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col [&>aside]:max-h-none [&>aside]:min-h-0 [&>aside]:flex-1">
+          {inspector}
+        </div>
+      )}
+    </section>
+  );
+
   return (
     <div className="flex h-full flex-col">
-      {narrow ? (
-        <header className="relative z-[900] border-b border-line bg-panel">
-          <ProfileSummary
-            t={t}
-            player={player}
-            setPlayer={setPlayer}
-            actions={
-              <NarrowMenu t={t}>
-                <label className="flex flex-col gap-1">
-                  <span className="label">{t("Path numbers")}</span>
-                  {stepSizeSelect}
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="label">{t("Language")}</span>
-                  {languageSelect}
-                </label>
-              </NarrowMenu>
-            }
-          >
-            <p className="text-xs has-[span:empty]:hidden">
-              <SaveIndicator
-                t={t}
-                statuses={[mapSave.status, playerSave.status]}
-                quiet
-              />
-            </p>
-          </ProfileSummary>
-        </header>
-      ) : (
-        <>
-          <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line bg-panel px-3 py-2">
-            <h1 className="font-serif text-lg text-gold">
-              {t("Route of Grace")}
-            </h1>
-            <nav
-              className="flex flex-wrap gap-1 max-lg:hidden"
-              aria-label={t("Map layer")}
-            >
-              {LAYERS.map((id) => (
-                <button
-                  key={id}
-                  className="chip"
-                  aria-pressed={id === layer}
-                  onClick={() => switchLayer(id)}
-                >
-                  {t(LAYER_NAMES[id])}
-                </button>
-              ))}
-            </nav>
-            <select
-              aria-label={t("Map layer")}
-              className="field lg:hidden"
-              value={layer}
-              onChange={(event) => switchLayer(event.target.value as LayerId)}
-            >
-              {LAYERS.map((id) => (
-                <option key={id} value={id}>
-                  {t(LAYER_NAMES[id])}
-                </option>
-              ))}
-            </select>
-            <div className="ml-auto flex items-center gap-3 text-sm">
-              <SaveIndicator
-                t={t}
-                statuses={[mapSave.status, playerSave.status]}
-              />
-              <ProfileSwitcher t={t} player={player} setPlayer={setPlayer} />
-              {languageSelect}
-            </div>
-          </header>
-        </>
-      )}
-      {editing && (
+      <header className="relative z-[900] border-b border-line bg-panel">
+        <ProfileSummary
+          t={t}
+          player={player}
+          setPlayer={setPlayer}
+          actions={
+            <>
+              <span className="ml-auto text-xs has-[span:empty]:hidden">
+                <SaveIndicator
+                  t={t}
+                  statuses={[mapSave.status, playerSave.status]}
+                  quiet
+                />
+              </span>
+              {!narrow && historyButtons}
+              <AppMenu t={t}>
+                {(close) => (
+                  <>
+                    <label className="flex flex-col gap-1">
+                      <span className="label">{t("Path numbers")}</span>
+                      {stepSizeSelect}
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="label">{t("Language")}</span>
+                      {languageSelect}
+                    </label>
+                    <NewPlaythrough
+                      t={t}
+                      player={player}
+                      setPlayer={(next) => {
+                        setPlayer(next);
+                        setSheet("edit");
+                        setSelection(null);
+                        close();
+                      }}
+                    />
+                  </>
+                )}
+              </AppMenu>
+            </>
+          }
+        />
+      </header>
+      {narrow && editing && (
         <div
           className="flex flex-wrap items-center gap-1 border-b border-line bg-panel/70 px-3 py-1.5 text-sm"
           role="toolbar"
           aria-label={t("Map tools")}
         >
-          {TOOLS.map(({ tool: id, label, key, tip }) => (
-            <button
-              key={id}
-              className="chip relative max-lg:grid max-lg:h-9 max-lg:w-10 max-lg:place-items-center"
-              aria-pressed={tool === id}
-              title={`${t(label)}: ${t(tip)} (${key.toUpperCase()})`}
-              onClick={() => {
-                setTool(id);
-                setDraft(null);
-              }}
-            >
-              <span className="lg:hidden">
-                <ToolIcon tool={id} />
-              </span>
-              <span className="max-lg:sr-only">{t(label)}</span>{" "}
-              <kbd className="max-lg:absolute max-lg:right-0.5 max-lg:bottom-0 max-lg:ml-0 max-lg:text-[9px]">
-                {key.toUpperCase()}
-              </kbd>
-            </button>
-          ))}
+          {mapTools}
           <button
-            className="chip ml-1 size-8 rounded-full lg:hidden"
+            className="chip ml-1 grid size-8 place-items-center px-0"
             aria-label={t("Tool hint")}
             aria-pressed={hintOpen}
             onClick={() => setHintOpen(!hintOpen)}
           >
             ?
           </button>
-          {!narrow && (
-            <label className="ml-auto flex items-center gap-2">
-              <span className="text-muted">{t("Path numbers")}</span>
-              {stepSizeSelect}
-            </label>
-          )}
-          <div className={`flex gap-1 ${narrow ? "ml-auto" : ""}`}>
-            <button
-              className="chip"
-              disabled={!history.past.length}
-              onClick={() => changeHistory("undo")}
-            >
-              {t("Undo")}
-            </button>
-            <button
-              className="chip"
-              disabled={!history.future.length}
-              onClick={() => changeHistory("redo")}
-            >
-              {t("Redo")}
-            </button>
-          </div>
+          <div className="ml-auto flex gap-1">{historyButtons}</div>
         </div>
       )}
 
-      <div
-        className={`flex min-h-0 flex-1 flex-col ${narrow ? "" : "md:flex-row"}`}
-      >
+      <div className={`flex min-h-0 flex-1 ${narrow ? "flex-col" : ""}`}>
         <div
-          className={`relative flex-1 tool-${activeTool} steps-${player.stepSize} ${narrow ? "narrow-map min-h-0" : "min-h-[50vh]"}`}
+          className={`relative flex-1 tool-${activeTool} steps-${player.stepSize} map-area min-h-0`}
         >
           <MapCanvas
             {...handlers}
@@ -677,92 +745,45 @@ export default function App() {
             routeNodes={routeNodes}
             highlight={highlight}
           />
+          {!narrow && (
+            <div
+              role="toolbar"
+              aria-label={t("Map tools")}
+              className="absolute top-2.5 left-14 z-[800] flex gap-1.5"
+            >
+              {mapTools}
+            </div>
+          )}
           <MapDetails
             t={t}
             settings={player}
             onChange={(changes) => setPlayer({ ...player, ...changes })}
             open={detailsOpen}
             onOpenChange={setDetailsOpen}
-            compact={narrow}
           />
-          {narrow && <LayerButton t={t} layer={layer} onChange={switchLayer} />}
+          <LayerButton t={t} layer={layer} onChange={switchLayer} />
           {editing && (
             <p
-              className={`pointer-events-none absolute left-2 z-[500] max-w-[70%] rounded bg-ink/85 px-2 py-1 text-xs text-muted ${narrow ? "top-2" : "bottom-2"} ${hintOpen ? "" : "max-lg:hidden"}`}
+              className={`pointer-events-none absolute z-[500] max-w-[60%] rounded bg-ink/85 px-2 py-1 text-xs text-muted ${narrow ? "top-2 left-2" : "right-2 bottom-2"} ${narrow && !hintOpen ? "hidden" : ""}`}
             >
               {t(toolHint(tool, draft !== null))}
             </p>
           )}
         </div>
-        {narrow ? (
-          <section
-            aria-label={t("Route and editing")}
-            className={`flex shrink-0 flex-col border-t border-line bg-panel ${sheetTall ? "h-[75%]" : "max-h-[40%]"}`}
-          >
-            <div className="flex items-center gap-1 py-1 pr-1 pl-3">
-              <h2 className="label flex min-w-0 flex-1 items-baseline gap-2">
-                {sheet === "route" ? (
-                  <>
-                    {t("Items in route order")}
-                    <span className="tracking-normal normal-case">
-                      {t("{acquired} of {total} acquired", {
-                        acquired: wishlistCounts.acquired,
-                        total: wishlist.length,
-                      })}
-                    </span>
-                  </>
-                ) : (
-                  t("Edit")
-                )}
-              </h2>
-              <button
-                className="grid size-9 place-items-center rounded text-muted hover:text-gold aria-pressed:text-gold"
-                aria-label={t("Edit")}
-                aria-pressed={sheet === "edit"}
-                onClick={() => {
-                  setSheet(sheet === "edit" ? "route" : "edit");
-                  setDraft(null);
-                }}
-              >
-                <PencilIcon />
-              </button>
-              <button
-                className="grid size-9 place-items-center rounded text-muted hover:text-gold"
-                aria-label={t(sheetTall ? "Shrink panel" : "Expand panel")}
-                onClick={() => setSheetTall(!sheetTall)}
-              >
-                <ChevronIcon up={!sheetTall} />
-              </button>
-            </div>
-            {sheet === "route" ? (
-              <div className="min-h-0 overflow-y-auto px-3 pb-2">
-                <WalkList
-                  heading={false}
-                  t={t}
-                  language={language}
-                  data={data}
-                  player={player}
-                  setPlayer={setPlayer}
-                  doc={map}
-                  showNode={showNode}
-                />
-              </div>
-            ) : (
-              <div className="flex min-h-0 flex-col [&>aside]:max-h-none [&>aside]:min-h-0 [&>aside]:flex-1 [&>aside]:border-t-0">
-                {inspector}
-              </div>
-            )}
-          </section>
-        ) : (
-          inspector
-        )}
+        {panel}
       </div>
     </div>
   );
 }
 
-/** The narrow window's menu, at the top right. */
-function NarrowMenu({ t, children }: { t: Translate; children: ReactNode }) {
+/** The menu at the top right: display settings and a new playthrough. */
+function AppMenu({
+  t,
+  children,
+}: {
+  t: Translate;
+  children(close: () => void): ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const container = useRef<HTMLDivElement>(null);
   const close = useCallback(() => setOpen(false), []);
@@ -770,7 +791,7 @@ function NarrowMenu({ t, children }: { t: Translate; children: ReactNode }) {
   return (
     <div ref={container} className="relative">
       <button
-        className="chip grid size-9 place-items-center"
+        className="icon-button"
         aria-label={t("Menu")}
         aria-expanded={open}
         onClick={() => setOpen(!open)}
@@ -778,11 +799,69 @@ function NarrowMenu({ t, children }: { t: Translate; children: ReactNode }) {
         <MenuIcon />
       </button>
       {open && (
-        <div className="absolute top-full right-0 mt-1 flex w-60 flex-col gap-3 text-sm rounded border border-line bg-panel p-3 shadow-xl">
-          {children}
+        <div className="popover absolute top-full right-0 mt-1 flex w-64 flex-col gap-3 p-3.5 text-sm">
+          {children(close)}
         </div>
       )}
     </div>
+  );
+}
+
+/** Start a playthrough, empty or from a template. */
+function NewPlaythrough({
+  t,
+  player,
+  setPlayer,
+}: {
+  t: Translate;
+  player: PlayerDocument;
+  setPlayer(player: PlayerDocument): void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [template, setTemplate] = useState("");
+  if (!open)
+    return (
+      <button className="chip self-start" onClick={() => setOpen(true)}>
+        {t("New playthrough…")}
+      </button>
+    );
+  const picked = TEMPLATES.find((p) => p.name === template);
+  return (
+    <section
+      aria-label={t("New playthrough")}
+      className="flex flex-col gap-2 border-t border-line pt-3"
+    >
+      <label className="flex flex-col gap-1">
+        <span className="label">{t("Start from")}</span>
+        <select
+          className="field"
+          value={template}
+          onChange={(e) => setTemplate(e.target.value)}
+        >
+          <option value="">{t("An empty playthrough")}</option>
+          {TEMPLATES.map((p) => (
+            <option key={p.name} value={p.name}>
+              {t("“{name}”, with its wishlist of {count} items", {
+                name: p.name,
+                count: p.wishlist.length,
+              })}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="flex gap-2">
+        <button
+          className="chip"
+          aria-pressed="true"
+          onClick={() => setPlayer(addProfile(player, picked))}
+        >
+          {t("Create")}
+        </button>
+        <button className="chip" onClick={() => setOpen(false)}>
+          {t("Cancel")}
+        </button>
+      </div>
+    </section>
   );
 }
 
