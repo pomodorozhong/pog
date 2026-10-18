@@ -62,9 +62,14 @@ const cave = {
   dlc: false,
 };
 
-async function open(nodes: MapNode[], graces: (typeof elleh)[] = []) {
+async function open(
+  nodes: MapNode[],
+  graces: (typeof elleh)[] = [],
+  edges: MapEdge[] = [],
+) {
   const documents = initialDocuments();
   documents.map.nodes = nodes;
+  documents.map.edges = edges;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
@@ -225,5 +230,55 @@ describe("a game grace", () => {
     expect(mapNodes().find((n) => n.id === "grace/1")).not.toHaveProperty(
       "place",
     );
+  });
+});
+
+describe("items on a walked path", () => {
+  it("are on the wishlist without adding them", async () => {
+    const pin = (id: string, items: string[]): MapNode => ({
+      id,
+      layer: "overworld",
+      x: 0,
+      y: 0,
+      kind: "junction",
+      label: "",
+      ref: null,
+      items,
+    });
+    const walked: MapEdge = {
+      id: "e1",
+      nodes: ["a", "b"],
+      color: "gold",
+      line: "solid",
+      oneWay: false,
+      note: "",
+      showNote: false,
+      step: 1,
+    };
+    await open(
+      [pin("a", ["weapon/1"]), pin("b", []), pin("c", ["weapon/2"])],
+      [],
+      [walked],
+    );
+    const list = screen.getByRole("region", { name: "Items in route order" });
+    expect(
+      within(list).getByRole("button", { name: "Longsword: acquired" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(
+      within(list).queryByRole("button", { name: "Buckler: acquired" }),
+    ).toBeNull();
+
+    // The walked pin shows its item's status; a pin on no path offers adding.
+    fireEvent.click(screen.getByRole("button", { name: "a" }));
+    expect(
+      screen.queryByRole("button", { name: "Add to wishlist" }),
+    ).toBeNull();
+    expect(screen.getByRole("combobox", { name: "Wishlist" })).toHaveValue(
+      "needed",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "c" }));
+    expect(
+      screen.getByRole("button", { name: "Add to wishlist" }),
+    ).toBeInTheDocument();
   });
 });

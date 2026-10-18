@@ -2,12 +2,14 @@ import { useMemo } from "react";
 import type { MapDocument, Profile } from "../domain/types";
 import type { GameData } from "../map/catalog";
 import { discoveredGraces } from "../progress/progress";
+import { combinedWishlist } from "../wishlist/wishlist";
 import { planRoute, travelTimes, wishlistTargets } from "./order";
 import { buildGraph } from "./route";
 
 /**
  * The active playthrough's route: from its position to every needed wishlist
- * item with a pin. Null until a position is set.
+ * item with a pin, including items that joined from a walked path. Null
+ * until a position is set.
  */
 export function usePlannedRoute(
   data: GameData | null,
@@ -24,7 +26,10 @@ export function usePlannedRoute(
       discoveredGraces(data, map.nodes, profile.progress),
     );
     const times = travelTimes(graph);
-    const targets = wishlistTargets(map, profile.wishlist);
+    const targets = wishlistTargets(
+      map,
+      combinedWishlist(map, profile.wishlist),
+    );
     const route = planRoute(
       times,
       start,

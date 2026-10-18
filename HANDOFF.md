@@ -2,20 +2,19 @@
 
 ## In progress
 
-### feat/desktop-layout
+### feat/walked-items-wishlist
 
-- Task: #46 Rework the full-size layout, with #45 (wishlist find and search) and #42 (simpler playthrough panel); one PR closing all three. Mockup approved by the player (Desktop layout mockup artifact), then the detailed plan.
-- PR: #54 (open, awaiting the player's review)
-- Code checkpoint: the First Step start-position commit (pushed)
-- State: built. One layout at every width from the narrow layout's parts: goal line as header and switcher, Undo/Redo and ☰ menu (path numbers, language) at its right; New playthrough… (optional template) is the switcher's last choice; round map buttons and layer pill everywhere; from 640px up the tools are pills on the map (icons only below 1024px) and the hint is bottom right, below 640px the edit toolbar row stays. Side panel is the bottom sheet as a 384px column: walk list with search (name in either language, pin label or grace name, note) and status filter; an Edit / Done button switches to Edit, and any selection does too. Edit with nothing selected: one card per topic (playthrough with read-first goal and pencil, progress with save import, next-stop timeline, wishlist with notes folded, this map with layer counts and import), then Delete on its own. New playthroughs start at The First Step (START_POSITION, grace/61423601). Node and path details as cards with a close button, segmented Kind, inline label/note, switches. `.chip` is now a soft pill app-wide; new `.segmented`, `.card`, `.popover`, `.map-pill`, `.inline-field`, `.switch`.
-- Verification: lint, typecheck, test (113, including new tests/app-layout.test.tsx), build, Prettier pass. Browser check on an empty scratch data folder at 1280, 960 and 375px: header, map pills, list with the 46-item template (search "盾" finds the shields), Edit cards, grace details, narrow edit toolbar, zh-TW; no console errors.
-- Checks not run: not checked on a copy of the player's real data; Next stops with a planned route and the save import flow only seen empty.
-- Deviation from the plan: the wishlist editor in Edit is folded behind "Notes and status" so the panel stays short (the list mode shows the wishlist).
-- Next action: player reviews the PR closing #46, #45 and #42; address review comments
+- Task: #55 Items on a walked path join the wishlist (option 2 chosen by the player: only items on pins a walked path goes through; derived from the map until changed, so path edits never rewrite saved wishlist data)
+- PR: none yet; branch pushed and linked to #55
+- Code checkpoint: a33abd9 `feat: items on a walked path join the wishlist`
+- State: done and committed. `combinedWishlist` in `src/wishlist/wishlist.ts` adds joined items after the saved ones; the route list, next stops, wishlist card, pin details and header count read it; `updateWishlistItem` saves a joined item when it changes. Joined items show "On a walked path" instead of Remove.
+- Verification: `npm run lint`, `npm run typecheck`, `npm test` (19 files, 117 tests), `npm run build` and Prettier all pass. In the dev server on a copy of the player's data, the Golden Seed on step 2 joined the route list, showed the tag, and was saved once marked Skipped.
+- Next action: on approval of P-02, push and open the PR
+- Pending: P-02 push `a33abd9` plus this handoff commit and open the PR (title and body shown in chat), which blocks review and merge.
 
 ## Ranked work
 
-1. #46 + #45 + #42 One layout at every width, with wishlist search and a simpler playthrough panel (in progress on feat/desktop-layout)
+1. #55 Items on a walked path join the wishlist (done on feat/walked-items-wishlist; PR awaiting approval, P-02)
 2. #41 Edit a selected path (insert a node between two others)
 3. #16 Extract boss-beaten flags, with boss names in the catalog (must come before #52: the catalog has no bosses yet)
 4. #52 Link bosses to any pin or grace (needs #16's boss extraction)

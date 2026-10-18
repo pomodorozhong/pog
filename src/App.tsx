@@ -49,7 +49,7 @@ import { useDismiss } from "./layout/useDismiss";
 import { COMPACT, NARROW, useMediaQuery } from "./layout/useMediaQuery";
 import { LayerButton } from "./map/LayerButton";
 import { WalkList } from "./wishlist/WalkList";
-import { countByStatus } from "./wishlist/wishlist";
+import { combinedWishlist, countByStatus } from "./wishlist/wishlist";
 import { NodeProgress, ProgressPanel } from "./progress/ProgressPanel";
 import { undiscoveredGraces } from "./progress/progress";
 import { activeProfile, addProfile, TEMPLATES } from "./profiles/profiles";
@@ -450,7 +450,7 @@ export default function App() {
     </select>
   );
 
-  const { wishlist } = activeProfile(player);
+  const wishlist = combinedWishlist(map, activeProfile(player).wishlist);
   const wishlistCounts = countByStatus(wishlist);
 
   const inspector = (
@@ -534,6 +534,7 @@ export default function App() {
           t={t}
           player={player}
           setPlayer={setPlayer}
+          doc={map}
           item={item}
           estimate={detourText(node.id)}
         />

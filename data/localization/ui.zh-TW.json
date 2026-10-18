@@ -199,5 +199,6 @@
   "Hide notes": "收合筆記",
   "Notes and status": "筆記與狀態",
   "This map": "這張地圖",
-  "{nodes} nodes and {edges} paths": "{nodes} 個節點、{edges} 條路徑"
+  "{nodes} nodes and {edges} paths": "{nodes} 個節點、{edges} 條路徑",
+  "On a walked path": "在行走的路徑上"
 }
