@@ -152,10 +152,10 @@ describe("the side panel", () => {
     ).toBeInTheDocument();
   });
 
-  it("starts a new playthrough from the menu, empty or from a template", async () => {
+  it("starts a new playthrough from the switcher, empty or from a template", async () => {
     await open([]);
-    fireEvent.click(screen.getByRole("button", { name: "Menu" }));
-    fireEvent.click(screen.getByRole("button", { name: "New playthrough…" }));
+    const switcher = screen.getByRole("combobox", { name: "Playthrough" });
+    fireEvent.change(switcher, { target: { value: "new" } });
     fireEvent.change(screen.getByRole("combobox", { name: "Start from" }), {
       target: { value: "Great Stars Guard Counter" },
     });

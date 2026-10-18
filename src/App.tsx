@@ -119,6 +119,8 @@ export default function App() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [highlight, setHighlight] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  /** Choosing "New playthrough…" in the switcher. */
+  const [creating, setCreating] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
   // A narrow window shows the route; editing is one tab of its bottom sheet.
   const narrow = useMediaQuery(NARROW);
@@ -656,11 +658,12 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="relative z-[900] border-b border-line bg-panel">
+      <header className="relative z-[1100] border-b border-line bg-panel">
         <ProfileSummary
           t={t}
           player={player}
           setPlayer={setPlayer}
+          onNewPlaythrough={() => setCreating(true)}
           actions={
             <>
               <span className="ml-auto text-xs has-[span:empty]:hidden">
@@ -672,32 +675,30 @@ export default function App() {
               </span>
               {!narrow && historyButtons}
               <AppMenu t={t}>
-                {(close) => (
-                  <>
-                    <label className="flex flex-col gap-1">
-                      <span className="label">{t("Path numbers")}</span>
-                      {stepSizeSelect}
-                    </label>
-                    <label className="flex flex-col gap-1">
-                      <span className="label">{t("Language")}</span>
-                      {languageSelect}
-                    </label>
-                    <NewPlaythrough
-                      t={t}
-                      player={player}
-                      setPlayer={(next) => {
-                        setPlayer(next);
-                        setSheet("edit");
-                        setSelection(null);
-                        close();
-                      }}
-                    />
-                  </>
-                )}
+                <label className="flex flex-col gap-1">
+                  <span className="label">{t("Path numbers")}</span>
+                  {stepSizeSelect}
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="label">{t("Language")}</span>
+                  {languageSelect}
+                </label>
               </AppMenu>
             </>
           }
         />
+        {creating && (
+          <NewPlaythrough
+            t={t}
+            close={() => setCreating(false)}
+            create={(template) => {
+              setPlayer(addProfile(player, template));
+              setSheet("edit");
+              setSelection(null);
+              setCreating(false);
+            }}
+          />
+        )}
       </header>
       {narrow && editing && (
         <div
@@ -775,14 +776,8 @@ export default function App() {
   );
 }
 
-/** The menu at the top right: display settings and a new playthrough. */
-function AppMenu({
-  t,
-  children,
-}: {
-  t: Translate;
-  children(close: () => void): ReactNode;
-}) {
+/** The menu at the top right: display settings. */
+function AppMenu({ t, children }: { t: Translate; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const container = useRef<HTMLDivElement>(null);
   const close = useCallback(() => setOpen(false), []);
@@ -799,41 +794,40 @@ function AppMenu({
       </button>
       {open && (
         <div className="popover absolute top-full right-0 mt-1 flex w-64 flex-col gap-3 p-3.5 text-sm">
-          {children(close)}
+          {children}
         </div>
       )}
     </div>
   );
 }
 
-/** Start a playthrough, empty or from a template. */
+/**
+ * Start a playthrough, empty or from a template, chosen from the playthrough
+ * switcher. It opens under the switcher.
+ */
 function NewPlaythrough({
   t,
-  player,
-  setPlayer,
+  close,
+  create,
 }: {
   t: Translate;
-  player: PlayerDocument;
-  setPlayer(player: PlayerDocument): void;
+  close(): void;
+  create(template?: (typeof TEMPLATES)[number]): void;
 }) {
-  const [open, setOpen] = useState(false);
   const [template, setTemplate] = useState("");
-  if (!open)
-    return (
-      <button className="chip self-start" onClick={() => setOpen(true)}>
-        {t("New playthrough…")}
-      </button>
-    );
-  const picked = TEMPLATES.find((p) => p.name === template);
+  const container = useRef<HTMLElement>(null);
+  useDismiss(container, true, close);
   return (
     <section
+      ref={container}
       aria-label={t("New playthrough")}
-      className="flex flex-col gap-2 border-t border-line pt-3"
+      className="popover absolute top-full left-3 z-[950] mt-1 flex w-72 flex-col gap-2 p-3.5 text-sm"
     >
       <label className="flex flex-col gap-1">
         <span className="label">{t("Start from")}</span>
         <select
           className="field"
+          autoFocus
           value={template}
           onChange={(e) => setTemplate(e.target.value)}
         >
@@ -852,11 +846,11 @@ function NewPlaythrough({
         <button
           className="chip"
           aria-pressed="true"
-          onClick={() => setPlayer(addProfile(player, picked))}
+          onClick={() => create(TEMPLATES.find((p) => p.name === template))}
         >
           {t("Create")}
         </button>
-        <button className="chip" onClick={() => setOpen(false)}>
+        <button className="chip" onClick={close}>
           {t("Cancel")}
         </button>
       </div>

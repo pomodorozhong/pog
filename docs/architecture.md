@@ -84,7 +84,7 @@ The route itself is never stored: it is worked out from the active profile's map
 
 One layout, built from the parts first made for narrow windows (#28), at every width (#46):
 
-- **Header:** the goal is the playthrough switcher, with the constraints and a "No DLC" tag under it. At the right: the save status (only when something is wrong), Undo and Redo, and a ☰ menu with path-number size, language and "New playthrough…" (empty, or from a template with its wishlist).
+- **Header:** the goal is the playthrough switcher, with the constraints and a "No DLC" tag under it. The switcher's last choice, "New playthrough…", starts one, empty or from a template with its wishlist. At the right: the save status (only when something is wrong), Undo and Redo, and a ☰ menu with path-number size and language.
 - **Map:** zoom, the grace filter and Details are dark round buttons; the layer picker is a pill at the bottom left. From 640px up, Select, Pin and Draw path sit on the map beside the zoom as pills with their keys (icons only below 1024px), and the tool hint sits at the bottom right. Below 640px they stay in a toolbar row shown while editing.
 - **Side panel:** a column from 640px up, a bottom sheet below. Its header reads "Items in route order" and holds an Edit button (Done while editing) that switches to Edit. The list is the wishlist in walk order, searchable by item name in either language, the pin's label or grace name, and the item's note, and filtered by status. Selecting anything on the map, or an item in the list, switches to Edit and shows its details; closing them shows the playthrough: a card to read and edit the goal, progress and the save import, next stops, the wishlist editor, the layer's counts, then importing another playthrough's map and deleting.
 - **Look:** buttons are soft rounded pills, a choice of one is a segmented control, related details sit in cards, and menus have rounded corners. Fields that hold the player's words (labels, notes) read as text until edited.
@@ -113,7 +113,7 @@ Changing the grace filter only attaches or detaches the affected grace markers. 
 
 ### Profiles
 
-Create (☰ menu), rename, switch (header) and delete. A new profile starts with no nodes of its own; the game graces are already there. **"Import from another profile"** copies another profile's nodes and paths (optionally one layer) into the active profile as one undo step; nodes already present (same ID, game graces included) are reused, so copied paths attach to them. The seed wishlist (`seed/wishlist.json`, the "Great Stars Guard Counter" build) can start a profile, with official names replacing the seed's.
+Create and switch (the header's switcher), rename and delete. A new profile starts with no nodes of its own; the game graces are already there. **"Import from another profile"** copies another profile's nodes and paths (optionally one layer) into the active profile as one undo step; nodes already present (same ID, game graces included) are reused, so copied paths attach to them. The seed wishlist (`seed/wishlist.json`, the "Great Stars Guard Counter" build) can start a profile, with official names replacing the seed's.
 
 ### Progress from the save
 

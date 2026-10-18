@@ -12,6 +12,9 @@ import { importMap } from "./importMap";
 import { PencilIcon } from "../layout/icons";
 import { activeProfile, removeProfile, updateProfile } from "./profiles";
 
+/** The switcher's choice that starts a new playthrough instead of switching. */
+const NEW_PLAYTHROUGH = "new";
+
 export const profileName = (t: Translate, name: string) =>
   name || t("Untitled playthrough");
 
@@ -20,12 +23,15 @@ export function ProfileSummary({
   t,
   player,
   setPlayer,
+  onNewPlaythrough,
   actions,
   children,
 }: {
   t: Translate;
   player: PlayerDocument;
   setPlayer(player: PlayerDocument): void;
+  /** Offered as the switcher's last choice. */
+  onNewPlaythrough?(): void;
   /** Buttons at the end of the goal line. */
   actions?: ReactNode;
   children?: ReactNode;
@@ -55,7 +61,9 @@ export function ProfileSummary({
             className="absolute inset-0 cursor-pointer opacity-0"
             value={player.activeProfile}
             onChange={(event) =>
-              setPlayer({ ...player, activeProfile: event.target.value })
+              event.target.value === NEW_PLAYTHROUGH
+                ? onNewPlaythrough?.()
+                : setPlayer({ ...player, activeProfile: event.target.value })
             }
           >
             {player.profiles.map((p) => (
@@ -63,6 +71,12 @@ export function ProfileSummary({
                 {profileName(t, p.name)}
               </option>
             ))}
+            {onNewPlaythrough && (
+              <>
+                <option disabled>──────────</option>
+                <option value={NEW_PLAYTHROUGH}>{t("New playthrough…")}</option>
+              </>
+            )}
           </select>
         </label>
         {actions}
