@@ -9,56 +9,29 @@ import type { Translate } from "../i18n/translation";
 import type { MapAction } from "../map/editing";
 import { LAYER_NAMES } from "../map/labels";
 import { importMap } from "./importMap";
-import {
-  activeProfile,
-  addProfile,
-  removeProfile,
-  TEMPLATES,
-  updateProfile,
-} from "./profiles";
+import { PencilIcon } from "../layout/icons";
+import { activeProfile, removeProfile, updateProfile } from "./profiles";
+
+/** The switcher's choice that starts a new playthrough instead of switching. */
+const NEW_PLAYTHROUGH = "new";
 
 export const profileName = (t: Translate, name: string) =>
   name || t("Untitled playthrough");
-
-/** Switch between playthroughs from the header. */
-export function ProfileSwitcher({
-  t,
-  player,
-  setPlayer,
-}: {
-  t: Translate;
-  player: PlayerDocument;
-  setPlayer(player: PlayerDocument): void;
-}) {
-  return (
-    <select
-      aria-label={t("Playthrough")}
-      className="field max-w-48"
-      value={player.activeProfile}
-      onChange={(event) =>
-        setPlayer({ ...player, activeProfile: event.target.value })
-      }
-    >
-      {player.profiles.map((p) => (
-        <option key={p.id} value={p.id}>
-          {profileName(t, p.name)}
-        </option>
-      ))}
-    </select>
-  );
-}
 
 /** The active playthrough's goal and constraints, read-only, for narrow windows. */
 export function ProfileSummary({
   t,
   player,
   setPlayer,
+  onNewPlaythrough,
   actions,
   children,
 }: {
   t: Translate;
   player: PlayerDocument;
   setPlayer(player: PlayerDocument): void;
+  /** Offered as the switcher's last choice. */
+  onNewPlaythrough?(): void;
   /** Buttons at the end of the goal line. */
   actions?: ReactNode;
   children?: ReactNode;
@@ -88,7 +61,9 @@ export function ProfileSummary({
             className="absolute inset-0 cursor-pointer opacity-0"
             value={player.activeProfile}
             onChange={(event) =>
-              setPlayer({ ...player, activeProfile: event.target.value })
+              event.target.value === NEW_PLAYTHROUGH
+                ? onNewPlaythrough?.()
+                : setPlayer({ ...player, activeProfile: event.target.value })
             }
           >
             {player.profiles.map((p) => (
@@ -96,6 +71,12 @@ export function ProfileSummary({
                 {profileName(t, p.name)}
               </option>
             ))}
+            {onNewPlaythrough && (
+              <>
+                <option disabled>──────────</option>
+                <option value={NEW_PLAYTHROUGH}>{t("New playthrough…")}</option>
+              </>
+            )}
           </select>
         </label>
         {actions}
@@ -123,7 +104,10 @@ export function ProfileSummary({
   );
 }
 
-/** Name, goal and constraints of the active playthrough. */
+/**
+ * Name, goal and constraints of the active playthrough: read first, with a
+ * pencil to edit them.
+ */
 export function ProfilePanel({
   t,
   player,
@@ -134,85 +118,148 @@ export function ProfilePanel({
   setPlayer(player: PlayerDocument): void;
 }) {
   const profile = activeProfile(player);
+  const [editing, setEditing] = useState(false);
   const update = (changes: Parameters<typeof updateProfile>[2]) =>
     setPlayer(updateProfile(player, profile.id, changes));
   return (
-    <section className="space-y-2" aria-label={t("Playthrough")}>
-      <h3 className="label">{t("Playthrough")}</h3>
-      <label className="block space-y-1">
-        <span className="text-xs text-muted">{t("Name")}</span>
-        <input
-          className="field w-full"
-          value={profile.name}
-          placeholder={t("Untitled playthrough")}
-          onChange={(e) => update({ name: e.target.value })}
-        />
-      </label>
-      <label className="block space-y-1">
-        <span className="text-xs text-muted">{t("Goal")}</span>
-        <textarea
-          className="field w-full"
-          rows={2}
-          value={profile.goal}
-          placeholder={t("For example: a faith build that beats Malenia")}
-          onChange={(e) => update({ goal: e.target.value })}
-        />
-      </label>
-      <label className="block space-y-1">
-        <span className="text-xs text-muted">{t("Constraints")}</span>
-        <textarea
-          className="field w-full"
-          rows={2}
-          value={profile.constraints}
-          placeholder={t("For example: no DLC, rune level 1, no Torrent")}
-          onChange={(e) => update({ constraints: e.target.value })}
-        />
-      </label>
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={profile.rules.dlc}
-          onChange={(e) =>
-            update({ rules: { ...profile.rules, dlc: e.target.checked } })
-          }
-        />
-        {t("Includes Shadow of the Erdtree")}
-      </label>
-      <div className="flex flex-wrap gap-2">
-        <button className="chip" onClick={() => setPlayer(addProfile(player))}>
-          {t("New playthrough")}
+    <section className="card space-y-2" aria-label={t("Playthrough")}>
+      <div className="flex items-center gap-2">
+        <h3 className="min-w-0 flex-1 truncate text-xs text-muted">
+          {profileName(t, profile.name)}
+        </h3>
+        <button
+          className="grid size-7 place-items-center rounded-full text-muted hover:text-gold aria-pressed:text-gold"
+          aria-label={t("Edit name, goal and constraints")}
+          aria-pressed={editing}
+          onClick={() => setEditing(!editing)}
+        >
+          <PencilIcon />
         </button>
-        {TEMPLATES.map((template) => (
-          <button
-            key={template.name}
-            className="chip"
-            title={t("Starts with its wishlist of {count} items", {
-              count: template.wishlist.length,
-            })}
-            onClick={() => setPlayer(addProfile(player, template))}
-          >
-            {t("New “{name}” playthrough", { name: template.name })}
-          </button>
-        ))}
-        {player.profiles.length > 1 && (
-          <button
-            className="chip chip--danger"
-            onClick={() => {
-              if (
-                window.confirm(
-                  t("Delete the playthrough “{name}”?", {
-                    name: profileName(t, profile.name),
-                  }),
-                )
-              )
-                setPlayer(removeProfile(player, profile.id));
-            }}
-          >
-            {t("Delete playthrough")}
-          </button>
-        )}
       </div>
+      {editing ? (
+        <div className="space-y-2.5">
+          <label className="block space-y-1">
+            <span className="label">{t("Name")}</span>
+            <input
+              className="field w-full"
+              value={profile.name}
+              placeholder={t("Untitled playthrough")}
+              onChange={(e) => update({ name: e.target.value })}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="label">{t("Goal")}</span>
+            <textarea
+              className="field w-full"
+              rows={2}
+              value={profile.goal}
+              placeholder={t("For example: a faith build that beats Malenia")}
+              onChange={(e) => update({ goal: e.target.value })}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="label">{t("Constraints")}</span>
+            <textarea
+              className="field w-full"
+              rows={2}
+              value={profile.constraints}
+              placeholder={t("For example: no DLC, rune level 1, no Torrent")}
+              onChange={(e) => update({ constraints: e.target.value })}
+            />
+          </label>
+          <label className="flex items-center justify-between gap-2 text-sm">
+            {t("Includes Shadow of the Erdtree")}
+            <input
+              type="checkbox"
+              role="switch"
+              className="switch"
+              checked={profile.rules.dlc}
+              onChange={(e) =>
+                update({ rules: { ...profile.rules, dlc: e.target.checked } })
+              }
+            />
+          </label>
+        </div>
+      ) : (
+        <>
+          <p className="font-serif text-2xl leading-tight whitespace-pre-line text-gold">
+            {profile.goal.trim() || (
+              <span className="text-muted">{t("No goal yet")}</span>
+            )}
+          </p>
+          {profile.constraints.trim() && (
+            <p className="text-sm leading-relaxed whitespace-pre-line text-text/80">
+              {profile.constraints}
+            </p>
+          )}
+          {!profile.rules.dlc && (
+            <span className="inline-block rounded-full bg-line/80 px-2.5 py-0.5 text-[11px] text-text/85">
+              {t("No DLC")}
+            </span>
+          )}
+        </>
+      )}
     </section>
+  );
+}
+
+/** Copying another playthrough's map, opened from this map's card. */
+export function ImportFromAnother({
+  t,
+  player,
+  importer,
+}: {
+  t: Translate;
+  player: PlayerDocument;
+  /** The import form, shown when opened. */
+  importer: ReactNode;
+}) {
+  const [importing, setImporting] = useState(false);
+  if (player.profiles.length < 2) return null;
+  return (
+    <>
+      <button
+        className="chip self-start text-xs"
+        aria-pressed={importing}
+        onClick={() => setImporting(!importing)}
+      >
+        {t("Import from another playthrough…")}
+      </button>
+      {importing && (
+        <div className="border-t border-[#22352e] pt-3">{importer}</div>
+      )}
+    </>
+  );
+}
+
+/** Delete the active playthrough, at the very end of its details. */
+export function DeletePlaythrough({
+  t,
+  player,
+  setPlayer,
+}: {
+  t: Translate;
+  player: PlayerDocument;
+  setPlayer(player: PlayerDocument): void;
+}) {
+  const profile = activeProfile(player);
+  if (player.profiles.length < 2) return null;
+  return (
+    <button
+      className="chip chip--danger mt-2 self-start text-xs"
+      onClick={() => {
+        if (
+          window.confirm(
+            t("Delete the playthrough “{name}”?", {
+              name: profileName(t, profile.name),
+            }),
+          )
+        )
+          setPlayer(removeProfile(player, profile.id));
+      }}
+    >
+      {t("Delete playthrough")}
+    </button>
   );
 }
 
@@ -266,7 +313,6 @@ export function ImportFromProfile({
       className="space-y-2"
       aria-label={t("Import from another playthrough")}
     >
-      <h3 className="label">{t("Import from another playthrough")}</h3>
       <p className="text-xs text-muted">
         {t(
           "Copies its nodes and paths onto this map. Nodes already here are kept.",

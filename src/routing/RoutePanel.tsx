@@ -28,7 +28,7 @@ export function RoutePanel({
   };
   const { route } = plan ?? {};
   return (
-    <section className="space-y-2 text-sm" aria-label={t("Next stops")}>
+    <section className="card space-y-2 text-sm" aria-label={t("Next stops")}>
       <h3 className="label">{t("Next stops")}</h3>
       {!plan || !route ? (
         <p className="text-xs text-muted">
@@ -49,7 +49,7 @@ export function RoutePanel({
                 : t("{count} stops", { count: route.order.length })}
             </p>
           )}
-          <ol className="space-y-1">
+          <ol>
             {route.order.map((stop, i) => {
               const leg = route.legs[i];
               const node = doc.nodes.find((n) => n.id === stop);
@@ -61,8 +61,17 @@ export function RoutePanel({
                 leg.some((s) => s.via.kind === "guess") && t("path is a guess"),
               ].filter(Boolean);
               return (
-                <li key={stop} className="flex items-start gap-2">
-                  <span className="stop-number">{i + 1}</span>
+                <li key={stop} className="flex gap-3">
+                  {/* A timeline: each stop's number, joined to the next. */}
+                  <span className="flex shrink-0 flex-col items-center">
+                    <span className="stop-number">{i + 1}</span>
+                    {i < route.order.length - 1 && (
+                      <span
+                        aria-hidden="true"
+                        className="my-0.5 w-0.5 flex-1 bg-line"
+                      />
+                    )}
+                  </span>
                   {entry && isItem(entry) && entry.icon && (
                     <img
                       src={iconUrl(entry.icon)}
@@ -71,7 +80,7 @@ export function RoutePanel({
                       loading="lazy"
                     />
                   )}
-                  <span className="min-w-0 flex-1">
+                  <span className="min-w-0 flex-1 pb-3">
                     <button
                       className="link block text-left"
                       onClick={() => showNode(stop)}

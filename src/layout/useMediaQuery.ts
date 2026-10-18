@@ -19,3 +19,6 @@ export function useMediaQuery(query: string): boolean {
 
 /** Below this width the app shows the map for viewing, without editing. */
 export const NARROW = "(max-width: 639px)";
+
+/** Below this width the map tools show as icons with their keys. */
+export const COMPACT = "(max-width: 1023px)";

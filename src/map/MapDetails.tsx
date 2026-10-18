@@ -23,15 +23,12 @@ export function MapDetails({
   onChange,
   open,
   onOpenChange,
-  compact = false,
 }: {
   t: Translate;
   settings: Settings;
   onChange(changes: Partial<Settings>): void;
   open: boolean;
   onOpenChange(open: boolean): void;
-  /** Round icon buttons instead of labelled ones, for narrow windows. */
-  compact?: boolean;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
@@ -61,35 +58,35 @@ export function MapDetails({
       ref={container}
       className="absolute right-3 top-3 z-[800] flex flex-col items-end text-sm"
     >
-      <div className={`flex ${compact ? "gap-1.5" : "gap-2"}`}>
+      <div className="flex gap-1.5">
         <button
-          className={compact ? ROUND : "chip bg-panel shadow-lg"}
+          className={ROUND}
           aria-pressed={settings.hideUnusedGraces}
-          aria-label={compact ? t("Hide graces without paths") : undefined}
-          title={compact ? t("Hide graces without paths") : undefined}
+          aria-label={t("Hide graces without paths")}
+          title={t("Hide graces without paths")}
           onClick={() =>
             onChange({ hideUnusedGraces: !settings.hideUnusedGraces })
           }
         >
-          {compact ? <GraceOffIcon /> : t("Hide graces without paths")}
+          <GraceOffIcon />
         </button>
         <button
           ref={button}
-          className={compact ? ROUND : "chip bg-panel shadow-lg"}
-          aria-label={compact ? t("Details") : undefined}
-          title={compact ? t("Details") : undefined}
+          className={ROUND}
+          aria-label={t("Details")}
+          title={t("Details")}
           aria-expanded={open}
           aria-controls={open ? panelId : undefined}
           onClick={() => onOpenChange(!open)}
         >
-          {compact ? <SlidersIcon /> : t("Details")}
+          <SlidersIcon />
         </button>
       </div>
       {open && (
         <section
           id={panelId}
           aria-label={t("Map details")}
-          className="mt-2 w-72 max-w-[calc(100vw-2rem)] space-y-3 rounded border border-line bg-panel p-3 shadow-xl"
+          className="popover mt-2 w-72 max-w-[calc(100vw-2rem)] space-y-3 p-3.5"
         >
           <GraceNameFields t={t} settings={settings} onChange={onChange} />
         </section>

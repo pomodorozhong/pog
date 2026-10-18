@@ -1,4 +1,8 @@
-import type { PlayerDocument, Profile } from "../domain/types";
+import {
+  START_POSITION,
+  type PlayerDocument,
+  type Profile,
+} from "../domain/types";
 import { newId } from "../map/editing";
 import greatStars from "../../seed/great-stars-guard-counter.json" with { type: "json" };
 
@@ -31,7 +35,7 @@ export function addProfile(
     ...structuredClone(template),
     id: newId("profile"),
     rules: { dlc: true },
-    progress: { flags: [], position: null },
+    progress: { flags: [], position: START_POSITION },
     save: null,
   };
   return {
