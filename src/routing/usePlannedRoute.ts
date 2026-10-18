@@ -8,7 +8,7 @@ import { buildGraph } from "./route";
 
 /**
  * The active playthrough's route: from its position to every needed wishlist
- * item with a pin, including items that joined from a walked path. Null
+ * entry at a pin, including entries that joined from a walked path. Null
  * until a position is set.
  */
 export function usePlannedRoute(
@@ -27,8 +27,7 @@ export function usePlannedRoute(
     );
     const times = travelTimes(graph);
     const targets = wishlistTargets(
-      map,
-      combinedWishlist(map, profile.wishlist),
+      combinedWishlist(map, profile.wishlist).pinned,
     );
     const route = planRoute(
       times,

@@ -146,15 +146,18 @@ function checkMap(value: unknown): value is MapDocument {
 
 function checkWishlist(value: unknown): value is WishlistItem[] {
   if (!Array.isArray(value)) return false;
-  const items = new Set<string>();
+  // One entry per item at each pin, and per item with no pin.
+  const entries = new Set<string>();
   return value.every((w) => {
+    const key = `${w.pin ?? ""} ${w.item}`;
     const ok =
-      hasExactKeys(w, ["item", "status", "note"]) &&
+      hasExactKeys(w, ["item", "status", "note"], ["pin"]) &&
       typeof w.item === "string" &&
-      !items.has(w.item) &&
+      (w.pin === undefined || typeof w.pin === "string") &&
+      !entries.has(key) &&
       includes(WISHLIST_STATUSES, w.status) &&
       typeof w.note === "string";
-    items.add(w.item);
+    entries.add(key);
     return ok;
   });
 }

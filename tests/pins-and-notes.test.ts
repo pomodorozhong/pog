@@ -15,7 +15,7 @@ import {
 import { withGameGraces } from "../src/map/graces";
 import { wishlistTargets } from "../src/routing/order";
 import { validDocument } from "../src/storage/schema";
-import { walkOrder } from "../src/wishlist/wishlist";
+import { combinedWishlist, walkOrder } from "../src/wishlist/wishlist";
 import { drawn } from "./paths";
 
 const node = (id: string, changes: Partial<MapNode> = {}): MapNode => ({
@@ -159,22 +159,25 @@ describe("items on pins", () => {
       walk("p", ["j", "cave"]),
       note("n", "old"),
     );
-    const wishlist = ["weapon/2", "weapon/3"].map((item) => ({
-      item,
-      status: "needed" as const,
-      note: "",
-    }));
+    const wishlist = combinedWishlist(map, [
+      { item: "weapon/2", pin: "cave", status: "needed", note: "" },
+      { item: "weapon/3", pin: "old", status: "needed", note: "" },
+    ]).pinned;
     const { onRoute, offRoute } = walkOrder(map, wishlist);
+    // The cave's other item joins from the walked path; a pin's entries
+    // follow its items' order.
     expect(onRoute.map((r) => [r.entry.item, r.pin, r.step])).toEqual([
+      ["weapon/1", "cave", 1],
       ["weapon/2", "cave", 1],
     ]);
     // A note path isn't a walk, so the old pin stays off the route.
     expect(offRoute.map((r) => [r.entry.item, r.pin])).toEqual([
       ["weapon/3", "old"],
     ]);
-    expect(wishlistTargets(map, wishlist)).toEqual([
+    expect(wishlistTargets(wishlist)).toEqual([
       { item: "weapon/2", node: "cave" },
       { item: "weapon/3", node: "old" },
+      { item: "weapon/1", node: "cave" },
     ]);
   });
 });
@@ -244,13 +247,11 @@ describe("graces that work like pins", () => {
       ),
       [grace],
     );
-    const wishlist = [
-      { item: "weapon/1", status: "needed" as const, note: "" },
-    ];
+    const wishlist = combinedWishlist(map, []).pinned;
     expect(
       walkOrder(map, wishlist).onRoute.map((r) => [r.pin, r.step]),
     ).toEqual([["grace/1", 1]]);
-    expect(wishlistTargets(map, wishlist)).toEqual([
+    expect(wishlistTargets(wishlist)).toEqual([
       { item: "weapon/1", node: "grace/1" },
     ]);
   });

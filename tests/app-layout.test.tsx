@@ -52,10 +52,16 @@ const pin: MapNode = {
   ref: null,
   items: ["weapon/1"],
 };
+const attic: MapNode = {
+  ...pin,
+  id: "attic",
+  label: "Attic",
+  items: ["weapon/2", "weapon/3"],
+};
 
 async function open(wishlist: WishlistItem[]) {
   const documents = initialDocuments();
-  documents.map.nodes = [pin];
+  documents.map.nodes = [pin, attic];
   documents.player.profiles[0].wishlist = wishlist;
   vi.stubGlobal(
     "fetch",
@@ -93,9 +99,14 @@ const listed = () =>
 
 describe("the route list", () => {
   const wishlist: WishlistItem[] = [
-    { item: "weapon/1", status: "needed", note: "" },
-    { item: "weapon/2", status: "acquired", note: "" },
-    { item: "weapon/3", status: "needed", note: "behind the boss" },
+    { item: "weapon/1", pin: "cellar", status: "needed", note: "" },
+    { item: "weapon/2", pin: "attic", status: "acquired", note: "" },
+    {
+      item: "weapon/3",
+      pin: "attic",
+      status: "needed",
+      note: "behind the boss",
+    },
   ];
 
   it("is searched by name in either language, pin name or note", async () => {
@@ -126,7 +137,9 @@ describe("the route list", () => {
 
 describe("the side panel", () => {
   it("switches to editing when something is selected, and back with the pencil", async () => {
-    await open([{ item: "weapon/1", status: "needed", note: "" }]);
+    await open([
+      { item: "weapon/1", pin: "cellar", status: "needed", note: "" },
+    ]);
     const pencil = screen.getByRole("button", { name: "Edit" });
     // The same button reads "Done" while editing.
     expect(pencil).toHaveAttribute("aria-pressed", "false");

@@ -70,6 +70,11 @@ type Props = {
   nodeControls(node: MapNode): ReactNode;
   /** Playthrough controls for an item at the selected node: its wishlist entry. */
   itemControls(node: MapNode, item: string): ReactNode;
+  /**
+   * Wishlist entries not attached to a pin, to choose from beside the
+   * catalog search. `addItem` puts an item on the selected node.
+   */
+  unpinnedItems(node: MapNode, addItem: (item: string) => void): ReactNode;
 };
 
 export function Inspector(props: Props) {
@@ -128,6 +133,7 @@ function NodePanel({
   deleteSelection,
   nodeControls,
   itemControls,
+  unpinnedItems,
 }: Props & { node: MapNode }) {
   // Game graces are game data: they hold what a pin does, but can't be moved,
   // deleted or given another kind.
@@ -307,6 +313,9 @@ function NodePanel({
           )}
           pick={(id) => setItems([...items, id])}
         />
+        {unpinnedItems(node, (id) => {
+          if (!items.includes(id)) setItems([...items, id]);
+        })}
       </section>
 
       <section className="card space-y-2" aria-label={t("Label and note")}>

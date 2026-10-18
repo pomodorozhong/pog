@@ -122,10 +122,19 @@ export type GraceNameMode = (typeof GRACE_NAME_MODES)[number];
 export const WISHLIST_STATUSES = ["needed", "acquired", "skipped"] as const;
 export type WishlistStatus = (typeof WISHLIST_STATUSES)[number];
 
-/** An item the player wants in this playthrough. */
+/**
+ * An item the player wants in this playthrough, at one pin. Item and pin
+ * together are unique within a wishlist, so each pin holding an item has an
+ * entry of its own.
+ */
 export type WishlistItem = {
-  /** Catalog id of the item, such as "weapon/1000000". Unique within a wishlist. */
+  /** Catalog id of the item, such as "weapon/1000000". */
   item: string;
+  /**
+   * The map node holding it. An entry without one, or whose pin no longer
+   * holds the item, isn't attached to a pin.
+   */
+  pin?: string;
   status: WishlistStatus;
   /** Player-written, kept as written. */
   note: string;

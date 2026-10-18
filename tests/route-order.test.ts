@@ -9,6 +9,7 @@ import {
 } from "../src/routing/order";
 import { drawn } from "./paths";
 import { buildGraph } from "../src/routing/route";
+import { combinedWishlist } from "../src/wishlist/wishlist";
 
 const node = (id: string, x: number, y = 0): MapNode => ({
   id,
@@ -78,7 +79,7 @@ describe("visit order", () => {
 });
 
 describe("route targets", () => {
-  it("takes needed wishlist items that have a pin", () => {
+  it("takes needed wishlist entries at a pin", () => {
     const map: MapDocument = {
       schemaVersion: 4,
       nodes: [
@@ -88,11 +89,15 @@ describe("route targets", () => {
       edges: [],
     };
     expect(
-      wishlistTargets(map, [
-        { item: "weapon/1", status: "needed", note: "" },
-        { item: "weapon/2", status: "acquired", note: "" },
-        { item: "weapon/3", status: "needed", note: "" },
-      ]),
+      wishlistTargets(
+        combinedWishlist(map, [
+          { item: "weapon/1", pin: "pin", status: "needed", note: "" },
+          { item: "weapon/2", pin: "got", status: "acquired", note: "" },
+          { item: "weapon/3", status: "needed", note: "" },
+          // Not attached to a pin, though one holds it.
+          { item: "weapon/1", status: "needed", note: "" },
+        ]).pinned,
+      ),
     ).toEqual([{ item: "weapon/1", node: "pin" }]);
   });
 });

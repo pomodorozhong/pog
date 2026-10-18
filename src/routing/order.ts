@@ -1,10 +1,5 @@
-import {
-  pinItems,
-  type MapDocument,
-  type MapNode,
-  type Point,
-  type WishlistItem,
-} from "../domain/types";
+import type { MapDocument, MapNode, Point } from "../domain/types";
+import type { PinnedEntry } from "../wishlist/wishlist";
 import {
   pathTo,
   shortestPaths,
@@ -13,18 +8,13 @@ import {
   type Step,
 } from "./route";
 
-/** Wishlist items still needed that have a pin on the map: the route's targets. */
-export function wishlistTargets(
-  map: MapDocument,
-  wishlist: WishlistItem[],
-): { item: string; node: string }[] {
-  return wishlist.flatMap((w) => {
-    const pin =
-      w.status === "needed" &&
-      map.nodes.find((n) => pinItems(n).includes(w.item));
-    return pin ? [{ item: w.item, node: pin.id }] : [];
-  });
-}
+/** Wishlist entries still needed, at their pins: the route's targets. */
+export const wishlistTargets = (
+  wishlist: PinnedEntry[],
+): { item: string; node: string }[] =>
+  wishlist
+    .filter((w) => w.status === "needed")
+    .map((w) => ({ item: w.item, node: w.pin }));
 
 /** Shortest paths from each node asked about, computed once. Costs are metres. */
 export function travelTimes(graph: Graph) {
