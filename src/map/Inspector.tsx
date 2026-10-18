@@ -171,26 +171,35 @@ function NodePanel({
 
   return (
     <section className="space-y-4" aria-label={t("Selected node")}>
-      <header className="flex items-start gap-3">
+      {/* One height for every node, so switching between a pin and a grace
+          doesn't move the fields below. Each line is cut short to fit. */}
+      <header className="flex h-17 items-start gap-3">
         {icon && isItem(icon) && (
           <img
             src={iconUrl(icon.icon!)}
             alt=""
-            className="size-14 rounded bg-ink"
+            className="size-14 shrink-0 rounded bg-ink"
           />
         )}
-        <div className="min-w-0">
-          <h2 className="font-serif text-lg text-gold">
+        <div className="min-w-0 flex-1">
+          <HeaderLine className="font-serif text-lg text-gold" as="h2">
             {displayName(data, node, language) || t(NODE_KIND_NAMES[kind])}
-          </h2>
-          {entry && <p className="text-sm text-muted">{entry.name[other]}</p>}
-          {fixed && node.label && <p className="text-sm">{node.label}</p>}
-          {fixed && placeEntry && (
-            <p className="text-sm text-muted">
-              {t("Entrance to {place}", {
-                place: placeEntry.name[language],
-              })}
-            </p>
+          </HeaderLine>
+          <HeaderLine className="text-sm text-muted">
+            {entry?.name[other]}
+          </HeaderLine>
+          {fixed && (
+            <HeaderLine className="text-sm">
+              {[
+                node.label,
+                placeEntry &&
+                  t("Entrance to {place}", {
+                    place: placeEntry.name[language],
+                  }),
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </HeaderLine>
           )}
         </div>
       </header>
@@ -377,6 +386,24 @@ function NodePanel({
         </button>
       )}
     </section>
+  );
+}
+
+/** One line of the node details header, cut short with its full text on hover. */
+function HeaderLine({
+  as: Tag = "p",
+  className,
+  children,
+}: {
+  as?: "h2" | "p";
+  className: string;
+  children?: string;
+}) {
+  if (!children) return null;
+  return (
+    <Tag className={`truncate ${className}`} title={children}>
+      {children}
+    </Tag>
   );
 }
 

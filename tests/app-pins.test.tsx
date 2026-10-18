@@ -202,7 +202,9 @@ describe("a game grace", () => {
       target: { value: "entrance" },
     });
     pick("Place name", "Murk", "Murkwater Cave");
-    expect(screen.getByText("Entrance to Murkwater Cave")).toBeTruthy();
+    expect(
+      screen.getByText("rest here · Entrance to Murkwater Cave"),
+    ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Delete node" })).toBeNull();
     expect(mapNodes().find((n) => n.id === "grace/1")).toMatchObject({
       kind: "grace",
