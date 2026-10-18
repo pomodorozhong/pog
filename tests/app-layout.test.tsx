@@ -128,6 +128,7 @@ describe("the side panel", () => {
   it("switches to editing when something is selected, and back with the pencil", async () => {
     await open([{ item: "weapon/1", status: "needed", note: "" }]);
     const pencil = screen.getByRole("button", { name: "Edit" });
+    // The same button reads "Done" while editing.
     expect(pencil).toHaveAttribute("aria-pressed", "false");
     // A list item opens its pin's details.
     fireEvent.click(
@@ -136,6 +137,7 @@ describe("the side panel", () => {
       ).getAllByRole("button", { name: /^Longsword/ })[0],
     );
     expect(pencil).toHaveAttribute("aria-pressed", "true");
+    expect(pencil).toHaveTextContent("Done");
     expect(
       screen.getByRole("region", { name: "Selected node" }),
     ).toBeInTheDocument();

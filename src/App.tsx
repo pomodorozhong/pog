@@ -40,7 +40,6 @@ import {
 import {
   ChevronIcon,
   MenuIcon,
-  PencilIcon,
   RedoIcon,
   ToolIcon,
   UndoIcon,
@@ -615,16 +614,16 @@ export default function App() {
             t("Edit")
           )}
         </h2>
+        {/* Words, not a pencil: what it does, and how to get back. */}
         <button
-          className="grid size-9 place-items-center rounded-lg text-muted hover:text-gold aria-pressed:text-gold"
-          aria-label={t("Edit")}
+          className="chip shrink-0 text-xs"
           aria-pressed={sheet === "edit"}
           onClick={() => {
             setSheet(sheet === "edit" ? "route" : "edit");
             setDraft(null);
           }}
         >
-          <PencilIcon />
+          {sheet === "edit" ? t("Done") : t("Edit")}
         </button>
         {narrow && (
           <button
