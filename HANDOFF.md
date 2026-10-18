@@ -5,15 +5,16 @@
 ### feat/walked-items-wishlist
 
 - Task: #55 Items on a walked path join the wishlist (option 2 chosen by the player: only items on pins a walked path goes through; derived from the map until changed, so path edits never rewrite saved wishlist data)
-- PR: none yet
-- Code checkpoint: 1047751 (main, #54 merged); no code yet
-- State: branch created locally at wrap-up to carry this handoff; not pushed or linked to #55 (P-01).
-- Next action: draft the detailed plan for #55 and get the player's approval before any work
-- Pending: P-01 push this branch and link it to #55 (`gh issue develop 55 --name feat/walked-items-wishlist`), needed because linking creates the branch on GitHub; blocks resuming from another computer.
+- PR: none yet; branch pushed and linked to #55
+- Code checkpoint: a33abd9 `feat: items on a walked path join the wishlist`
+- State: done and committed. `combinedWishlist` in `src/wishlist/wishlist.ts` adds joined items after the saved ones; the route list, next stops, wishlist card, pin details and header count read it; `updateWishlistItem` saves a joined item when it changes. Joined items show "On a walked path" instead of Remove.
+- Verification: `npm run lint`, `npm run typecheck`, `npm test` (19 files, 117 tests), `npm run build` and Prettier all pass. In the dev server on a copy of the player's data, the Golden Seed on step 2 joined the route list, showed the tag, and was saved once marked Skipped.
+- Next action: on approval of P-02, push and open the PR
+- Pending: P-02 push `a33abd9` plus this handoff commit and open the PR (title and body shown in chat), which blocks review and merge.
 
 ## Ranked work
 
-1. #55 Items on a walked path join the wishlist (next; branch feat/walked-items-wishlist created locally)
+1. #55 Items on a walked path join the wishlist (done on feat/walked-items-wishlist; PR awaiting approval, P-02)
 2. #41 Edit a selected path (insert a node between two others)
 3. #16 Extract boss-beaten flags, with boss names in the catalog (must come before #52: the catalog has no bosses yet)
 4. #52 Link bosses to any pin or grace (needs #16's boss extraction)
