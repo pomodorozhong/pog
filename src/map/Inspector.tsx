@@ -10,6 +10,7 @@ import {
   PATH_COLORS,
   pinItems,
   PATH_LINES,
+  entrancePlace,
   type Language,
   type LayerId,
   type MapDocument,
@@ -120,13 +121,20 @@ function NodePanel({
   nodeControls,
   itemControls,
 }: Props & { node: MapNode }) {
-  // Game graces are game data: they can be visited, joined by paths and given
-  // a note, not edited.
+  // Game graces are game data: they hold what a pin does, but can't be moved,
+  // deleted or given another kind.
   const fixed = isGameGrace(node.id);
   // Older maps' item pins read as junctions that hold their item.
   const kind: NodeKind = node.kind === "item" ? "junction" : node.kind;
   const items = pinItems(node);
   const entry = node.ref ? data.byId.get(node.ref) : undefined;
+  const place = entrancePlace(node);
+  const placeEntry = place ? data.byId.get(place) : undefined;
+  // A grace is an entrance once its place is linked; until then, while picking one.
+  const [graceEntrance, setGraceEntrance] = useState(place !== null);
+  const shownKind = fixed ? (graceEntrance ? "entrance" : "grace") : kind;
+  const setPlace = (id: string | null) =>
+    update(fixed ? { place: id ?? "" } : { ref: id });
   const icon = [entry, ...items.map((id) => data.byId.get(id))].find(
     (e) => e && isItem(e) && e.icon,
   );
@@ -176,41 +184,54 @@ function NodePanel({
             {displayName(data, node, language) || t(NODE_KIND_NAMES[kind])}
           </h2>
           {entry && <p className="text-sm text-muted">{entry.name[other]}</p>}
+          {fixed && node.label && <p className="text-sm">{node.label}</p>}
+          {fixed && placeEntry && (
+            <p className="text-sm text-muted">
+              {t("Entrance to {place}", {
+                place: placeEntry.name[language],
+              })}
+            </p>
+          )}
         </div>
       </header>
 
-      {!fixed && (
-        <label className="block space-y-1">
-          <span className="label">{t("Kind")}</span>
-          <select
-            className="field w-full"
-            value={kind}
-            onChange={(e) =>
+      <label className="block space-y-1">
+        <span className="label">{t("Kind")}</span>
+        <select
+          className="field w-full"
+          value={shownKind}
+          onChange={(e) => {
+            const next = e.target.value as NodeKind;
+            if (fixed) {
+              setGraceEntrance(next === "entrance");
+              if (next === "grace") setPlace(null);
+            } else
               update({
-                kind: e.target.value as NodeKind,
+                kind: next,
                 ref: null,
                 ...(node.kind === "item" && { items }),
-              })
-            }
-          >
-            {NODE_KINDS.filter((k) => k !== "grace" && k !== "item").map(
-              (k) => (
-                <option key={k} value={k}>
-                  {t(NODE_KIND_NAMES[k])}
-                </option>
-              ),
-            )}
-          </select>
-        </label>
-      )}
+              });
+          }}
+        >
+          {NODE_KINDS.filter((k) =>
+            fixed
+              ? k === "grace" || k === "entrance"
+              : k !== "grace" && k !== "item",
+          ).map((k) => (
+            <option key={k} value={k}>
+              {t(NODE_KIND_NAMES[k])}
+            </option>
+          ))}
+        </select>
+      </label>
 
-      {!fixed && kind === "entrance" && (
+      {shownKind === "entrance" && (
         <div className="space-y-1">
           <span className="label">{t("Place name")}</span>
-          {entry && (
+          {placeEntry && (
             <p className="flex items-center justify-between gap-2 text-sm">
-              <span>{entry.name[language]}</span>
-              <button className="link" onClick={() => update({ ref: null })}>
+              <span>{placeEntry.name[language]}</span>
+              <button className="link" onClick={() => setPlace(null)}>
                 {t("Unlink")}
               </button>
             </p>
@@ -220,68 +241,68 @@ function NodePanel({
             language={language}
             label={t("Place name")}
             entries={refCandidates(data, "entrance")}
-            autoFocus={!entry}
-            pick={(id) => update({ ref: id })}
+            autoFocus={!placeEntry}
+            pick={setPlace}
           />
         </div>
       )}
 
       {nodeControls(node)}
 
-      {!fixed && (
-        <div className="space-y-2">
-          <h3 className="label">
-            {t("Items ({count})", { count: items.length })}
-          </h3>
-          {items.map((id) => {
-            const item = data.byId.get(id);
-            return (
-              <div key={id} className="space-y-1">
-                <p className="flex items-center gap-2 text-sm">
-                  {item && isItem(item) && item.icon && (
-                    <img
-                      src={iconUrl(item.icon)}
-                      alt=""
-                      className="size-8 rounded bg-ink"
-                    />
-                  )}
-                  <span className="min-w-0 flex-1 truncate">
-                    {item?.name[language] ?? id}
-                  </span>
-                  <button
-                    className="link"
-                    onClick={() => setItems(items.filter((i) => i !== id))}
-                  >
-                    {t("Remove")}
-                  </button>
-                </p>
-                {itemControls(node, id)}
-              </div>
-            );
-          })}
-          <CatalogSearch
-            t={t}
-            language={language}
-            label={t("Add an item")}
-            entries={refCandidates(data, "item").filter(
-              (e) => !items.includes(e.id),
-            )}
-            pick={(id) => setItems([...items, id])}
-          />
-        </div>
-      )}
+      <div className="space-y-2">
+        <h3 className="label">
+          {t("Items ({count})", { count: items.length })}
+        </h3>
+        {items.map((id) => {
+          const item = data.byId.get(id);
+          return (
+            <div key={id} className="space-y-1">
+              <p className="flex items-center gap-2 text-sm">
+                {item && isItem(item) && item.icon && (
+                  <img
+                    src={iconUrl(item.icon)}
+                    alt=""
+                    className="size-8 rounded bg-ink"
+                  />
+                )}
+                <span className="min-w-0 flex-1 truncate">
+                  {item?.name[language] ?? id}
+                </span>
+                <button
+                  className="link"
+                  onClick={() => setItems(items.filter((i) => i !== id))}
+                >
+                  {t("Remove")}
+                </button>
+              </p>
+              {itemControls(node, id)}
+            </div>
+          );
+        })}
+        <CatalogSearch
+          t={t}
+          language={language}
+          label={t("Add an item")}
+          entries={refCandidates(data, "item").filter(
+            (e) => !items.includes(e.id),
+          )}
+          pick={(id) => setItems([...items, id])}
+        />
+      </div>
 
-      {!fixed && (
-        <label className="block space-y-1">
-          <span className="label">{t("Label")}</span>
-          <input
-            className="field w-full"
-            value={node.label}
-            placeholder={t("Shown when no name is linked")}
-            onChange={(e) => update({ label: e.target.value })}
-          />
-        </label>
-      )}
+      <label className="block space-y-1">
+        <span className="label">{t("Label")}</span>
+        <input
+          className="field w-full"
+          value={node.label}
+          placeholder={
+            fixed
+              ? t("Shown beside the grace's name")
+              : t("Shown when no name is linked")
+          }
+          onChange={(e) => update({ label: e.target.value })}
+        />
+      </label>
 
       <div className="space-y-1">
         <label className="block space-y-1">

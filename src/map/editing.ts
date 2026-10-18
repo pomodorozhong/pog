@@ -8,6 +8,7 @@ import {
   type Point,
   type WalkedPath,
 } from "../domain/types";
+import { updateGrace } from "./graces";
 
 export const newId = (prefix: string) =>
   `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
@@ -113,7 +114,12 @@ export function applyMapAction(
       return { ...doc, nodes: [...doc.nodes, action.node] };
     case "updateNode": {
       const node = doc.nodes.find((n) => n.id === action.id);
-      if (!node) return doc;
+      if (!node) {
+        // A game grace can't move or change kind; what a pin holds, it can.
+        if (!fixed.has(action.id)) return doc;
+        const { label, place, items } = action.changes;
+        return updateGrace(doc, action.id, { label, place, items });
+      }
       const updated = { ...node, ...action.changes };
       return {
         ...doc,

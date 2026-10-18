@@ -1,4 +1,4 @@
-import type { MapDocument, MapNode } from "../domain/types";
+import type { GraceDetails, MapDocument, MapNode } from "../domain/types";
 import type { CatalogGrace } from "./catalog";
 
 /**
@@ -40,8 +40,48 @@ export function gameGraceNodes(graces: CatalogGrace[]): MapNode[] {
   return nodes;
 }
 
-/** A profile's map with the game graces it shows but doesn't store. */
+/**
+ * A profile's map with the game graces it shows but doesn't store, each with
+ * what the player added to it.
+ */
 export const withGameGraces = (
   doc: MapDocument,
   graces: MapNode[],
-): MapDocument => ({ ...doc, nodes: [...graces, ...doc.nodes] });
+): MapDocument => ({
+  ...doc,
+  nodes: [
+    ...graces.map((g) => ({ ...g, ...doc.graces?.[g.id] })),
+    ...doc.nodes,
+  ],
+});
+
+/**
+ * The map with a game grace's details changed. A field left undefined stays
+ * as it was; an empty one is cleared. Cleared fields aren't kept, nor is a
+ * grace left with nothing added.
+ */
+export function updateGrace(
+  doc: MapDocument,
+  id: string,
+  changes: GraceDetails,
+): MapDocument {
+  const given = Object.entries(changes).filter(([, v]) => v !== undefined);
+  if (!given.length) return doc;
+  const { label, place, items }: GraceDetails = {
+    ...doc.graces?.[id],
+    ...Object.fromEntries(given),
+  };
+  const details: GraceDetails = {
+    ...(label ? { label } : {}),
+    ...(place ? { place } : {}),
+    ...(items?.length ? { items } : {}),
+  };
+  const graces = Object.fromEntries(
+    Object.entries({ ...doc.graces, [id]: details }).filter(
+      ([, g]) => Object.keys(g).length,
+    ),
+  );
+  const next: MapDocument = { ...doc, graces };
+  if (!Object.keys(graces).length) delete next.graces;
+  return next;
+}

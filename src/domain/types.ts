@@ -46,11 +46,26 @@ export type MapNode = {
    * instead; `pinItems` reads both.
    */
   items?: string[];
+  /**
+   * A game grace marked as a dungeon entrance: the place's catalog id. A grace
+   * keeps its own id in `ref`, so its place is kept here; a pin's is its `ref`.
+   */
+  place?: string;
 };
+
+/**
+ * What the player added to a game grace: what a pin of their own holds. A map
+ * stores it only once something is set, and drops it when it's all cleared.
+ */
+export type GraceDetails = Partial<Pick<MapNode, "label" | "place" | "items">>;
 
 /** The items picked up at a pin, from its item list or an older map's item pin. */
 export const pinItems = (node: MapNode): string[] =>
   node.items ?? (node.kind === "item" && node.ref !== null ? [node.ref] : []);
+
+/** The place a dungeon entrance leads into: a pin's `ref`, a grace's `place`. */
+export const entrancePlace = (node: MapNode): string | null =>
+  node.kind === "entrance" ? node.ref : (node.place ?? null);
 
 /**
  * A path the player drew: one line through pins, in drawing order, with one
@@ -86,11 +101,16 @@ export type WalkedPath = MapEdge & { step: number };
 export const isWalked = (edge: MapEdge): edge is WalkedPath =>
   edge.step !== null;
 
-/** A profile's own nodes and paths. Game graces are not stored here. */
+/**
+ * A profile's own nodes and paths. Game graces are not stored here, only what
+ * the player added to them.
+ */
 export type MapDocument = {
   schemaVersion: 4;
   nodes: MapNode[];
   edges: MapEdge[];
+  /** By grace id. Missing means nothing was added to any grace. */
+  graces?: Record<string, GraceDetails>;
 };
 
 export type MapView = { layer: LayerId; x: number; y: number; zoom: number };

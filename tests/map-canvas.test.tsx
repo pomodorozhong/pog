@@ -103,15 +103,22 @@ describe("cross-layer waygate numbers", () => {
   );
 });
 
-const graceNodes: MapNode[] = ["start", "middle", "end", "unused"].map(
-  (id, i) => ({
+const graceNames = ["start", "middle", "end", "unused"];
+// Game graces, named by the catalog; a label is something the player added.
+const graceNodes: MapNode[] = graceNames.map((_, i) => ({
+  id: `grace/${i + 1}`,
+  layer: "overworld",
+  x: 100 + i * 20,
+  y: 100,
+  kind: "grace",
+  label: "",
+  ref: `grace/${i + 1}`,
+}));
+graceNames.forEach((name, i) =>
+  data.byId.set(`grace/${i + 1}`, {
     id: `grace/${i + 1}`,
-    layer: "overworld",
-    x: 100 + i * 20,
-    y: 100,
-    kind: "grace",
-    label: id,
-    ref: null,
+    name: { en: name, "zh-TW": name },
+    dlc: false,
   }),
 );
 const canvasProps = (): ComponentProps<typeof MapCanvas> => ({
@@ -334,5 +341,21 @@ describe("pin notes and items", () => {
     );
     const pin = container.querySelector(".map-node.has-items")!;
     expect(pin).toHaveTextContent("+2");
+  });
+
+  it("keeps a grace that holds items a grace, with a badge, and shows it when unused graces are hidden", () => {
+    const [start, middle] = graceNodes;
+    const { container } = render(
+      <MapCanvas
+        {...canvasProps()}
+        hideUnusedGraces
+        nodes={[{ ...start, items: ["weapon/1", "weapon/2"] }, middle]}
+      />,
+    );
+    const graces = container.querySelectorAll(".map-node--grace");
+    expect(graces).toHaveLength(1);
+    expect(graces[0]).not.toHaveClass("has-items");
+    expect(graces[0].querySelector(".grace-item")).not.toBeNull();
+    expect(graces[0]).toHaveTextContent("+1");
   });
 });

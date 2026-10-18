@@ -347,25 +347,44 @@ export function MapCanvas(props: Props) {
         const item = data.byId.get(id);
         return item ? [item.name[language]] : [];
       });
-      const name =
-        itemNames.length > 1
+      const grace = node.kind === "grace";
+      const place = node.place ? data.byId.get(node.place) : undefined;
+      // A grace keeps its own name; what the player added follows it.
+      const official = node.ref ? data.byId.get(node.ref) : undefined;
+      const name = grace
+        ? [
+            official?.name[language],
+            node.label,
+            place?.name[language],
+            ...itemNames,
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        : itemNames.length > 1
           ? [node.label, ...itemNames].filter(Boolean).join(" · ")
           : displayName(data, node, language);
-      // A pin with items shows the first one's icon, and how many more it holds.
+      // A pin with items shows the first one's icon, and how many more it
+      // holds. A grace stays a grace, with the icon as a badge.
       const first = items.length ? data.byId.get(items[0]) : undefined;
-      const image =
-        (first && isItem(first) && first.icon
+      const icon =
+        first && isItem(first) && first.icon
           ? `<img src="${iconUrl(first.icon)}" alt="">`
           : items.length
             ? NODE_SYMBOL.item
-            : NODE_SYMBOL[node.kind]) +
-        (items.length > 1
+            : "";
+      const count =
+        items.length > 1
           ? `<span class="item-count">+${items.length - 1}</span>`
-          : "");
+          : "";
+      const image = grace
+        ? NODE_SYMBOL.grace +
+          (icon && `<span class="grace-item">${icon}</span>`) +
+          count
+        : (icon || NODE_SYMBOL[node.kind]) + count;
       const classes = [
         "map-node",
         `map-node--${node.kind}`,
-        items.length > 0 && "has-items",
+        items.length > 0 && !grace && "has-items",
         selected && "is-selected",
         portalEnds.has(node.id) && "has-portal",
         draft?.from === node.id && "is-draft-start",
@@ -416,7 +435,10 @@ export function MapCanvas(props: Props) {
         graceMarkers.current.push({
           id: node.id,
           marker,
-          onPath: pathNodes.has(node.id),
+          // What the player added to a grace keeps it shown, like a path.
+          onPath:
+            pathNodes.has(node.id) ||
+            !!(node.label || node.place || items.length),
         });
       else marker.addTo(group);
       if (name) {

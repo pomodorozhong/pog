@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  entrancePlace,
   pinItems,
   type MapDocument,
   type MapEdge,
@@ -11,6 +12,7 @@ import {
   notePath,
   type MapAction,
 } from "../src/map/editing";
+import { withGameGraces } from "../src/map/graces";
 import { wishlistTargets } from "../src/routing/order";
 import { validDocument } from "../src/storage/schema";
 import { walkOrder } from "../src/wishlist/wishlist";
@@ -173,6 +175,83 @@ describe("items on pins", () => {
     expect(wishlistTargets(map, wishlist)).toEqual([
       { item: "weapon/2", node: "cave" },
       { item: "weapon/3", node: "old" },
+    ]);
+  });
+});
+
+describe("graces that work like pins", () => {
+  const set = (changes: Partial<MapNode>): MapAction => ({
+    type: "updateNode",
+    id: "grace/1",
+    changes,
+  });
+  const shown = (map: MapDocument) =>
+    withGameGraces(map, [grace]).nodes.find((n) => n.id === "grace/1")!;
+
+  it("stores only what was added, and drops it once cleared", () => {
+    const map = apply(
+      doc(),
+      set({ label: "boss first", items: ["weapon/1"] }),
+      set({ place: "place/7" }),
+      // A grace can't move or change kind.
+      set({ x: 9, kind: "junction" }),
+    );
+    expect(map.nodes).toEqual([]);
+    expect(map.graces).toEqual({
+      "grace/1": { label: "boss first", items: ["weapon/1"], place: "place/7" },
+    });
+    expect(validDocument("map", map)).toBe(true);
+    expect(shown(map)).toMatchObject({
+      kind: "grace",
+      ref: "grace/1",
+      x: 1,
+      label: "boss first",
+      place: "place/7",
+      items: ["weapon/1"],
+    });
+    expect(entrancePlace(shown(map))).toBe("place/7");
+
+    const cleared = apply(map, set({ label: "", place: "", items: [] }));
+    expect(cleared).not.toHaveProperty("graces");
+    // Only game graces have details.
+    const other: MapAction = {
+      type: "updateNode",
+      id: "grace/9",
+      changes: { label: "x" },
+    };
+    expect(apply(doc(), other)).toEqual(doc());
+  });
+
+  it("is checked when loading", () => {
+    const map = (graces: unknown) => ({ ...doc(), graces });
+    expect(validDocument("map", map({ "grace/1": { items: ["a"] } }))).toBe(
+      true,
+    );
+    expect(validDocument("map", map({ j: { label: "x" } }))).toBe(false);
+    expect(validDocument("map", map({ "grace/1": { kind: "x" } }))).toBe(false);
+    expect(
+      validDocument("map", map({ "grace/1": { items: ["a", "a"] } })),
+    ).toBe(false);
+    expect(validDocument("map", map([]))).toBe(false);
+  });
+
+  it("finds wishlist items at a grace for the walk order and route", () => {
+    const map = withGameGraces(
+      apply(
+        doc(node("j")),
+        set({ items: ["weapon/1"] }),
+        walk("p", ["j", "grace/1"]),
+      ),
+      [grace],
+    );
+    const wishlist = [
+      { item: "weapon/1", status: "needed" as const, note: "" },
+    ];
+    expect(
+      walkOrder(map, wishlist).onRoute.map((r) => [r.pin, r.step]),
+    ).toEqual([["grace/1", 1]]);
+    expect(wishlistTargets(map, wishlist)).toEqual([
+      { item: "weapon/1", node: "grace/1" },
     ]);
   });
 });
