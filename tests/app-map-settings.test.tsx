@@ -30,7 +30,7 @@ it("persists one filter across profiles and reloads, while routing still uses hi
     flags: [101, 102],
   };
   documents.player.profiles[0].wishlist = [
-    { item: "weapon/1", status: "needed", note: "" },
+    { item: "weapon/1", pin: "item", status: "needed", note: "" },
   ];
   documents.player = addProfile(documents.player);
   const second = documents.player.activeProfile;

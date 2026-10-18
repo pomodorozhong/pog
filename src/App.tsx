@@ -58,7 +58,11 @@ import { detour, routeLines } from "./routing/order";
 import { RoutePanel } from "./routing/RoutePanel";
 import { usePlannedRoute } from "./routing/usePlannedRoute";
 import { initialDocuments, mapKey } from "./storage/schema";
-import { PinWishlist, WishlistPanel } from "./wishlist/WishlistPanel";
+import {
+  PinWishlist,
+  UnpinnedPicker,
+  WishlistPanel,
+} from "./wishlist/WishlistPanel";
 import {
   usePersistentDocument,
   type SaveStatus,
@@ -450,7 +454,8 @@ export default function App() {
     </select>
   );
 
-  const wishlist = combinedWishlist(map, activeProfile(player).wishlist);
+  // The item progress shows entries at a pin; the others wait in the wishlist card.
+  const wishlist = combinedWishlist(map, activeProfile(player).wishlist).pinned;
   const wishlistCounts = countByStatus(wishlist);
 
   const inspector = (
@@ -535,8 +540,21 @@ export default function App() {
           player={player}
           setPlayer={setPlayer}
           doc={map}
+          pin={node.id}
           item={item}
           estimate={detourText(node.id)}
+        />
+      )}
+      unpinnedItems={(node, addItem) => (
+        <UnpinnedPicker
+          t={t}
+          language={language}
+          data={data}
+          player={player}
+          setPlayer={setPlayer}
+          doc={map}
+          node={node}
+          addItem={addItem}
         />
       )}
     />

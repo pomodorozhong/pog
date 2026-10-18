@@ -7,7 +7,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MapCanvasHandlers } from "../src/map/MapCanvas";
-import type { MapEdge, MapNode } from "../src/domain/types";
+import type { MapEdge, MapNode, WishlistItem } from "../src/domain/types";
 import { initialDocuments } from "../src/storage/schema";
 import App from "../src/App";
 
@@ -66,10 +66,12 @@ async function open(
   nodes: MapNode[],
   graces: (typeof elleh)[] = [],
   edges: MapEdge[] = [],
+  wishlist: WishlistItem[] = [],
 ) {
   const documents = initialDocuments();
   documents.map.nodes = nodes;
   documents.map.edges = edges;
+  documents.player.profiles[0].wishlist = wishlist;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
@@ -280,5 +282,95 @@ describe("items on a walked path", () => {
     expect(
       screen.getByRole("button", { name: "Add to wishlist" }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("wishlist entries per pin", () => {
+  const pin = (id: string, items: string[]): MapNode => ({
+    id,
+    layer: "overworld",
+    x: 0,
+    y: 0,
+    kind: "junction",
+    label: id.toUpperCase(),
+    ref: null,
+    items,
+  });
+  const walked: MapEdge = {
+    id: "e1",
+    nodes: ["a", "b"],
+    color: "gold",
+    line: "solid",
+    oneWay: false,
+    note: "",
+    showNote: false,
+    step: 1,
+  };
+  const spare: WishlistItem = {
+    item: "weapon/2",
+    status: "skipped",
+    note: "spare",
+  };
+
+  it("show each pin's copy on its own row, with its own status", async () => {
+    await open(
+      [pin("a", ["weapon/1"]), pin("b", ["weapon/1"])],
+      [],
+      [walked],
+      [spare],
+    );
+    const list = screen.getByRole("region", { name: "Items in route order" });
+    const rows = within(list).getAllByRole("button", {
+      name: "Longsword: acquired",
+    });
+    expect(rows).toHaveLength(2);
+    fireEvent.click(rows[1]);
+    expect(
+      within(list)
+        .getAllByRole("button", { name: "Longsword: acquired" })
+        .map((b) => b.getAttribute("aria-pressed")),
+    ).toEqual(["false", "true"]);
+    // An entry with no pin isn't in the item progress, or its count.
+    expect(
+      within(list).queryByRole("button", { name: "Buckler: acquired" }),
+    ).toBeNull();
+    expect(screen.getByText("1 of 2 acquired")).toBeInTheDocument();
+  });
+
+  it("attach an entry with no pin from a pin's item editor", async () => {
+    await open([pin("a", [])], [], [], [spare]);
+    fireEvent.click(screen.getByRole("button", { name: "a" }));
+    const items = screen.getByRole("region", { name: "Items" });
+    fireEvent.click(within(items).getByRole("button", { name: /Buckler/ }));
+    expect(mapNodes()[0].items).toEqual(["weapon/2"]);
+    // The entry keeps its status, now at this pin.
+    expect(screen.getByRole("combobox", { name: "Wishlist" })).toHaveValue(
+      "skipped",
+    );
+    expect(
+      within(items).queryByText("From the wishlist, no pin yet"),
+    ).toBeNull();
+  });
+
+  it("mark search results that already wait without a pin, and warn about old entries", async () => {
+    // Saved before entries had pins: a pin on the map holds the item.
+    await open(
+      [pin("a", ["weapon/2"])],
+      [],
+      [],
+      [spare, { item: "weapon/1", status: "needed", note: "" }],
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const card = screen.getByRole("region", { name: "Wishlist" });
+    expect(within(card).getByRole("note")).toHaveTextContent(
+      /^1 saved items aren't attached to a pin/,
+    );
+    fireEvent.change(
+      within(card).getByRole("textbox", { name: "Add to wishlist" }),
+      { target: { value: "Buck" } },
+    );
+    const result = within(card).getByRole("button", { name: /Buckler/ });
+    expect(result).toBeDisabled();
+    expect(result).toHaveTextContent("On the wishlist, no pin");
   });
 });
