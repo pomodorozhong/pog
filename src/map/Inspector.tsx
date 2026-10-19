@@ -34,6 +34,7 @@ import {
 } from "./catalog";
 import {
   inStepOrder,
+  layerCounts,
   newId,
   newPath,
   notePath,
@@ -924,12 +925,7 @@ function Summary({
   layer: LayerId;
   children?: ReactNode;
 }) {
-  // The player's own nodes; game graces are on every map.
-  const here = doc.nodes.filter((n) => n.layer === layer && !isGameGrace(n.id));
-  const ids = new Set(here.map((n) => n.id));
-  const paths = inStepOrder(doc.edges).filter((e) =>
-    e.nodes.some((id) => ids.has(id)),
-  ).length;
+  const { nodes, paths } = layerCounts(doc, layer);
   return (
     <section
       aria-label={t("This map")}
@@ -941,7 +937,7 @@ function Summary({
         <span className="text-muted">
           {" · "}
           {t("{nodes} nodes and {edges} paths", {
-            nodes: here.length,
+            nodes,
             edges: paths,
           })}
         </span>

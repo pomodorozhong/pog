@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { MapDocument, MapNode } from "../src/domain/types";
-import { applyMapAction, historyReducer, newPath } from "../src/map/editing";
+import {
+  applyMapAction,
+  historyReducer,
+  layerCounts,
+  newPath,
+} from "../src/map/editing";
 import { drawn } from "./paths";
 import {
   initialDocuments,
@@ -85,6 +90,33 @@ describe("map editing", () => {
       node: node("b"),
     });
     expect(history.future).toEqual([]);
+  });
+});
+
+describe("the layer summary (#36)", () => {
+  it("counts a path drawn only through graces, but not the graces", () => {
+    const grace = (id: string): MapNode => ({
+      ...node(id),
+      kind: "grace",
+      ref: id,
+    });
+    const map: MapDocument = {
+      ...doc(
+        grace("grace/1"),
+        grace("grace/2"),
+        grace("grace/3"),
+        node("a"),
+        node("b", "underground"),
+      ),
+      edges: [
+        { ...edge("road", ["grace/1", "grace/2", "grace/3"]), step: 1 },
+        { ...edge("cave", ["b"]), step: 2 },
+        // A note path isn't walked.
+        { ...edge("note", ["grace/1"]), step: null },
+      ],
+    };
+    expect(layerCounts(map, "overworld")).toEqual({ nodes: 1, paths: 1 });
+    expect(layerCounts(map, "underground")).toEqual({ nodes: 1, paths: 1 });
   });
 });
 
