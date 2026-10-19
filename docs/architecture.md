@@ -48,8 +48,25 @@ Everything below comes from the player's own install, read natively on macOS in 
 **Available in the game data but not yet used:**
 
 - **`WorldMapPointParam`:** the game's own map markers, with positions and names.
-- **`ItemLotParam`:** what each pickup gives and its "picked up" event flag, but no position.
-- **Map layout files (`map/mapstudio/*.msb`):** readable for overworld cells (`m60_*`), DLC cells (`m61_*`) and legacy dungeons (`m10_*` etc.). Treasure entries there link item lots to world positions, so item locations can probably be extracted (milestone 6).
+
+**Item locations (spike #8, `scripts/extract/item_locations_report.py`):** the map layout files place most pickups, so item pins can come from the game data.
+
+- **How:** each MSB (`map/mapstudio/*.msb`: legacy maps, and open-world tiles of 256 m, 512 m and 1 km) has treasure events (type 4) naming an item lot (`ItemLotParam_map`) and the part holding it: an asset, chest or corpse, whose position is the item's. Picking up a lot also gives the lot rows right after it, up to a gap. Positions project onto the map like graces, except that 512 m and 1 km tiles measure from their center (`index × size + size / 2`); 256 m tiles and legacy maps measure from their corner. The reader follows SoulsFormats' MSBE.
+- **Coverage:** 3,639 treasure events in 1,196 readable layouts give 3,466 of the 5,410 map item lots a position (chains included). That places 999 of the 1,838 catalog items found in any map lot: talismans 99/146, goods 561/963, weapons 194/314, armor 133/331, Ashes of War 12/84. Spots: overworld 2,230, DLC 1,005, underground 340. A lot often has several spots (Golden Seeds, Stonesword Keys).
+- **Accuracy:** every spot lies on the map, a median 74 px (74 m) from the nearest grace on its layer. Spot checks: Flask of Wondrous Physick 22 px from Third Church of Marika, Sacred Tears beside their churches, the Dectus Medallion halves at Fort Haight and Fort Faroth, the Lordsworn's Greatsword in its Gatefront caravan chest. Spots inside legacy dungeons and caves sit where their map is projected onto the open world, which can be 100–200 px off the entrance.
+- **Not placed by the MSBs:** lots the event scripts award (boss drops, NPC gifts and quest rewards, such as Moonveil or the Talisman Pouch), enemy drops (`ItemLotParam_enemy`, including Teardrop Scarabs, so most Ashes of War) and shop wares (`ShopLineupParam`, such as the Crimson Amber Medallion). Boss drops can sit at the boss's arena (#16 has the positions) and NPC gifts and enemy drops at the MSB enemy part, all from game data.
+- **Gaps:** 52 tiny open-world layouts (about 2 KB each, at the map's edges) use the Oodle codec ooz lacks; 60 treasure events point at no part.
+
+**Community sources compared (no coordinates worth taking):**
+
+| Source                                                                                                      | Coverage                                                                         | Accuracy                                   | Licence                                      | Conversion to map pixels                       |
+| ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------ | -------------------------------------------- | ---------------------------------------------- |
+| Fextralife and Map Genie interactive maps                                                                   | Broad, with DLC (not checked item by item)                                       | Hand-placed markers                        | No licence to reuse; would need permission   | Their own map projection, needs calibration    |
+| [CreateDDy/EldenRing_MapInteractive](https://github.com/CreateDDy/EldenRing_MapInteractive)                 | Key items only (seeds, tears, great runes); other item files have no coordinates | Hand-placed                                | MIT                                          | Pixels of its own map image, needs calibration |
+| [ERDB](https://github.com/EldenRingDatabase/erdb)                                                           | Text locations (summary, region, requirements) for many items, no coordinates    | Written by contributors; last updated 2024 | MIT                                          | None: text only                                |
+| [Elden Ring item randomizer](https://github.com/thefifthmatt/SoulsRandomizers) (`diste/Base/itemslots.txt`) | Every item slot, keyed by lot, with a written location                           | Written from game data                     | All rights reserved, except running the tool | None: text only                                |
+
+**Recommendation:** take item positions from the game data: MSB treasures first (#9), then boss drops at boss arenas and NPC gifts and enemy drops at enemy parts. They carry the official item IDs and the pickup flags (`getItemFlagId`, #11), follow game patches, and need no third-party permission. No community source has reusable coordinates; ERDB's MIT text could later add descriptions and requirements.
 
 **Gotchas:**
 

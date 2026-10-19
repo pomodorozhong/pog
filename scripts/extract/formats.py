@@ -147,3 +147,43 @@ def read_emevd(data: bytes) -> dict[int, tuple[list[Instruction], list[tuple[int
         params = [struct.unpack_from("<qqqi", data, params_at + param_offset + p * 0x20) for p in range(param_count)]
         events[event_id] = (instructions, params)
     return events
+
+
+MSB_TREASURE = 4  # event type
+
+
+def read_msb_treasures(data: bytes) -> list[dict]:
+    """Return the treasure events of an Elden Ring map layout (MSB): item lot, holder part, position.
+
+    The layout follows SoulsFormats' MSBE. Positions are in the map's own coordinates;
+    a treasure whose part index is out of range gets no position.
+    """
+    if data[:4] != b"MSB ":
+        raise ValueError("not an MSB")
+    params, pos = {}, 0x10
+    while pos:
+        _version, count = struct.unpack_from("<ii", data, pos)
+        (name_offset,) = struct.unpack_from("<q", data, pos + 8)
+        params[_read_cstring(data, name_offset, True)] = struct.unpack_from(f"<{count - 1}q", data, pos + 16)
+        (pos,) = struct.unpack_from("<q", data, pos + 16 + (count - 1) * 8)
+
+    parts = []
+    for offset in params["PARTS_PARAM_ST"]:
+        (name_offset,) = struct.unpack_from("<q", data, offset)
+        parts.append((_read_cstring(data, offset + name_offset, True), struct.unpack_from("<3f", data, offset + 0x20)))
+
+    treasures = []
+    for offset in params["EVENT_PARAM_ST"]:
+        (event_type,) = struct.unpack_from("<I", data, offset + 0x0C)
+        if event_type != MSB_TREASURE:
+            continue
+        (type_data,) = struct.unpack_from("<q", data, offset + 0x20)
+        part_index, item_lot = struct.unpack_from("<i4xi", data, offset + type_data + 8)
+        part = parts[part_index] if 0 <= part_index < len(parts) else None
+        treasures.append({
+            "lot": item_lot,
+            "part": part and part[0],
+            "position": part and part[1],
+            "inChest": bool(data[offset + type_data + 0x40]),
+        })
+    return treasures
