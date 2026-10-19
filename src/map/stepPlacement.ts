@@ -46,14 +46,15 @@ function clip(a: Point, b: Point, box: Box): [Point, Point] | null {
 
 /**
  * Where to show a path's step number on screen. Halfway along the longest
- * stretch of the path inside `box`; when none of it is inside, on the edge
- * of `box` nearest the path's middle, so the number stays in view. Isolated
- * portal endpoints are single-point lines; prefer one that is on screen.
+ * stretch of the path inside `box` (`stretch`, to move the number along when
+ * something covers it); when none of it is inside, on the edge of `box`
+ * nearest the path's middle, so the number stays in view. Isolated portal
+ * endpoints are single-point lines; prefer one that is on screen.
  */
 export function placeStep(
   lines: Point[][],
   box: Box,
-): { point: Point; pinned: boolean } {
+): { point: Point; pinned: boolean; stretch?: Point[] } {
   let best: Point[] | null = null;
   let bestLength = -1;
   for (const line of lines) {
@@ -93,7 +94,12 @@ export function placeStep(
     }
     finish();
   }
-  if (best) return { point: halfway(best), pinned: false };
+  if (best) {
+    const stretch: Point[] = best;
+    return stretch.length > 1
+      ? { point: halfway(stretch), pinned: false, stretch }
+      : { point: halfway(stretch), pinned: false };
+  }
   const longest = lines.reduce((a, b) =>
     segmentLengths(b).reduce((s, l) => s + l, 0) >
     segmentLengths(a).reduce((s, l) => s + l, 0)
@@ -108,4 +114,110 @@ export function placeStep(
     ],
     pinned: true,
   };
+}
+
+/** A rectangle by its centre and half its width and height. */
+export type Area = { center: Point; half: Point };
+
+const overlaps = (a: Area, b: Area, gap: number) =>
+  Math.abs(a.center[0] - b.center[0]) < a.half[0] + b.half[0] + gap &&
+  Math.abs(a.center[1] - b.center[1]) < a.half[1] + b.half[1] + gap;
+
+/** The point `distance` along a line, clamped to its ends. */
+function pointAlong(line: Point[], distance: number): Point {
+  let left = Math.max(distance, 0);
+  for (let i = 1; i < line.length; i++) {
+    const [[ax, ay], [bx, by]] = [line[i - 1], line[i]];
+    const l = Math.hypot(bx - ax, by - ay);
+    if (left <= l && l > 0)
+      return [ax + ((bx - ax) * left) / l, ay + ((by - ay) * left) / l];
+    left -= l;
+  }
+  return line[line.length - 1];
+}
+
+/**
+ * Move a step number (`half` its size, at `point`) off the pins and graces
+ * covering it, keeping `gap` pixels between them, so both stay readable and
+ * clickable. It slides along its own `stretch` of path to the nearest clear
+ * spot; when the stretch has none, it goes just beside the icon covering it.
+ */
+export function clearOfPins(
+  point: Point,
+  half: Point,
+  stretch: Point[] | undefined,
+  pins: Area[],
+  gap: number,
+): Point {
+  const covering = (at: Point) =>
+    pins.find((pin) => overlaps({ center: at, half }, pin, gap));
+  const first = covering(point);
+  if (!first) return point;
+  if (stretch) {
+    const total = segmentLengths(stretch).reduce((sum, l) => sum + l, 0);
+    for (let d = 2; d <= total / 2; d += 2)
+      for (const at of [total / 2 - d, total / 2 + d]) {
+        const candidate = pointAlong(stretch, at);
+        if (!covering(candidate)) return candidate;
+      }
+  }
+  // Beside the icon: below, above, right or left, whichever is nearest and clear.
+  const [cx, cy] = first.center;
+  const dx = first.half[0] + half[0] + gap;
+  const dy = first.half[1] + half[1] + gap;
+  const beside: Point[] = [
+    [point[0], cy + dy],
+    [point[0], cy - dy],
+    [cx + dx, point[1]],
+    [cx - dx, point[1]],
+  ];
+  const byDistance = (a: Point, b: Point) =>
+    Math.hypot(a[0] - point[0], a[1] - point[1]) -
+    Math.hypot(b[0] - point[0], b[1] - point[1]);
+  return beside.sort(byDistance).find((at) => !covering(at)) ?? beside[0];
+}
+
+/**
+ * Step numbers held on the same screen edge (`pinned` to `box`) spread out
+ * along it, `gap` pixels apart, so each stays readable. Their order along
+ * the edge is kept, and they stay inside the box when there's room.
+ */
+export function spreadAlongEdges(numbers: Area[], box: Box, gap: number) {
+  const centers = numbers.map((n): Point => [...n.center]);
+  const side = ([x, y]: Point) =>
+    x <= box.left
+      ? "left"
+      : x >= box.right
+        ? "right"
+        : y <= box.top
+          ? "top"
+          : "bottom";
+  for (const edge of ["left", "right", "top", "bottom"]) {
+    // Along a left or right edge numbers move down it; along the others, across.
+    const axis = edge === "left" || edge === "right" ? 1 : 0;
+    const [start, end] = axis ? [box.top, box.bottom] : [box.left, box.right];
+    const on = numbers
+      .map((_, i) => i)
+      .filter((i) => side(centers[i]) === edge)
+      .sort((a, b) => centers[a][axis] - centers[b][axis]);
+    for (let k = 1; k < on.length; k++) {
+      const [a, b] = [on[k - 1], on[k]];
+      const least =
+        centers[a][axis] + numbers[a].half[axis] + numbers[b].half[axis] + gap;
+      if (centers[b][axis] < least) centers[b][axis] = least;
+    }
+    // Pushed past the end: shift back, keeping them apart, as far as the start.
+    for (let k = on.length - 1; k >= 0; k--) {
+      const i = on[k];
+      const limit =
+        k === on.length - 1
+          ? end
+          : centers[on[k + 1]][axis] -
+            numbers[on[k + 1]].half[axis] -
+            numbers[i].half[axis] -
+            gap;
+      centers[i][axis] = Math.max(Math.min(centers[i][axis], limit), start);
+    }
+  }
+  return centers;
 }

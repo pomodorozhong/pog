@@ -26,6 +26,7 @@ import { enableGestures } from "./gestures";
 import { placeStep } from "./stepPlacement";
 import { BOSS_SYMBOL, NODE_SYMBOL, pathStyle } from "./style";
 import { isGameGrace } from "./graces";
+import { clearOfPins, spreadAlongEdges, type Area } from "./stepPlacement";
 
 export type Selection = { kind: "node" | "edge"; id: string } | null;
 
@@ -71,6 +72,8 @@ type Props = MapCanvasHandlers & {
 
 const LABEL_ZOOM = 4;
 const GRACE_LABEL_ZOOM = 6;
+/** Pixels kept between a step number and the pins or numbers beside it. */
+const STEP_GAP = 4;
 /** How far step numbers pinned to the screen edge stay from it, in pixels. */
 const STEP_INSET = 24;
 
@@ -79,6 +82,8 @@ export function MapCanvas(props: Props) {
   const map = useRef<L.Map | null>(null);
   const overlay = useRef<L.LayerGroup | null>(null);
   const rubberBand = useRef<L.Polyline | null>(null);
+  /** Every pin and grace marker, with half its size, for step numbers to avoid. */
+  const pinMarkers = useRef<{ marker: L.Marker; half: number }[]>([]);
   const graceMarkers = useRef<
     { id: string; marker: L.Marker; onPath: boolean }[]
   >([]);
@@ -116,7 +121,14 @@ export function MapCanvas(props: Props) {
     map.current!.unproject([x, y], latest.current.info.maxZoom);
   const placeAllSteps = () =>
     map.current &&
-    placeSteps(map.current, steps.current, latest.current.info.maxZoom);
+    placeSteps(
+      map.current,
+      steps.current,
+      latest.current.info.maxZoom,
+      pinMarkers.current.filter(({ marker }) =>
+        overlay.current?.hasLayer(marker),
+      ),
+    );
   const updateLabels = () => {
     const zoom = map.current!.getZoom();
     for (const { marker, always, minZoom } of labels.current) {
@@ -133,6 +145,11 @@ export function MapCanvas(props: Props) {
     const p = map.current!.project(latLng, latest.current.info.maxZoom);
     return [Math.round(p.x), Math.round(p.y)];
   };
+
+  // Step numbers move off the graces the filter shows, or back where they were.
+  useLayoutEffect(() => {
+    placeAllSteps();
+  }, [props.hideUnusedGraces, props.drawing]);
 
   // Create the map once.
   useEffect(() => {
@@ -237,6 +254,7 @@ export function MapCanvas(props: Props) {
   } = props;
   useEffect(() => {
     const group = overlay.current!;
+    pinMarkers.current = [];
     group.clearLayers();
     graceMarkers.current = [];
     steps.current = [];
@@ -449,6 +467,10 @@ export function MapCanvas(props: Props) {
             latest.current.onNodeClick(node.id);
           })
           .addTo(group);
+      pinMarkers.current.push({
+        marker,
+        half: pinHalfSize(node, items, bosses),
+      });
       if (node.kind === "grace")
         graceMarkers.current.push({
           id: node.id,
@@ -486,6 +508,8 @@ export function MapCanvas(props: Props) {
       }
     }
     syncGraceVisibility();
+    // Again, now that the pins and graces it moves off are shown.
+    placeAllSteps();
   }, [
     nodes,
     edges,
@@ -548,6 +572,7 @@ function placeSteps(
   instance: L.Map,
   steps: { marker: L.Marker; runs: Point[][] }[],
   maxZoom: number,
+  pins: { marker: L.Marker; half: number }[],
 ) {
   const { x: width, y: height } = instance.getSize();
   const box = {
@@ -556,6 +581,15 @@ function placeSteps(
     right: width - STEP_INSET,
     bottom: height - STEP_INSET,
   };
+  const toScreen = (latLng: L.LatLng): Point => {
+    const { x, y } = instance.latLngToContainerPoint(latLng);
+    return [x, y];
+  };
+  const pinAreas: Area[] = pins.map(({ marker, half }) => ({
+    center: toScreen(marker.getLatLng()),
+    half: [half, half],
+  }));
+  const pinned: { marker: L.Marker; area: Area }[] = [];
   for (const { marker, runs } of steps) {
     const onScreen = runs.map((run) =>
       run.map((p): Point => {
@@ -565,18 +599,46 @@ function placeSteps(
         return [x, y];
       }),
     );
-    const { point, pinned } = placeStep(onScreen, box);
+    const { point, pinned: pinnedHere, stretch } = placeStep(onScreen, box);
     // Put an isolated portal's number beside its pin so both remain clickable.
-    const besidePortal = !pinned && onScreen.every((run) => run.length === 1);
+    const besidePortal =
+      !pinnedHere && onScreen.every((run) => run.length === 1);
     const labelPoint: Point = besidePortal
       ? [
           Math.min(point[0] + STEP_INSET, box.right),
           Math.max(point[1] - STEP_INSET, box.top),
         ]
       : point;
-    marker.setLatLng(instance.containerPointToLatLng(labelPoint));
-    marker.getElement()?.classList.toggle("is-pinned", pinned);
+    const number = marker.getElement()?.querySelector(".step-number");
+    const half: Point = [
+      (number?.clientWidth ?? 0) / 2,
+      (number?.clientHeight ?? 0) / 2,
+    ];
+    // A pin or grace covering the number moves it along its path (#37).
+    const clear = pinnedHere
+      ? labelPoint
+      : clearOfPins(labelPoint, half, stretch, pinAreas, STEP_GAP);
+    marker.setLatLng(instance.containerPointToLatLng(clear));
+    marker.getElement()?.classList.toggle("is-pinned", pinnedHere);
+    if (pinnedHere) pinned.push({ marker, area: { center: clear, half } });
   }
+  // Numbers held on the same screen edge spread out along it (#33).
+  const spread = spreadAlongEdges(
+    pinned.map(({ area }) => area),
+    box,
+    STEP_GAP,
+  );
+  pinned.forEach(({ marker }, i) =>
+    marker.setLatLng(instance.containerPointToLatLng(spread[i])),
+  );
+}
+
+/** Half the size of a pin's marker on screen, as drawn by its CSS class. */
+function pinHalfSize(node: MapNode, items: string[], bosses: string[]) {
+  if (node.kind === "grace") return 11;
+  if (items.length || node.kind === "item") return 15;
+  if (bosses.length) return 14;
+  return node.kind === "junction" ? 6 : 11;
 }
 
 const escapeHtml = (text: string) =>

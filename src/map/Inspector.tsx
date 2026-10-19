@@ -819,12 +819,14 @@ function MoveList({
   const ordered = inStepOrder(doc.edges);
   const at = ordered.findIndex((e) => e.id === edge.id);
   const nodes = new Map(doc.nodes.map((n) => [n.id, n]));
+  // The path being moved is pointed out on the map until another row is.
   useEffect(() => {
     list.current
       ?.querySelector("[aria-current]")
       ?.scrollIntoView({ block: "center" });
+    highlight(edge.id);
     return () => highlight(null);
-  }, [highlight]);
+  }, [highlight, edge.id]);
 
   // Slot k sits before the k-th path. The two slots next to this path would leave it where it is.
   const slot = (k: number) =>
@@ -875,7 +877,7 @@ function MoveList({
       <div ref={list} className="min-h-0 overflow-y-auto">
         <ol
           className="space-y-0.5 text-sm"
-          onMouseLeave={() => highlight(null)}
+          onMouseLeave={() => highlight(edge.id)}
         >
           {ordered.map((e, k) => [
             slot(k),

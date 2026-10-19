@@ -9,7 +9,11 @@ import App from "../src/App";
 // Leaflet surface with buttons that send the same node-click events.
 vi.mock("../src/map/MapCanvas", () => ({
   MapCanvas: (
-    props: MapCanvasHandlers & { nodes: MapNode[]; edges: MapEdge[] },
+    props: MapCanvasHandlers & {
+      nodes: MapNode[];
+      edges: MapEdge[];
+      highlight: string | null;
+    },
   ) => (
     <div>
       {props.nodes.map((node) => (
@@ -17,7 +21,13 @@ vi.mock("../src/map/MapCanvas", () => ({
           {node.id}
         </button>
       ))}
+      {props.edges.map((edge) => (
+        <button key={edge.id} onClick={() => props.onEdgeClick(edge.id)}>
+          {`step ${edge.step}`}
+        </button>
+      ))}
       <output data-testid="paths">{JSON.stringify(props.edges)}</output>
+      <output data-testid="highlight">{props.highlight ?? ""}</output>
     </div>
   ),
 }));
@@ -100,5 +110,32 @@ describe("drawing after toolbar history changes", () => {
       ["d", "e"],
     ]);
     expect(paths().map((edge) => edge.step)).toEqual([1, 2]);
+  });
+});
+
+describe("moving a path", () => {
+  it("points out the path being moved as soon as Move… opens", async () => {
+    // jsdom doesn't scroll.
+    Element.prototype.scrollIntoView = vi.fn();
+    await startDrawing();
+    clickPin("a");
+    clickPin("b");
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    clickPin("c");
+    clickPin("d");
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    const [first, second] = paths().map((edge) => edge.id);
+    fireEvent.click(screen.getByRole("button", { name: "Select V" }));
+    fireEvent.click(screen.getByRole("button", { name: "step 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move…" }));
+    const highlight = () => screen.getByTestId("highlight").textContent;
+    expect(highlight()).toBe(first);
+
+    const rows = screen.getAllByRole("listitem");
+    const other = rows.find((row) => row.textContent?.startsWith("2"))!;
+    fireEvent.mouseEnter(other);
+    expect(highlight()).toBe(second);
+    fireEvent.mouseLeave(other.closest("ol")!);
+    expect(highlight()).toBe(first);
   });
 });
