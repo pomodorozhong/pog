@@ -372,9 +372,10 @@ describe("bosses on the map", () => {
     const { container, rerender } = render(<MapCanvas {...props} />);
     const pin = container.querySelector(".map-node--junction")!;
     expect(pin).toHaveClass("has-bosses");
-    expect(pin).toHaveTextContent("☠");
+    expect(pin.querySelector("svg.boss-icon")).not.toBeNull();
     const badge = container.querySelector(".map-node--grace .boss-badge")!;
-    expect(badge).toHaveTextContent("☠2");
+    expect(badge.querySelector("svg.boss-icon")).not.toBeNull();
+    expect(badge).toHaveTextContent("2");
     expect(container.querySelectorAll(".bosses-beaten")).toHaveLength(0);
 
     rerender(<MapCanvas {...props} beaten={new Set(["boss/1", "boss/3"])} />);

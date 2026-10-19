@@ -385,7 +385,7 @@ export function MapCanvas(props: Props) {
       const bossOnly = bosses.length > 0 && !grace && !icon;
       const bossBadge =
         bosses.length > 0 && !bossOnly
-          ? `<span class="boss-badge">${BOSS_SYMBOL}${bosses.length > 1 ? bosses.length : ""}</span>`
+          ? `<span class="boss-badge">${BOSS_SYMBOL}${bosses.length > 1 ? `<span class="boss-count">${bosses.length}</span>` : ""}</span>`
           : "";
       const image =
         (grace
