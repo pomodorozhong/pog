@@ -234,9 +234,9 @@
   "Off: progress changes only when you choose “Import progress from save”.": "已關閉：只有選擇「從存檔匯入進度」時才會更新進度。",
   "On: watching {character}.": "已開啟：正在追蹤 {character}。",
   "On: starts once this playthrough is linked to a character by “Import progress from save”.": "已開啟：以「從存檔匯入進度」連結角色後開始。",
-  "Each time the game saves, graces discovered and bosses beaten on this map are read from the linked character and applied at once, with a short note of what changed. The save wins: a grace or boss you marked by hand is cleared if the save doesn't have it. Items aren't read. Applies to every playthrough.": "每次遊戲存檔時，會從連結的角色讀取已發現的賜福與此地圖上已擊敗的頭目，立即套用並簡短說明變更。以存檔為準：手動標記但存檔中沒有的賜福或頭目會被清除。不讀取道具。適用於所有周目。",
   "+{count} graces discovered": "新發現 {count} 個賜福",
   "{count} graces no longer discovered": "{count} 個賜福改為未發現",
   "+{count} bosses beaten": "擊敗 {count} 個頭目",
-  "{count} bosses no longer beaten": "{count} 個頭目改為未擊敗"
+  "{count} bosses no longer beaten": "{count} 個頭目改為未擊敗",
+  "Each time the game saves, graces discovered and bosses beaten on this map are read from the linked character and applied at once, with a short note of what changed. Graces are only added, never taken away. A boss you marked beaten by hand is cleared if the save says it isn't. Items aren't read. Applies to every playthrough.": "每次遊戲存檔時，會從連結的角色讀取已發現的賜福與此地圖上已擊敗的頭目，立即套用並簡短說明變更。賜福只會增加，不會移除。手動標記為已擊敗、但存檔顯示未擊敗的頭目會被清除。不讀取道具。適用於所有周目。"
 }

@@ -91,9 +91,11 @@ export function AutoImport({
             return; // Paused until the player answers.
           }
           const now = latest.current.player;
+          // The game never undoes a discovered grace, so this only adds
+          // graces; a grace marked by hand stays. Bosses follow the save.
           const plan = planImport(
             activeProfile(now).progress,
-            known,
+            known.filter(isBoss),
             result.set,
           );
           if (plan.added.length + plan.removed.length > 0) {
@@ -228,7 +230,7 @@ export function AutoImportSwitch({
       </p>
       <p className="text-xs text-muted">
         {t(
-          "Each time the game saves, graces discovered and bosses beaten on this map are read from the linked character and applied at once, with a short note of what changed. The save wins: a grace or boss you marked by hand is cleared if the save doesn't have it. Items aren't read. Applies to every playthrough.",
+          "Each time the game saves, graces discovered and bosses beaten on this map are read from the linked character and applied at once, with a short note of what changed. Graces are only added, never taken away. A boss you marked beaten by hand is cleared if the save says it isn't. Items aren't read. Applies to every playthrough.",
         )}
       </p>
     </section>

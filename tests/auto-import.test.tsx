@@ -78,6 +78,7 @@ function setup(
   save: () => { name: string; set: number[] } | Response,
   stamp: () => string,
   autoImport = true,
+  flags: number[] = [],
 ) {
   const initial = initialDocuments().player;
   let player: PlayerDocument = {
@@ -86,6 +87,7 @@ function setup(
     saveLocation: "/saves/ER0000.sl2",
     profiles: initial.profiles.map((p) => ({
       ...p,
+      progress: { ...p.progress, flags },
       save: { steamId: "1", slot: 0, name: "Tarnished" },
     })),
   };
@@ -172,6 +174,22 @@ describe("importing automatically when the game saves", () => {
     expect(activeProfile(player()).progress.flags).toEqual([71000]);
   });
 
+  it("never takes a grace away, but follows the save for bosses", async () => {
+    const { player } = setup(
+      () => ({ name: "Tarnished", set: [] }),
+      () => "a",
+      true,
+      [71000, 10000800],
+    );
+    expect(
+      await screen.findByText(
+        "Imported from the save: 1 bosses no longer beaten",
+      ),
+    ).toBeInTheDocument();
+    // The grace marked by hand stays; the boss the save hasn't beaten goes.
+    expect(activeProfile(player()).progress.flags).toEqual([71000]);
+  });
+
   it("reads nothing while switched off", async () => {
     const { fetch } = setup(
       () => ({ name: "Tarnished", set: [71000] }),
@@ -227,7 +245,9 @@ describe("the automatic import's switch", () => {
     expect(
       screen.getByText("On: watching Tarnished (slot 1)."),
     ).toBeInTheDocument();
-    expect(screen.getByText(/The save wins/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Graces are only added, never taken away/),
+    ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("switch", { name: "Import automatically" }),
     );
