@@ -2,21 +2,20 @@
 
 ## In progress
 
-### feat/playthrough-tracker
+### feat/save-location
 
-- Task: #60 Turn the item progress view into a playthrough progress tracker with bosses
-- PR: not opened; branch linked to #60 (P-05 approved), pushed only at 97eb225
-- Code checkpoint: af52f10 (not pushed)
-- State: built and reviewed by the player; awaiting P-06. The side panel's list is the "Playthrough tracker" (「挑戰進度」): wishlist entries plus every boss on a pin or grace a walked path reaches, bosses before items at each pin, tap to mark beaten (sets the boss's flag). Header: "{acquired} of {total} items acquired", plus " · {beaten} of {bosses} bosses beaten" once the walk reaches a boss. The filter reads To do / Done / Skipped; Done holds acquired items and beaten bosses. The save import only asks about bosses on the map's pins and graces. `docs/architecture.md` updated.
-- Verification: lint, typecheck, `npm test` (135) and build pass at af52f10; checked in the browser in English and zh-TW against a scratch data folder (seeded map, boss toggled, no console errors).
-- Player decisions on the review (name, hidden empty boss count, to-do filter) are built.
-- Next action: on P-06 approval, push and open the PR with the drafted title and body.
-- Pending: P-06 push this branch and open its PR "feat: turn the item progress view into a playthrough tracker with bosses" (Closes #60); asked 2026-10-19, blocks review and merge.
+- Task: #43 Choose where the save file is, then #18 (re-import automatically when the game saves) on its own branch
+- PR: none; branch local only, from `main` at 51956a6 (after #64), not pushed or linked to #43
+- Code checkpoint: 2507ef2
+- State: built; awaiting P-08. This machine's save is in Steam's own prefix (`~/Library/Application Support/Steam/steamapps/compatdata/1245620/pfx/.../EldenRing`), not a bottle, and the game is in Steam's own library. The server now searches every CrossOver bottle plus that prefix; picking a character remembers its file as `saveLocation` (player schema 11); "Choose another location" takes a typed full path; nothing found lists where it looked. The extractor finds the game in Steam or any bottle.
+- Verification: lint, typecheck, `npm test` (141) and build pass at 2507ef2; `extract.py` compiles and finds the game, but a full `npm run extract` wasn't run. Real import checked in the browser against the player's save (5 characters found, slot 1 read, +143 graces), with a scratch data folder.
+- Next action: on P-08 approval, push and open the PR with the drafted title and body. Then #18, whose questions are with the player.
+- Pending: P-08 push this branch and open its PR "feat: find the save in every bottle and Steam, and choose its location" (Closes #43); asked 2026-10-19, blocks review and merge. It replaces P-07 (link and push): the PR links the branch to #43.
 
 ## Ranked work
 
-1. #60 Turn the item progress view into a playthrough progress tracker with bosses (the player's decisions are in a comment on #60)
-2. #43 Choose where the save file is (blocks trying the save import)
+1. #43 Choose where the save file is (blocks trying the save import; in progress on `feat/save-location`)
+2. #18 Re-import progress automatically when the game saves (after #43; the player wants it, and its questions are with the player)
 3. #37 Grace icons cover path numbers and lines
 4. #44 Show which way a path goes
 5. #33 Step numbers pinned to the screen edge can overlap (small)

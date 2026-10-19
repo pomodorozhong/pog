@@ -198,13 +198,19 @@ export type Profile = {
 };
 
 export type PlayerDocument = {
-  schemaVersion: 10;
+  schemaVersion: 11;
   language: Language;
   view: MapView;
   stepSize: StepSize;
   /** Hide graces no path on the active profile's map runs through. */
   hideUnusedGraces: boolean;
   graceNames: GraceNameMode;
+  /**
+   * Where the save import reads the game's save: a full path to the save
+   * file the player chose or picked a character from, or a folder holding
+   * saves. Null means looking everywhere the game keeps them.
+   */
+  saveLocation: string | null;
   activeProfile: string;
   profiles: Profile[];
 };

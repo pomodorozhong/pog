@@ -1,7 +1,10 @@
 import type { PlayerDocument, Progress, SaveLink } from "../domain/types";
 
 export type SaveSlot = { index: number; name: string };
-export type SaveSummary = { steamId: string; slots: SaveSlot[] };
+/** A save file the server found, with its account and characters. */
+export type SaveSummary = { steamId: string; slots: SaveSlot[]; file: string };
+/** The saves found, and every place looked at. */
+export type SaveSearch = { saves: SaveSummary[]; searched: string[] };
 export type SlotFlags = { name: string; set: number[] };
 
 async function call<T>(url: string, init?: RequestInit): Promise<T> {
@@ -17,16 +20,32 @@ async function call<T>(url: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-/** The characters in each Steam account's save. */
-export const fetchSaves = () =>
-  call<{ saves: SaveSummary[] }>("/api/save/slots").then((r) => r.saves);
+/**
+ * The saves at a location (a save file or a folder), or, with none, wherever
+ * the game keeps them on this Mac.
+ */
+export const fetchSaves = (location: string | null) =>
+  call<SaveSearch>(
+    location === null
+      ? "/api/save/slots"
+      : `/api/save/slots?${new URLSearchParams({ location })}`,
+  );
 
-/** Which of `flags` are set for the linked character. */
-export const fetchSlotFlags = (link: Omit<SaveLink, "name">, flags: number[]) =>
+/** Which of `flags` are set for the linked character, in the save at `location`. */
+export const fetchSlotFlags = (
+  location: string | null,
+  link: Omit<SaveLink, "name">,
+  flags: number[],
+) =>
   call<SlotFlags>("/api/save/flags", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ steamId: link.steamId, slot: link.slot, flags }),
+    body: JSON.stringify({
+      location,
+      steamId: link.steamId,
+      slot: link.slot,
+      flags,
+    }),
   });
 
 export type ImportPlan = {
@@ -62,14 +81,19 @@ export function planImport(
   };
 }
 
-/** Apply an import to a profile and remember which character it came from. */
+/**
+ * Apply an import to a profile and remember which character it came from,
+ * and where its save is.
+ */
 export const applyImport = (
   player: PlayerDocument,
   profileId: string,
   plan: ImportPlan,
   link: SaveLink,
+  location: string | null,
 ): PlayerDocument => ({
   ...player,
+  saveLocation: location,
   profiles: player.profiles.map((p) =>
     p.id === profileId
       ? { ...p, progress: { ...p.progress, flags: plan.flags }, save: link }

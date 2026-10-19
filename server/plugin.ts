@@ -95,15 +95,21 @@ export function saveMiddleware(reader: SaveReader) {
     if (!url.startsWith("/api/save/")) return next();
     try {
       assertLocalRequest(request);
-      if (url === "/api/save/slots" && request.method === "GET")
-        return reply(response, 200, { saves: await reader.list() });
+      if (url === "/api/save/slots" && request.method === "GET") {
+        const location = new URLSearchParams(
+          request.url?.split("?")[1] ?? "",
+        ).get("location");
+        return reply(response, 200, await reader.list(location || null));
+      }
       if (url === "/api/save/flags" && request.method === "POST") {
         if (
           request.headers["content-type"]?.split(";")[0] !== "application/json"
         )
           throw new SaveError(415, "Use application/json.");
         const body = await readJson(request, 1024 * 1024);
+        const location = body?.location ?? null;
         if (
+          (location !== null && typeof location !== "string") ||
           typeof body?.steamId !== "string" ||
           !Array.isArray(body.flags) ||
           !body.flags.every(Number.isSafeInteger)
@@ -112,7 +118,7 @@ export function saveMiddleware(reader: SaveReader) {
         return reply(
           response,
           200,
-          await reader.flags(body.steamId, body.slot, body.flags),
+          await reader.flags(location, body.steamId, body.slot, body.flags),
         );
       }
       throw new SaveError(404, "Unknown request.");
@@ -166,7 +172,7 @@ export function localServerPlugin(gameDataRoot: string): Plugin {
   const storage = storageMiddleware();
   const gameData = gameDataMiddleware(gameDataRoot);
   const save = saveMiddleware(
-    new SaveReader(undefined, join(gameDataRoot, "eventflag_bst.txt")),
+    new SaveReader(join(gameDataRoot, "eventflag_bst.txt")),
   );
   return {
     name: "route-of-grace-local-server",

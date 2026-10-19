@@ -3,7 +3,9 @@
 Usage:
     .venv/bin/python scripts/extract/extract.py [--game-dir DIR] [--out DIR]
 
-Everything is read straight from the game's archives; the output folder holds
+Without --game-dir (or ROUTE_OF_GRACE_GAME_DIR), the game is looked for in
+Steam's own library, then in every CrossOver bottle. Everything is read
+straight from the game's archives; the output folder holds
 game assets and must stay out of git.
 """
 
@@ -29,10 +31,19 @@ from formats import read_bhf4, read_bnd4, read_emevd, read_fmg, read_mtmsk, read
 from params import LAYOUTS, read_param, read_regulation
 
 REPO = Path(__file__).resolve().parents[2]
-DEFAULT_GAME_DIR = Path.home() / (
-    "Library/Application Support/CrossOver/Bottles/Elden Ring/drive_c/"
-    "Program Files (x86)/Steam/steamapps/common/ELDEN RING/Game"
-)
+STEAM_GAME = Path("steamapps/common/ELDEN RING/Game")
+
+
+def game_dir_candidates(home: Path = Path.home()) -> list[Path]:
+    """Where the game may be installed on this Mac: Steam's own library, then Steam in every CrossOver bottle."""
+    support = home / "Library/Application Support"
+    bottles = support / "CrossOver/Bottles"
+    found = sorted(p for p in bottles.iterdir() if p.is_dir()) if bottles.is_dir() else []
+    return [support / "Steam" / STEAM_GAME] + [b / "drive_c/Program Files (x86)/Steam" / STEAM_GAME for b in found]
+
+
+def find_game_dir(home: Path = Path.home()) -> Path | None:
+    return next((d for d in game_dir_candidates(home) if (d / "eldenring.exe").exists()), None)
 
 # (catalog type, param, FMG table prefix)
 ITEM_TYPES = [
@@ -408,13 +419,21 @@ def download_flag_table(out: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--game-dir", type=Path, default=Path(os.environ.get("ROUTE_OF_GRACE_GAME_DIR", DEFAULT_GAME_DIR)))
+    parser.add_argument("--game-dir", type=Path, default=os.environ.get("ROUTE_OF_GRACE_GAME_DIR"), help="default: found in Steam or a CrossOver bottle")
     parser.add_argument("--out", type=Path, default=REPO / "game-data")
     parser.add_argument("--icon-size", type=int, default=256)
     parser.add_argument("--skip-icons", action="store_true")
     parser.add_argument("--skip-map", action="store_true")
     args = parser.parse_args()
 
+    if args.game_dir is None:
+        args.game_dir = find_game_dir()
+        if args.game_dir is None:
+            looked = "\n  ".join(str(d) for d in game_dir_candidates())
+            print(f"eldenring.exe not found; looked in:\n  {looked}\npass --game-dir", file=sys.stderr)
+            return 1
+        log(f"game found in {args.game_dir}")
+    args.game_dir = Path(args.game_dir)
     if not (args.game_dir / "eldenring.exe").exists():
         print(f"eldenring.exe not found in {args.game_dir}; pass --game-dir", file=sys.stderr)
         return 1

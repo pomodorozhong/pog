@@ -1,14 +1,22 @@
 // @vitest-environment node
 import { createHash } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   parseFlagTable,
   readSlotFlags,
   readSummary,
   SaveError,
+  SaveReader,
 } from "../server/save";
 import { planImport } from "../src/progress/importSave";
-import { initialDocuments, validDocument } from "../src/storage/schema";
+import {
+  initialDocuments,
+  upgradeDocument,
+  validDocument,
+} from "../src/storage/schema";
 
 const SLOT_BYTES = 0x280000;
 /** Where an empty slot's event flags start: every variable section is empty. */
@@ -96,6 +104,108 @@ describe("reading the game save", () => {
   });
 });
 
+describe("finding the save", () => {
+  const STEAM = "76561198000000001";
+  const ROAMING = "AppData/Roaming/EldenRing";
+  let home: string;
+  let flagTable: string;
+  const support = () => join(home, "Library/Application Support");
+  const bottle = (name: string) =>
+    join(support(), "CrossOver/Bottles", name, "drive_c/users");
+  const steamPrefix = () =>
+    join(support(), "Steam/steamapps/compatdata/1245620/pfx/drive_c/users");
+
+  async function put(folder: string, file: Buffer) {
+    await mkdir(folder, { recursive: true });
+    await writeFile(join(folder, "ER0000.sl2"), file);
+    return join(folder, "ER0000.sl2");
+  }
+
+  beforeEach(async () => {
+    home = await mkdtemp(join(tmpdir(), "route-of-grace saves "));
+    flagTable = join(home, "eventflag_bst.txt");
+    await writeFile(flagTable, "71,0\n10,1\n");
+  });
+  afterEach(() => rm(home, { recursive: true, force: true }));
+
+  it("looks in every CrossOver bottle and in Steam's own prefix", async () => {
+    const inBottle = await put(
+      join(bottle("Steam"), "crossover", ROAMING, STEAM),
+      save([slot("Burning")]),
+    );
+    const inSteam = await put(
+      join(steamPrefix(), "steamuser", ROAMING, STEAM),
+      save([slot("Tarnished")]),
+    );
+    await mkdir(
+      join(home, "Library/Application Support/CrossOver/Bottles/itchio"),
+      {
+        recursive: true,
+      },
+    );
+    const reader = new SaveReader(flagTable, undefined, home);
+    const { saves, searched } = await reader.list(null);
+    // The same account in two places shows twice, told apart by the file.
+    expect(saves.map((s) => [s.file, s.steamId])).toEqual([
+      [inBottle, STEAM],
+      [inSteam, STEAM],
+    ]);
+    expect(searched).toEqual([
+      join(bottle("Steam"), "crossover", ROAMING),
+      join(support(), "CrossOver/Bottles/itchio"),
+      join(steamPrefix(), "steamuser", ROAMING),
+    ]);
+  });
+
+  it("says where it looked when there is no bottle and no save", async () => {
+    const reader = new SaveReader(flagTable, undefined, home);
+    expect(await reader.list(null)).toEqual({
+      saves: [],
+      searched: [
+        join(support(), "CrossOver/Bottles"),
+        join(support(), "Steam/steamapps/compatdata/1245620/pfx"),
+      ],
+    });
+  });
+
+  it("reads a chosen save folder, Steam ID folder or file", async () => {
+    const folder = join(home, "copied", "EldenRing");
+    const file = await put(join(folder, STEAM), save([slot("Burning")]));
+    // A copy of the file under another name, outside any Steam ID folder.
+    const copy = join(home, "backup.sl2");
+    await writeFile(copy, save([slot("Burning")], 76561198000000002n));
+    const reader = new SaveReader(flagTable, undefined, home);
+    for (const location of [folder, join(folder, STEAM), file])
+      expect((await reader.list(location)).saves.map((s) => s.file)).toEqual([
+        file,
+      ]);
+    expect((await reader.list(copy)).saves[0].steamId).toBe(
+      "76561198000000002",
+    );
+    expect(await reader.flags(file, STEAM, 0, [ROUNDTABLE])).toEqual({
+      name: "Burning",
+      set: [ROUNDTABLE],
+    });
+    await expect(reader.flags(file, "1", 0, [ROUNDTABLE])).rejects.toThrow(
+      "No save found",
+    );
+    await expect(reader.list("copied")).rejects.toThrow("full path");
+  });
+
+  it("reads only ROUTE_OF_GRACE_SAVE_DIR when it is set", async () => {
+    const override = join(home, "override");
+    const file = await put(join(override, STEAM), save([slot("Burning")]));
+    const chosen = await put(join(home, "chosen", STEAM), save([slot("X")]));
+    const reader = new SaveReader(flagTable, override, home);
+    expect((await reader.list(chosen)).saves.map((s) => s.file)).toEqual([
+      file,
+    ]);
+    expect(() => new SaveReader(flagTable, "relative", home)).toThrow(
+      "absolute",
+    );
+  });
+});
+
 describe("planning an import", () => {
   it("takes the save's word for the flags it was asked about", () => {
     const progress = { flags: [1, 2, 99], position: null };
@@ -118,5 +228,19 @@ describe("planning an import", () => {
     expect(validDocument("player", linked({ ...link, steamId: "../x" }))).toBe(
       false,
     );
+  });
+
+  it("remembers the save location, a full path, from version 11", () => {
+    const player = initialDocuments().player;
+    expect(player.saveLocation).toBeNull();
+    const legacy: Record<string, unknown> = { ...player, schemaVersion: 10 };
+    delete legacy.saveLocation;
+    expect(validDocument("player", legacy)).toBe(false);
+    expect(upgradeDocument("player", legacy)).toEqual(player);
+    const at = (saveLocation: unknown) =>
+      validDocument("player", { ...player, saveLocation });
+    expect(at("/Users/me/EldenRing/1/ER0000.sl2")).toBe(true);
+    expect(at("EldenRing")).toBe(false);
+    expect(at(1)).toBe(false);
   });
 });

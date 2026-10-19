@@ -14,15 +14,22 @@ import {
   fetchSlotFlags,
   planImport,
   type ImportPlan,
-  type SaveSummary,
+  type SaveSearch,
 } from "./importSave";
 
+/** Each step that reads a save keeps where it is: a path, or null to look everywhere. */
 type Step =
   | { kind: "idle"; message?: string; failed?: boolean }
   | { kind: "busy" }
-  | { kind: "pick"; saves: SaveSummary[] }
-  | { kind: "renamed"; link: SaveLink; found: string }
-  | { kind: "review"; link: SaveLink; plan: ImportPlan };
+  | ({ kind: "pick" } & SaveSearch)
+  | { kind: "choose"; path: string }
+  | { kind: "renamed"; link: SaveLink; found: string; location: string | null }
+  | {
+      kind: "review";
+      link: SaveLink;
+      plan: ImportPlan;
+      location: string | null;
+    };
 
 /**
  * "Import progress from save": read the linked character's flags, show what
@@ -78,20 +85,22 @@ export function SaveImport({
   }
 
   /** Read a slot; a linked slot now holding another character asks first. */
-  const read = (link: SaveLink, confirmed = false) =>
+  const read = (link: SaveLink, location: string | null, confirmed = false) =>
     attempt(async () => {
-      const result = await fetchSlotFlags(link, known);
+      const result = await fetchSlotFlags(location, link, known);
       if (!confirmed && result.name !== link.name)
-        return { kind: "renamed", link, found: result.name };
+        return { kind: "renamed", link, found: result.name, location };
       return {
         kind: "review",
         link: { ...link, name: result.name },
         plan: planImport(profile.progress, known, result.set),
+        location,
       };
     });
 
-  const pick = () =>
-    attempt(async () => ({ kind: "pick", saves: await fetchSaves() }));
+  /** List the characters at a location, or wherever the game keeps saves. */
+  const pick = (location: string | null = null) =>
+    attempt(async () => ({ kind: "pick", ...(await fetchSaves(location)) }));
 
   return (
     <div className="space-y-2" aria-label={t("Import progress from save")}>
@@ -102,13 +111,24 @@ export function SaveImport({
           })}
         </p>
       )}
+      {player.saveLocation && (
+        <p
+          className="truncate text-xs text-muted [direction:rtl]"
+          title={player.saveLocation}
+        >
+          {/* The end of the path names the save; the start is cut instead. */}
+          <bdi>{player.saveLocation}</bdi>
+        </p>
+      )}
       {(step.kind === "idle" || step.kind === "busy") && (
         <div className="flex flex-wrap gap-2">
           <button
             className="chip"
             disabled={step.kind === "busy"}
             onClick={() =>
-              profile.save ? void read(profile.save) : void pick()
+              profile.save
+                ? void read(profile.save, player.saveLocation)
+                : void pick()
             }
           >
             {step.kind === "busy"
@@ -136,37 +156,118 @@ export function SaveImport({
           <p className="text-xs text-muted">
             {t("Which character is this playthrough?")}
           </p>
-          {step.saves.flatMap((save) =>
-            save.slots.map((slot) => (
-              <button
-                key={`${save.steamId}/${slot.index}`}
-                className="chip mr-2"
-                title={t("Steam ID {id}", { id: save.steamId })}
-                onClick={() =>
-                  void read(
-                    {
-                      steamId: save.steamId,
-                      slot: slot.index,
-                      name: slot.name,
-                    },
-                    true,
-                  )
-                }
+          {step.saves.map((save) => (
+            <div key={save.file} className="space-y-1">
+              {/* Saves in two places can share a Steam ID; the path tells them apart. */}
+              <p
+                className="truncate text-xs text-muted [direction:rtl]"
+                title={save.file}
               >
-                {slotName({ slot: slot.index, name: slot.name })}
-              </button>
-            )),
-          )}
+                <bdi>{save.file}</bdi>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {save.slots.map((slot) => (
+                  <button
+                    key={slot.index}
+                    className="chip"
+                    title={t("Steam ID {id}", { id: save.steamId })}
+                    onClick={() =>
+                      void read(
+                        {
+                          steamId: save.steamId,
+                          slot: slot.index,
+                          name: slot.name,
+                        },
+                        save.file,
+                        true,
+                      )
+                    }
+                  >
+                    {slotName({ slot: slot.index, name: slot.name })}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
           {!step.saves.some((s) => s.slots.length) && (
-            <p className="text-xs text-danger">{t("No characters found.")}</p>
+            <div className="space-y-1 text-xs">
+              <p className="text-danger">
+                {t(
+                  step.saves.length
+                    ? "No characters found."
+                    : "No Elden Ring saves found. Looked in:",
+                )}
+              </p>
+              {!step.saves.length && (
+                <ul className="space-y-0.5 text-muted">
+                  {step.searched.map((place) => (
+                    <li key={place} className="break-all">
+                      {place}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
-          <button
-            className="link text-xs"
-            onClick={() => setStep({ kind: "idle" })}
-          >
-            {t("Cancel")}
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button
+              className="link text-xs"
+              onClick={() =>
+                setStep({ kind: "choose", path: player.saveLocation ?? "" })
+              }
+            >
+              {t("Choose another location")}
+            </button>
+            <button
+              className="link text-xs"
+              onClick={() => setStep({ kind: "idle" })}
+            >
+              {t("Cancel")}
+            </button>
+          </div>
         </div>
+      )}
+
+      {step.kind === "choose" && (
+        <form
+          className="space-y-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void pick(step.path.trim());
+          }}
+        >
+          <label className="flex flex-col gap-1 text-xs text-muted">
+            {t("Save folder or ER0000.sl2 file (full path)")}
+            <input
+              className="field w-full"
+              value={step.path}
+              placeholder="/Users/…/AppData/Roaming/EldenRing"
+              autoFocus
+              onChange={(e) =>
+                setStep({ kind: "choose", path: e.target.value })
+              }
+            />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="chip"
+              type="submit"
+              disabled={!step.path.trim().startsWith("/")}
+            >
+              {t("Look here")}
+            </button>
+            <button className="chip" type="button" onClick={() => void pick()}>
+              {t("Look everywhere")}
+            </button>
+            <button
+              className="link text-xs"
+              type="button"
+              onClick={() => setStep({ kind: "idle" })}
+            >
+              {t("Cancel")}
+            </button>
+          </div>
+        </form>
       )}
 
       {step.kind === "renamed" && (
@@ -182,7 +283,10 @@ export function SaveImport({
             )}
           </p>
           <div className="flex flex-wrap gap-2">
-            <button className="chip" onClick={() => void read(step.link, true)}>
+            <button
+              className="chip"
+              onClick={() => void read(step.link, step.location, true)}
+            >
               {t("Import from “{name}”", { name: step.found })}
             </button>
             <button className="chip" onClick={() => void pick()}>
@@ -249,7 +353,13 @@ export function SaveImport({
               className="chip"
               onClick={() => {
                 setPlayer(
-                  applyImport(player, profile.id, step.plan, step.link),
+                  applyImport(
+                    player,
+                    profile.id,
+                    step.plan,
+                    step.link,
+                    step.location,
+                  ),
                 );
                 setStep({ kind: "idle", message: t("Progress imported.") });
               }}
