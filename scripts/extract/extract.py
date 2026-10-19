@@ -185,6 +185,7 @@ def build_graces(regulation: dict[str, bytes], names: dict) -> list[dict]:
             "x": round(x - MAP_ORIGIN_X),
             "y": round(MAP_ORIGIN_Z - z),
             "flag": row["eventflagId"],
+            "entity": row["bonfireEntityId"],
             "legacy": area != row["areaNo"],
         })
     if skipped:

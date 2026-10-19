@@ -5,9 +5,11 @@ import type { GameData } from "../map/catalog";
 import { activeProfile } from "../profiles/profiles";
 import {
   applyImport,
+  changesSomething,
   fetchSaveStamp,
   fetchSlotFlags,
   importFlags,
+  lastGraceOnMap,
   planImport,
   SaveRequestError,
   summarizeChanges,
@@ -91,24 +93,33 @@ export function AutoImport({
             return; // Paused until the player answers.
           }
           const now = latest.current.player;
-          // The game never undoes a discovered grace, so this only adds
-          // graces; a grace marked by hand stays. Bosses follow the save.
+          // The save decides every grace and boss, as the manual import does.
           const plan = planImport(
             activeProfile(now).progress,
-            known.filter(isBoss),
+            known,
             result.set,
+            lastGraceOnMap(data, doc, result.lastGrace),
           );
-          if (plan.added.length + plan.removed.length > 0) {
+          if (changesSomething(plan)) {
             latest.current.setPlayer(
               applyImport(now, profile.id, plan, link, location),
             );
-            setNotice({
-              watching: about,
-              kind: "imported",
-              text: t("Imported from the save: {changes}", {
-                changes: summarizeChanges(t, plan, isBoss),
-              }),
-            });
+            const changes = [
+              summarizeChanges(t, plan, isBoss),
+              plan.moveTo &&
+                t("You're at {grace}", {
+                  grace: data.byId.get(plan.moveTo)?.name[language] ?? "",
+                }),
+            ]
+              .filter(Boolean)
+              .join(" · ");
+            // Only the last grace's record changed: nothing to say.
+            if (changes)
+              setNotice({
+                watching: about,
+                kind: "imported",
+                text: t("Imported from the save: {changes}", { changes }),
+              });
           }
         }
       } catch (error) {
@@ -230,7 +241,7 @@ export function AutoImportSwitch({
       </p>
       <p className="text-xs text-muted">
         {t(
-          "Each time the game saves, graces discovered and bosses beaten on this map are read from the linked character and applied at once, with a short note of what changed. Graces are only added, never taken away. A boss you marked beaten by hand is cleared if the save says it isn't. Items aren't read. Applies to every playthrough.",
+          "Each time the game saves, graces discovered and bosses beaten on this map are read from the linked character and applied at once, with a short note of what changed. The save decides every grace and boss on this map: one you marked by hand is cleared if the save doesn't have it. When the character rests at a new grace, “I'm here” moves there. Items aren't read. Applies to every playthrough.",
         )}
       </p>
     </section>

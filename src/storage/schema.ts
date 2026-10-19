@@ -165,7 +165,7 @@ function checkWishlist(value: unknown): value is WishlistItem[] {
 }
 
 function checkProgress(value: unknown): value is Progress {
-  if (!hasExactKeys(value, ["flags", "position"])) return false;
+  if (!hasExactKeys(value, ["flags", "position"], ["lastGrace"])) return false;
   const v = value as Progress;
   return (
     Array.isArray(v.flags) &&
@@ -175,7 +175,8 @@ function checkProgress(value: unknown): value is Progress {
         flag >= 0 &&
         (i === 0 || flag > v.flags[i - 1]),
     ) &&
-    (v.position === null || typeof v.position === "string")
+    (v.position === null || typeof v.position === "string") &&
+    (v.lastGrace === undefined || GRACE_ID.test(v.lastGrace))
   );
 }
 

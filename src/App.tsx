@@ -59,7 +59,7 @@ import { NodeProgress, ProgressPanel } from "./progress/ProgressPanel";
 import { beatenBosses, undiscoveredGraces } from "./progress/progress";
 import { activeProfile, addProfile, TEMPLATES } from "./profiles/profiles";
 import { displayName } from "./map/catalog";
-import { detour, routeLines } from "./routing/order";
+import { detour } from "./routing/order";
 import { RoutePanel } from "./routing/RoutePanel";
 import { usePlannedRoute } from "./routing/usePlannedRoute";
 import { initialDocuments, mapKey } from "./storage/schema";
@@ -220,23 +220,6 @@ export default function App() {
   const profile = player ? activeProfile(player) : null;
   const progress = profile?.progress ?? null;
   const plan = usePlannedRoute(data, map, profile);
-  const route = useMemo(
-    () => (plan ? routeLines(map, plan.route.legs) : []),
-    [map, plan],
-  );
-  const stops = useMemo(
-    () => new Map(plan?.route.order.map((id, i) => [id, i + 1])),
-    [plan],
-  );
-  const routeNodes = useMemo(
-    () =>
-      new Set(
-        plan?.route.legs.flatMap((leg) =>
-          leg.flatMap((step) => [step.from, step.to]),
-        ),
-      ),
-    [plan],
-  );
   const undiscovered = useMemo(
     () =>
       data && progress
@@ -782,9 +765,6 @@ export default function App() {
             undiscovered={undiscovered}
             position={progress?.position ?? null}
             beaten={beaten}
-            route={route}
-            stops={stops}
-            routeNodes={routeNodes}
             highlight={highlight}
           />
           {!narrow && (

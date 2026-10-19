@@ -121,7 +121,6 @@ it("persists one filter across profiles and reloads, while routing still uses hi
   // Next stops are part of the playthrough, shown while editing.
   fireEvent.click(screen.getByRole("button", { name: "Edit" }));
   expect(screen.getByText(/fast travel to Grace 2/)).toBeInTheDocument();
-  expect(canvas.props!.routeNodes.has("grace/2")).toBe(true);
   fireEvent.click(toggle);
   expect(canvas.props!.hideUnusedGraces).toBe(true);
   expect(canvas.props!.nodes.map((node) => node.id)).toContain("grace/2");

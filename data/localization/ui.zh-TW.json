@@ -115,8 +115,6 @@
   "Not beaten: {boss}": "未擊敗：{boss}",
   "Apply": "套用",
   "Progress imported.": "已匯入進度。",
-  "+{added} graces discovered, −{removed} not discovered": "新發現 {added} 個賜福，{removed} 個改為未發現",
-  "+{added} bosses beaten, −{removed} not beaten": "新擊敗 {added} 個頭目，{removed} 個改為未擊敗",
   "Includes Shadow of the Erdtree": "包含「黃金樹幽影」",
   "The route can't reach this pin.": "路線無法到達此標記。",
   "a junction": "路口",
@@ -238,5 +236,7 @@
   "{count} graces no longer discovered": "{count} 個賜福改為未發現",
   "+{count} bosses beaten": "擊敗 {count} 個頭目",
   "{count} bosses no longer beaten": "{count} 個頭目改為未擊敗",
-  "Each time the game saves, graces discovered and bosses beaten on this map are read from the linked character and applied at once, with a short note of what changed. Graces are only added, never taken away. A boss you marked beaten by hand is cleared if the save says it isn't. Items aren't read. Applies to every playthrough.": "每次遊戲存檔時，會從連結的角色讀取已發現的賜福與此地圖上已擊敗的頭目，立即套用並簡短說明變更。賜福只會增加，不會移除。手動標記為已擊敗、但存檔顯示未擊敗的頭目會被清除。不讀取道具。適用於所有周目。"
+  "Each time the game saves, graces discovered and bosses beaten on this map are read from the linked character and applied at once, with a short note of what changed. The save decides every grace and boss on this map: one you marked by hand is cleared if the save doesn't have it. When the character rests at a new grace, “I'm here” moves there. Items aren't read. Applies to every playthrough.": "每次遊戲存檔時，會從連結的角色讀取已發現的賜福與此地圖上已擊敗的頭目，立即套用並簡短說明變更。此地圖上的賜福與頭目一律以存檔為準：手動標記、但存檔中沒有的會被清除。角色在新的賜福休息時，「我在這裡」會移到該處。不讀取道具。適用於所有周目。",
+  "You're at {grace}": "目前位於{grace}",
+  "Last rested at {grace}: “I'm here” moves there.": "最後在{grace}休息：「我在這裡」會移到該處。"
 }

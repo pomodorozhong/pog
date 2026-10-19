@@ -13,8 +13,9 @@ import {
   fetchSaves,
   fetchSlotFlags,
   importFlags,
+  lastGraceOnMap,
   planImport,
-  summarizeImport,
+  summarizeChanges,
   type ImportPlan,
   type SaveSearch,
 } from "./importSave";
@@ -86,7 +87,12 @@ export function SaveImport({
       return {
         kind: "review",
         link: { ...link, name: result.name },
-        plan: planImport(profile.progress, known, result.set),
+        plan: planImport(
+          profile.progress,
+          known,
+          result.set,
+          lastGraceOnMap(data, doc, result.lastGrace),
+        ),
         location,
       };
     });
@@ -292,11 +298,20 @@ export function SaveImport({
       {step.kind === "review" && (
         <div className="space-y-2 text-sm">
           <p>{t("From {character}:", { character: slotName(step.link) })}</p>
-          {step.plan.added.length + step.plan.removed.length === 0 ? (
-            <p className="text-muted">{t("Nothing has changed.")}</p>
-          ) : (
+          {step.plan.added.length + step.plan.removed.length > 0 ? (
             <p className="text-muted">
-              {summarizeImport(t, step.plan, isBoss)}
+              {summarizeChanges(t, step.plan, isBoss)}
+            </p>
+          ) : (
+            !step.plan.moveTo && (
+              <p className="text-muted">{t("Nothing has changed.")}</p>
+            )
+          )}
+          {step.plan.moveTo && (
+            <p>
+              {t("Last rested at {grace}: “I'm here” moves there.", {
+                grace: data.byId.get(step.plan.moveTo)?.name[language] ?? "",
+              })}
             </p>
           )}
           {step.plan.added.length + step.plan.removed.length > 0 && (

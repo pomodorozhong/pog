@@ -17,6 +17,11 @@ export type CatalogGrace = CatalogName & {
   y: number;
   /** Event flag set once the grace is discovered. */
   flag: number;
+  /**
+   * Its `bonfireEntityId`, which the save's last grace rested at refers to.
+   * Missing in a catalog extracted before it was added.
+   */
+  entity?: number;
   /** Inside a legacy dungeon, cave or catacomb, projected onto the open-world map. */
   legacy: boolean;
 };

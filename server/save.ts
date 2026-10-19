@@ -159,8 +159,13 @@ export function readSummary(save: Buffer): SaveSummary {
 /**
  * Walk a character slot to its event flags. The sections before them are
  * listed in order; a number is a fixed size, a function reads a variable one.
+ * On the way it reads the last grace rested at.
  */
-function locateEventFlags(slot: Buffer): { name: string; flags: Buffer } {
+function locateEventFlags(slot: Buffer): {
+  name: string;
+  lastGrace: number;
+  flags: Buffer;
+} {
   const version = slot.readUInt32LE(0);
   if (version === 0) throw new SaveError(404, "That save slot is empty.");
   let at = 0x20;
@@ -199,13 +204,16 @@ function locateEventFlags(slot: Buffer): { name: string; flags: Buffer } {
     0x34, // trophy equipment
     0x1b588, // item game data
     sized, // tutorials
-    3 + 4 + 4 + 1 + 4 + 4 + 1 + 4 + 4, // deaths, character type, last grace…
   ];
   for (const section of sections)
     at += typeof section === "number" ? section : section();
+  // Then: 3 unknown bytes, deaths, character type, online flag, online
+  // character type, the last grace rested at, and 9 more bytes.
+  const lastGrace = slot.readUInt32LE(at + 3 + 4 + 4 + 1 + 4);
+  at += 3 + 4 + 4 + 1 + 4 + 4 + 1 + 4 + 4;
   if (at + EVENT_FLAG_BYTES > slot.length)
     throw new SaveError(422, "The save slot's layout wasn't recognised.");
-  return { name, flags: slot.subarray(at, at + EVENT_FLAG_BYTES) };
+  return { name, lastGrace, flags: slot.subarray(at, at + EVENT_FLAG_BYTES) };
 }
 
 /**
@@ -229,16 +237,23 @@ function isFlagSet(flags: Buffer, table: Map<number, number>, flag: number) {
   return byte < flags.length && ((flags[byte] >> (7 - (index & 7))) & 1) === 1;
 }
 
-/** Which of `wanted` are set in one character slot. */
+/**
+ * Which of `wanted` are set in one character slot, and the last grace rested
+ * at: its `bonfireEntityId` + 1000, or 0 for none.
+ */
 export function readSlotFlags(
   save: Buffer,
   slotIndex: number,
   table: Map<number, number>,
   wanted: number[],
-): { name: string; set: number[] } {
+): { name: string; set: number[]; lastGrace: number } {
   const slot = checkedData(containerFiles(save)[slotIndex]);
-  const { name, flags } = locateEventFlags(slot);
-  return { name, set: wanted.filter((f) => isFlagSet(flags, table, f)) };
+  const { name, lastGrace, flags } = locateEventFlags(slot);
+  return {
+    name,
+    set: wanted.filter((f) => isFlagSet(flags, table, f)),
+    lastGrace,
+  };
 }
 
 const STEAM_ID = /^\d{1,20}$/;

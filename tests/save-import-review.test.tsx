@@ -119,7 +119,7 @@ describe("importing progress with bosses", () => {
     );
     expect(
       await screen.findByText(
-        "+1 graces discovered, −0 not discovered · +2 bosses beaten, −1 not beaten",
+        "+1 graces discovered · +2 bosses beaten · 1 bosses no longer beaten",
       ),
     ).toBeInTheDocument();
     expect(screen.getByText(/Beaten Godrick the Grafted/)).toBeInTheDocument();
@@ -149,9 +149,7 @@ describe("importing progress with bosses", () => {
     ).flags;
     expect([...asked].sort()).toEqual([71000, 10000800].sort());
     expect(
-      await screen.findByText(
-        "+1 graces discovered, −0 not discovered · +1 bosses beaten, −0 not beaten",
-      ),
+      await screen.findByText("+1 graces discovered · +1 bosses beaten"),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByText("Apply"));
     // Rennala isn't on the map, so the flag marked by hand stays.
@@ -160,12 +158,10 @@ describe("importing progress with bosses", () => {
     ]);
   });
 
-  it("leaves out the boss summary when no boss changed", async () => {
+  it("leaves out what didn't change", async () => {
     setup([], [71000]);
     fireEvent.click(screen.getByText("Import progress from save"));
-    expect(
-      await screen.findByText("+1 graces discovered, −0 not discovered"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("+1 graces discovered")).toBeInTheDocument();
   });
 });
 
