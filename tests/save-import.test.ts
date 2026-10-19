@@ -192,6 +192,17 @@ describe("finding the save", () => {
     await expect(reader.list("copied")).rejects.toThrow("full path");
   });
 
+  it("notices when the game writes the save, without reading it", async () => {
+    const file = await put(join(home, "chosen", STEAM), save([slot("A")]));
+    const reader = new SaveReader(flagTable, undefined, home);
+    const before = await reader.stamp(file);
+    expect(before).toContain(file);
+    expect(await reader.stamp(file)).toBe(before);
+    await writeFile(file, save([slot("A"), slot("B")]));
+    expect(await reader.stamp(file)).not.toBe(before);
+    expect(await reader.stamp(join(home, "nothing"))).toBe("");
+  });
+
   it("reads only ROUTE_OF_GRACE_SAVE_DIR when it is set", async () => {
     const override = join(home, "override");
     const file = await put(join(override, STEAM), save([slot("Burning")]));
@@ -226,6 +237,18 @@ describe("planning an import", () => {
     expect(validDocument("player", linked(link))).toBe(true);
     expect(validDocument("player", linked({ ...link, slot: 10 }))).toBe(false);
     expect(validDocument("player", linked({ ...link, steamId: "../x" }))).toBe(
+      false,
+    );
+  });
+
+  it("imports automatically by default from version 12", () => {
+    const player = initialDocuments().player;
+    expect(player.autoImport).toBe(true);
+    const legacy: Record<string, unknown> = { ...player, schemaVersion: 11 };
+    delete legacy.autoImport;
+    expect(validDocument("player", legacy)).toBe(false);
+    expect(upgradeDocument("player", legacy)).toEqual(player);
+    expect(validDocument("player", { ...player, autoImport: "yes" })).toBe(
       false,
     );
   });

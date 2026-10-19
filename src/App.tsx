@@ -19,6 +19,7 @@ import {
 } from "./domain/types";
 import { translate, type Translate } from "./i18n/translation";
 import { loadGameData, type GameData } from "./map/catalog";
+import { AutoImport, AutoImportSwitch } from "./progress/AutoImport";
 import {
   historyReducer,
   newId,
@@ -714,6 +715,7 @@ export default function App() {
               </span>
               {!narrow && historyButtons}
               <AppMenu t={t}>
+                <AutoImportSwitch t={t} player={player} setPlayer={setPlayer} />
                 <label className="flex flex-col gap-1">
                   <span className="label">{t("Path numbers")}</span>
                   {stepSizeSelect}
@@ -812,6 +814,14 @@ export default function App() {
         </div>
         {panel}
       </div>
+      <AutoImport
+        t={t}
+        language={language}
+        data={data}
+        player={player}
+        setPlayer={setPlayer}
+        doc={map}
+      />
     </div>
   );
 }

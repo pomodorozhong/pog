@@ -226,5 +226,17 @@
   "{count} saved items aren't attached to a pin, though a pin on the map holds them, so their status and note don't show in the route. Attach them from that pin's Items.": "有 {count} 個已儲存的道具未連結標記，但地圖上有標記放著它們，因此它們的狀態與筆記不會顯示在路線中。請從該標記的「道具」連結它們。",
   "On the wishlist, no pin": "已在願望清單，未連結標記",
   "Not attached to a pin": "未連結標記",
-  "From the wishlist, no pin yet": "願望清單中未連結標記的道具"
+  "From the wishlist, no pin yet": "願望清單中未連結標記的道具",
+  "Imported from the save: {changes}": "已從存檔匯入：{changes}",
+  "Automatic import paused: slot {slot} now holds “{found}”, not “{name}”. Is it still this playthrough?": "已暫停自動匯入：欄位 {slot} 現在是「{found}」，不是「{name}」。這仍是同一個周目嗎？",
+  "Not now": "先不要",
+  "Import automatically": "自動匯入",
+  "Off: progress changes only when you choose “Import progress from save”.": "已關閉：只有選擇「從存檔匯入進度」時才會更新進度。",
+  "On: watching {character}.": "已開啟：正在追蹤 {character}。",
+  "On: starts once this playthrough is linked to a character by “Import progress from save”.": "已開啟：以「從存檔匯入進度」連結角色後開始。",
+  "+{count} graces discovered": "新發現 {count} 個賜福",
+  "{count} graces no longer discovered": "{count} 個賜福改為未發現",
+  "+{count} bosses beaten": "擊敗 {count} 個頭目",
+  "{count} bosses no longer beaten": "{count} 個頭目改為未擊敗",
+  "Each time the game saves, graces discovered and bosses beaten on this map are read from the linked character and applied at once, with a short note of what changed. Graces are only added, never taken away. A boss you marked beaten by hand is cleared if the save says it isn't. Items aren't read. Applies to every playthrough.": "每次遊戲存檔時，會從連結的角色讀取已發現的賜福與此地圖上已擊敗的頭目，立即套用並簡短說明變更。賜福只會增加，不會移除。手動標記為已擊敗、但存檔顯示未擊敗的頭目會被清除。不讀取道具。適用於所有周目。"
 }

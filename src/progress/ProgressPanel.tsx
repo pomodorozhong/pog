@@ -9,6 +9,7 @@ import { displayName, type GameData } from "../map/catalog";
 import { NODE_KIND_NAMES } from "../map/labels";
 import { activeProfile } from "../profiles/profiles";
 import { discoveredCount, graceFlag, setFlag, setPosition } from "./progress";
+import { AutoImportSwitch } from "./AutoImport";
 import { SaveImport } from "./SaveImport";
 
 type Props = {
@@ -63,6 +64,7 @@ export function ProgressPanel({
         setPlayer={setPlayer}
         doc={doc}
       />
+      <AutoImportSwitch t={t} player={player} setPlayer={setPlayer} />
       <div className="flex items-center gap-2.5 border-t border-[#22352e] pt-2.5">
         {here ? (
           <>

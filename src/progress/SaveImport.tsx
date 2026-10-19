@@ -12,7 +12,9 @@ import {
   applyImport,
   fetchSaves,
   fetchSlotFlags,
+  importFlags,
   planImport,
+  summarizeImport,
   type ImportPlan,
   type SaveSearch,
 } from "./importSave";
@@ -54,20 +56,11 @@ export function SaveImport({
 }) {
   const profile = activeProfile(player);
   const [step, setStep] = useState<Step>({ kind: "idle" });
-  const onMap = new Set(doc.nodes.flatMap((n) => n.bosses ?? []));
-  const bossName = new Map<number, string>();
-  for (const b of data.catalog.bosses.filter((b) => onMap.has(b.id)))
-    bossName.set(
-      b.flag,
-      [bossName.get(b.flag), b.name[language]].filter(Boolean).join(" / "),
-    );
-  const graceName = new Map(
-    data.catalog.graces.map((g) => [g.flag, g.name[language]]),
+  const { known, isBoss, bossName, graceName } = importFlags(
+    data,
+    doc,
+    language,
   );
-  const known = [...new Set([...graceName.keys(), ...bossName.keys()])];
-  const isBoss = (flag: number) => !graceName.has(flag) && bossName.has(flag);
-  const count = (flags: number[], bosses: boolean) =>
-    flags.filter((f) => isBoss(f) === bosses).length;
   const slotName = (link: { slot: number; name: string }) =>
     t("{name} (slot {slot})", { name: link.name, slot: link.slot + 1 });
 
@@ -303,23 +296,7 @@ export function SaveImport({
             <p className="text-muted">{t("Nothing has changed.")}</p>
           ) : (
             <p className="text-muted">
-              {(
-                [
-                  [
-                    false,
-                    "+{added} graces discovered, −{removed} not discovered",
-                  ],
-                  [true, "+{added} bosses beaten, −{removed} not beaten"],
-                ] as const
-              )
-                .map(([bosses, text]) => ({
-                  text,
-                  added: count(step.plan.added, bosses),
-                  removed: count(step.plan.removed, bosses),
-                }))
-                .filter((part) => part.added + part.removed > 0)
-                .map(({ text, ...counts }) => t(text, counts))
-                .join(" · ")}
+              {summarizeImport(t, step.plan, isBoss)}
             </p>
           )}
           {step.plan.added.length + step.plan.removed.length > 0 && (

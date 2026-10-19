@@ -198,7 +198,7 @@ export type Profile = {
 };
 
 export type PlayerDocument = {
-  schemaVersion: 11;
+  schemaVersion: 12;
   language: Language;
   view: MapView;
   stepSize: StepSize;
@@ -211,6 +211,8 @@ export type PlayerDocument = {
    * saves. Null means looking everywhere the game keeps them.
    */
   saveLocation: string | null;
+  /** Re-import progress whenever the game saves, for a playthrough linked to a character. */
+  autoImport: boolean;
   activeProfile: string;
   profiles: Profile[];
 };
