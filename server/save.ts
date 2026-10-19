@@ -299,6 +299,22 @@ export class SaveReader {
     return { saves, searched };
   }
 
+  /**
+   * When the saves at the location last changed: each file's modification
+   * time and size, without reading them. The automatic import reads the flags
+   * only when this changes.
+   */
+  async stamp(location: string | null): Promise<string> {
+    const { roots } = await this.roots(location);
+    const parts: string[] = [];
+    for (const root of roots)
+      for (const file of await saveFiles(root)) {
+        const info = await stat(file).catch(() => null);
+        if (info) parts.push(`${file}:${info.mtimeMs}:${info.size}`);
+      }
+    return parts.join("\n");
+  }
+
   async flags(
     location: string | null,
     steamId: string,

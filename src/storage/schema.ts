@@ -208,6 +208,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
       "hideUnusedGraces",
       "graceNames",
       "saveLocation",
+      "autoImport",
       "activeProfile",
       "profiles",
     ])
@@ -225,6 +226,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
       (typeof v.saveLocation === "string" &&
         v.saveLocation.startsWith("/") &&
         v.saveLocation.length <= 4096)) &&
+    typeof v.autoImport === "boolean" &&
     hasExactKeys(v.view, ["layer", "x", "y", "zoom"]) &&
     includes(LAYERS, v.view.layer) &&
     [v.view.x, v.view.y, v.view.zoom].every(isCoordinate) &&
@@ -258,7 +260,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
 }
 
 export const FIRST_PROFILE_ID = "profile-1";
-const PLAYER_VERSION = 11;
+const PLAYER_VERSION = 12;
 const MAP_VERSION = 4;
 const DEFAULT_STEP_SIZE = "medium";
 const PROFILE_ID = /^[a-z0-9-]{1,64}$/;
@@ -296,6 +298,7 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
     hideUnusedGraces?: unknown;
     graceNames?: unknown;
     saveLocation?: unknown;
+    autoImport?: unknown;
   };
   if (
     v.schemaVersion === 1 &&
@@ -309,6 +312,7 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
       hideUnusedGraces: false,
       graceNames: "auto",
       saveLocation: null,
+      autoImport: true,
       activeProfile: FIRST_PROFILE_ID,
       profiles: [firstProfile()],
     };
@@ -321,7 +325,7 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
     // Later versions added the wishlist (3), progress (4), save link (5),
     // routing rules (6), step number size (7), grace filter (8) and names (9).
     // Version 10 dropped the path types routing avoided, since paths have none.
-    // Version 11 added the save location.
+    // Version 11 added the save location, and 12 the automatic import.
     const added = firstProfile();
     v = {
       ...v,
@@ -330,6 +334,7 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
       hideUnusedGraces: "hideUnusedGraces" in v ? v.hideUnusedGraces : false,
       graceNames: "graceNames" in v ? v.graceNames : "auto",
       saveLocation: "saveLocation" in v ? v.saveLocation : null,
+      autoImport: "autoImport" in v ? v.autoImport : true,
       profiles: v.profiles.map((p: unknown) =>
         p && typeof p === "object"
           ? {
@@ -490,6 +495,7 @@ export const initialDocuments = (): Documents => ({
     hideUnusedGraces: false,
     graceNames: "auto",
     saveLocation: null,
+    autoImport: true,
     activeProfile: FIRST_PROFILE_ID,
     profiles: [firstProfile()],
   },

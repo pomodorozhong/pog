@@ -95,21 +95,22 @@ export function saveMiddleware(reader: SaveReader) {
     if (!url.startsWith("/api/save/")) return next();
     try {
       assertLocalRequest(request);
-      if (url === "/api/save/slots" && request.method === "GET") {
-        const location = new URLSearchParams(
-          request.url?.split("?")[1] ?? "",
-        ).get("location");
-        return reply(response, 200, await reader.list(location || null));
-      }
+      const location =
+        new URLSearchParams(request.url?.split("?")[1] ?? "").get("location") ||
+        null;
+      if (url === "/api/save/slots" && request.method === "GET")
+        return reply(response, 200, await reader.list(location));
+      if (url === "/api/save/stamp" && request.method === "GET")
+        return reply(response, 200, { stamp: await reader.stamp(location) });
       if (url === "/api/save/flags" && request.method === "POST") {
         if (
           request.headers["content-type"]?.split(";")[0] !== "application/json"
         )
           throw new SaveError(415, "Use application/json.");
         const body = await readJson(request, 1024 * 1024);
-        const location = body?.location ?? null;
+        const chosen = body?.location ?? null;
         if (
-          (location !== null && typeof location !== "string") ||
+          (chosen !== null && typeof chosen !== "string") ||
           typeof body?.steamId !== "string" ||
           !Array.isArray(body.flags) ||
           !body.flags.every(Number.isSafeInteger)
@@ -118,7 +119,7 @@ export function saveMiddleware(reader: SaveReader) {
         return reply(
           response,
           200,
-          await reader.flags(location, body.steamId, body.slot, body.flags),
+          await reader.flags(chosen, body.steamId, body.slot, body.flags),
         );
       }
       throw new SaveError(404, "Unknown request.");
