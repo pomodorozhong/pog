@@ -10,6 +10,7 @@ import {
   attachToPin,
   combinedWishlist,
   countByStatus,
+  playthroughOrder,
   removeFromWishlist,
   strandedEntries,
   updateWishlistItem,
@@ -174,6 +175,55 @@ describe("walk order", () => {
       ["weapon/c", "c"],
     ]);
     expect(unpinned).toEqual([want("weapon/d")]);
+  });
+});
+
+describe("playthrough order", () => {
+  const node = (
+    id: string,
+    bosses: string[],
+    items: string[] = [],
+  ): MapNode => ({
+    id,
+    layer: "overworld",
+    x: 0,
+    y: 0,
+    kind: "junction",
+    label: "",
+    ref: null,
+    items,
+    bosses,
+  });
+
+  it("puts each boss where the walk first reaches it, before the pin's items", () => {
+    const map: MapDocument = {
+      schemaVersion: 4,
+      nodes: [
+        node("a", ["boss/2", "boss/1"], ["weapon/a"]),
+        node("b", ["boss/1", "boss/3"]),
+        node("c", ["boss/4"]),
+      ],
+      edges: [
+        { ...drawn("e1", ["b", "a"]), step: 2 },
+        { ...drawn("e2", ["a", "b"]), step: 1 },
+      ],
+    };
+    const { pinned } = combinedWishlist(map, []);
+    const { onRoute, offRoute } = playthroughOrder(map, pinned);
+    // boss/1 shows once, at the first pin reached; c is on no path.
+    expect(
+      onRoute.map((r) => [
+        r.kind === "boss" ? r.boss : r.entry.item,
+        r.pin,
+        r.step,
+      ]),
+    ).toEqual([
+      ["boss/2", "a", 1],
+      ["boss/1", "a", 1],
+      ["weapon/a", "a", 1],
+      ["boss/3", "b", 1],
+    ]);
+    expect(offRoute).toEqual([]);
   });
 });
 

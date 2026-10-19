@@ -49,7 +49,11 @@ import { useDismiss } from "./layout/useDismiss";
 import { COMPACT, NARROW, useMediaQuery } from "./layout/useMediaQuery";
 import { LayerButton } from "./map/LayerButton";
 import { WalkList } from "./wishlist/WalkList";
-import { combinedWishlist, countByStatus } from "./wishlist/wishlist";
+import {
+  combinedWishlist,
+  countByStatus,
+  walkedBosses,
+} from "./wishlist/wishlist";
 import { NodeProgress, ProgressPanel } from "./progress/ProgressPanel";
 import { beatenBosses, undiscoveredGraces } from "./progress/progress";
 import { activeProfile, addProfile, TEMPLATES } from "./profiles/profiles";
@@ -459,9 +463,10 @@ export default function App() {
     </select>
   );
 
-  // The item progress shows entries at a pin; the others wait in the wishlist card.
+  // The tracker shows entries at a pin; the others wait in the wishlist card.
   const wishlist = combinedWishlist(map, activeProfile(player).wishlist).pinned;
   const wishlistCounts = countByStatus(wishlist);
+  const routeBosses = walkedBosses(map);
 
   const inspector = (
     <Inspector
@@ -632,12 +637,18 @@ export default function App() {
         <h2 className="label flex min-w-0 flex-1 items-baseline gap-2">
           {sheet === "route" ? (
             <>
-              {t("Items in route order")}
+              {t("Playthrough tracker")}
               <span className="tracking-normal normal-case">
-                {t("{acquired} of {total} acquired", {
+                {t("{acquired} of {total} items acquired", {
                   acquired: wishlistCounts.acquired,
                   total: wishlist.length,
                 })}
+                {/* The boss count shows once the walk reaches a boss. */}
+                {routeBosses.length > 0 &&
+                  ` · ${t("{beaten} of {bosses} bosses beaten", {
+                    beaten: routeBosses.filter((b) => beaten.has(b)).length,
+                    bosses: routeBosses.length,
+                  })}`}
               </span>
             </>
           ) : (

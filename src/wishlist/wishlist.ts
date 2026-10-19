@@ -158,35 +158,82 @@ export const countByStatus = (wishlist: WishlistItem[]) =>
 export type WalkEntry = { entry: PinnedEntry; pin: string; step: number };
 
 /**
- * The wishlist in walking order: each entry where the walk first reaches its
- * pin (by step, then along that path), then by its place among the pin's
- * items, so marking an entry never moves it. Entries whose pin is on no path
- * come after, in wishlist order.
+ * Where the walk first reaches each pin: the step of the first walked path
+ * through it, and its place in the whole walk (by step, then along that path).
  */
-export function walkOrder(map: MapDocument, wishlist: PinnedEntry[]) {
+function reachedPins(map: MapDocument) {
   const reached = new Map<string, { step: number; order: number }>();
   const walked = map.edges.filter(isWalked).sort((a, b) => a.step - b.step);
   for (const edge of walked)
     for (const node of edge.nodes)
       if (!reached.has(node))
         reached.set(node, { step: edge.step, order: reached.size });
-  const nodes = new Map(map.nodes.map((n) => [n.id, n]));
-  const place = (entry: PinnedEntry) =>
-    pinItems(nodes.get(entry.pin)!).indexOf(entry.item);
-  const onRoute: (WalkEntry & { order: number })[] = [];
-  const offRoute: { entry: PinnedEntry; pin: string }[] = [];
-  for (const entry of wishlist) {
-    const at = reached.get(entry.pin);
-    if (!at) offRoute.push({ entry, pin: entry.pin });
-    else onRoute.push({ entry, pin: entry.pin, ...at });
-  }
-  onRoute.sort((a, b) => a.order - b.order || place(a.entry) - place(b.entry));
+  return reached;
+}
+
+/**
+ * The wishlist in walking order: each entry where the walk first reaches its
+ * pin (by step, then along that path), then by its place among the pin's
+ * items, so marking an entry never moves it. Entries whose pin is on no path
+ * come after, in wishlist order.
+ */
+export function walkOrder(map: MapDocument, wishlist: PinnedEntry[]) {
+  const { onRoute, offRoute } = playthroughOrder(map, wishlist);
   return {
-    onRoute: onRoute.map(({ entry, pin, step }): WalkEntry => ({
-      entry,
-      pin,
-      step,
-    })),
+    onRoute: onRoute.flatMap((row): WalkEntry[] =>
+      row.kind === "item"
+        ? [{ entry: row.entry, pin: row.pin, step: row.step }]
+        : [],
+    ),
     offRoute,
   };
 }
+
+/** A row of the playthrough tracker: a wishlist entry or a boss, where the walk reaches it. */
+export type TrackerRow = { pin: string; step: number } & (
+  { kind: "item"; entry: PinnedEntry } | { kind: "boss"; boss: string }
+);
+
+/**
+ * What the walk reaches, in walking order: at each pin, its bosses in the
+ * player's order, then its wishlist entries by their place among its items.
+ * A boss at several pins shows at the first one reached. Bosses at a pin on
+ * no path aren't part of the playthrough; entries there come after, in
+ * wishlist order.
+ */
+export function playthroughOrder(map: MapDocument, wishlist: PinnedEntry[]) {
+  const reached = reachedPins(map);
+  const nodes = new Map(map.nodes.map((n) => [n.id, n]));
+  // Sorted by where the walk reaches the pin, bosses first, then their place.
+  const onRoute: { row: TrackerRow; key: [number, number, number] }[] = [];
+  const offRoute: { entry: PinnedEntry; pin: string }[] = [];
+  const bosses = new Set<string>();
+  for (const [pin, at] of reached)
+    (nodes.get(pin)?.bosses ?? []).forEach((boss, place) => {
+      if (bosses.has(boss)) return;
+      bosses.add(boss);
+      onRoute.push({
+        row: { kind: "boss", boss, pin, step: at.step },
+        key: [at.order, 0, place],
+      });
+    });
+  for (const entry of wishlist) {
+    const at = reached.get(entry.pin);
+    if (!at) offRoute.push({ entry, pin: entry.pin });
+    else
+      onRoute.push({
+        row: { kind: "item", entry, pin: entry.pin, step: at.step },
+        key: [at.order, 1, pinItems(nodes.get(entry.pin)!).indexOf(entry.item)],
+      });
+  }
+  onRoute.sort(
+    ({ key: a }, { key: b }) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2],
+  );
+  return { onRoute: onRoute.map((r) => r.row), offRoute };
+}
+
+/** The bosses a walked path reaches, each once, in walking order. */
+export const walkedBosses = (map: MapDocument) =>
+  playthroughOrder(map, []).onRoute.flatMap((row) =>
+    row.kind === "boss" ? [row.boss] : [],
+  );
