@@ -425,9 +425,7 @@ describe("wishlist entries per pin", () => {
     expect(
       within(list).queryByRole("button", { name: "Buckler: acquired" }),
     ).toBeNull();
-    expect(
-      screen.getByText("1 of 2 items acquired · 0 of 0 bosses beaten"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("1 of 2 items acquired")).toBeInTheDocument();
   });
 
   it("attach an entry with no pin from a pin's item editor", async () => {

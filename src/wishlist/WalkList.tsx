@@ -32,6 +32,13 @@ type Row =
   | TrackerRow
   | { kind: "item"; entry: PinnedEntry; pin: string; step?: undefined };
 
+/** The filter reads as a to-do list: a beaten boss is done, like an acquired item. */
+const FILTER_NAMES: Record<WishlistStatus, string> = {
+  needed: "To do",
+  acquired: "Done",
+  skipped: "Skipped",
+};
+
 const fold = (text: string) => text.normalize("NFKC").toLowerCase();
 
 /**
@@ -39,8 +46,7 @@ const fold = (text: string) => text.normalize("NFKC").toLowerCase();
  * tap-to-mark progress. Each wishlist entry at a pin is acquired or not; each
  * boss at a pin a walked path reaches is beaten or not, by its game flag.
  * Entries not attached to a pin aren't shown. A search box and a status
- * filter narrow what's shown; a beaten boss counts as done, like an acquired
- * item.
+ * filter (to do, done, skipped) narrow what's shown.
  */
 export function WalkList({
   t,
@@ -207,7 +213,7 @@ export function WalkList({
                 aria-pressed={shown === status}
                 onClick={() => setShown(status)}
               >
-                {t(status === "all" ? "All" : STATUS_NAMES[status])}
+                {t(status === "all" ? "All" : FILTER_NAMES[status])}
                 <span className="ml-1.5 text-[11px] opacity-70">
                   {shownCounts[status]}
                 </span>

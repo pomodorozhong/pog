@@ -148,9 +148,9 @@ describe("the route list", () => {
   it("is filtered by status", async () => {
     await open(wishlist);
     const show = screen.getByRole("group", { name: "Show" });
-    fireEvent.click(within(show).getByRole("button", { name: /Acquired/ }));
+    fireEvent.click(within(show).getByRole("button", { name: /Done/ }));
     expect(listed()).toEqual(["Buckler"]);
-    fireEvent.click(within(show).getByRole("button", { name: /Needed/ }));
+    fireEvent.click(within(show).getByRole("button", { name: /To do/ }));
     expect(listed()).toEqual(["Longsword", "Rusted Anchor"]);
   });
 });
@@ -189,9 +189,9 @@ describe("the playthrough tracker", () => {
     expect(
       screen.getByText("0 of 3 items acquired · 1 of 1 bosses beaten"),
     ).toBeInTheDocument();
-    // A beaten boss counts as done in the filter.
+    // A beaten boss is done, like an acquired item.
     const show = screen.getByRole("group", { name: "Show" });
-    fireEvent.click(within(show).getByRole("button", { name: /Acquired/ }));
+    fireEvent.click(within(show).getByRole("button", { name: /Done/ }));
     expect(
       within(tracker).getAllByRole("button", { name: /: (acquired|beaten)$/ }),
     ).toHaveLength(1);

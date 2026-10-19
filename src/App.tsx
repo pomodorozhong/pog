@@ -639,15 +639,16 @@ export default function App() {
             <>
               {t("Playthrough tracker")}
               <span className="tracking-normal normal-case">
-                {t(
-                  "{acquired} of {total} items acquired · {beaten} of {bosses} bosses beaten",
-                  {
-                    acquired: wishlistCounts.acquired,
-                    total: wishlist.length,
+                {t("{acquired} of {total} items acquired", {
+                  acquired: wishlistCounts.acquired,
+                  total: wishlist.length,
+                })}
+                {/* The boss count shows once the walk reaches a boss. */}
+                {routeBosses.length > 0 &&
+                  ` · ${t("{beaten} of {bosses} bosses beaten", {
                     beaten: routeBosses.filter((b) => beaten.has(b)).length,
                     bosses: routeBosses.length,
-                  },
-                )}
+                  })}`}
               </span>
             </>
           ) : (
