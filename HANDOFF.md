@@ -5,12 +5,13 @@
 ### feat/playthrough-tracker
 
 - Task: #60 Turn the item progress view into a playthrough progress tracker with bosses
-- PR: none; branch is local only, created from `main` at 6872bed (after #63), not pushed or linked to #60
-- Code checkpoint: 6872bed (no work commits yet)
-- State: not started. The player's decisions are in a comment on #60: every boss on a pin a walked path reaches; beaten or not, no skipped; the save import only checks bosses on the map's pins and graces; separate item and boss counts on the tracker view, no Items / Bosses filter; a name like "Playthrough tracker" (zh-TW 「遊玩進度」), to confirm when built.
-- Verification: `main` at 6872bed passed lint, typecheck, `npm test` (132) and build as #63's branch; not re-run on this branch.
-- Next action: propose a plan for #60 to the player
-- Pending: P-05 link this branch to #60 and push it, which blocks resuming from another computer.
+- PR: not opened; branch linked to #60 (P-05 approved), pushed only at 97eb225
+- Code checkpoint: af52f10 (not pushed)
+- State: built and reviewed by the player; awaiting P-06. The side panel's list is the "Playthrough tracker" (「挑戰進度」): wishlist entries plus every boss on a pin or grace a walked path reaches, bosses before items at each pin, tap to mark beaten (sets the boss's flag). Header: "{acquired} of {total} items acquired", plus " · {beaten} of {bosses} bosses beaten" once the walk reaches a boss. The filter reads To do / Done / Skipped; Done holds acquired items and beaten bosses. The save import only asks about bosses on the map's pins and graces. `docs/architecture.md` updated.
+- Verification: lint, typecheck, `npm test` (135) and build pass at af52f10; checked in the browser in English and zh-TW against a scratch data folder (seeded map, boss toggled, no console errors).
+- Player decisions on the review (name, hidden empty boss count, to-do filter) are built.
+- Next action: on P-06 approval, push and open the PR with the drafted title and body.
+- Pending: P-06 push this branch and open its PR "feat: turn the item progress view into a playthrough tracker with bosses" (Closes #60); asked 2026-10-19, blocks review and merge.
 
 ## Ranked work
 
