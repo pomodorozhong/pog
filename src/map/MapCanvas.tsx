@@ -23,8 +23,9 @@ import type { RouteLine } from "../routing/order";
 import type { Draft } from "./drawing";
 import { edgeRuns } from "./editing";
 import { enableGestures } from "./gestures";
+import { arrowsAlong, clipToBox, lineLength, currentPath } from "./pathArrows";
 import { placeStep } from "./stepPlacement";
-import { BOSS_SYMBOL, NODE_SYMBOL, pathStyle } from "./style";
+import { ARROW_SYMBOL, BOSS_SYMBOL, NODE_SYMBOL, pathStyle } from "./style";
 import { isGameGrace } from "./graces";
 
 export type Selection = { kind: "node" | "edge"; id: string } | null;
@@ -55,6 +56,8 @@ type Props = MapCanvasHandlers & {
   data: GameData;
   /** Graces on the map not yet discovered in this playthrough. */
   undiscovered: Set<string>;
+  /** Pins with something left to do, to tell which path the player is on. */
+  unfinished: Set<string>;
   /** The node the player is at, or null. */
   position: string | null;
   /** Catalog ids of the bosses beaten in this playthrough. */
@@ -73,6 +76,10 @@ const LABEL_ZOOM = 4;
 const GRACE_LABEL_ZOOM = 6;
 /** How far step numbers pinned to the screen edge stay from it, in pixels. */
 const STEP_INSET = 24;
+/** Screen pixels between direction arrows along a path. */
+const ARROW_SPACING = 90;
+/** How fast the next path's arrows move along it, in screen pixels a second. */
+const ARROW_SPEED = 60;
 
 export function MapCanvas(props: Props) {
   const container = useRef<HTMLDivElement>(null);
@@ -87,6 +94,13 @@ export function MapCanvas(props: Props) {
   >([]);
   /** Step numbers on the map, with the stretches of their path on this layer. */
   const steps = useRef<{ marker: L.Marker; runs: Point[][] }[]>([]);
+  /** Paths' stretches on this layer, to place direction arrows along. */
+  const arrows = useRef<{ runs: Point[][]; color: string; moving: boolean }[]>(
+    [],
+  );
+  const arrowLayer = useRef<L.LayerGroup | null>(null);
+  /** The current path's moving arrows, placed again on every zoom frame. */
+  const movingLayer = useRef<L.LayerGroup | null>(null);
   // Leaflet handlers are bound once; they read the latest props through this ref.
   const latest = useRef(props);
   useLayoutEffect(() => {
@@ -133,6 +147,18 @@ export function MapCanvas(props: Props) {
     const p = map.current!.project(latLng, latest.current.info.maxZoom);
     return [Math.round(p.x), Math.round(p.y)];
   };
+  const placeAllArrows = (paused = false) =>
+    map.current &&
+    arrowLayer.current &&
+    movingLayer.current &&
+    placeArrows(
+      map.current,
+      paused ? null : arrowLayer.current,
+      movingLayer.current,
+      arrows.current,
+      latest.current.info.maxZoom,
+      paused,
+    );
 
   // Create the map once.
   useEffect(() => {
@@ -150,6 +176,8 @@ export function MapCanvas(props: Props) {
     });
     map.current = instance;
     overlay.current = L.layerGroup().addTo(instance);
+    arrowLayer.current = L.layerGroup().addTo(instance);
+    movingLayer.current = L.layerGroup().addTo(instance);
     rubberBand.current = L.polyline([], {
       color: "#eee9db",
       dashArray: "4 6",
@@ -184,6 +212,20 @@ export function MapCanvas(props: Props) {
       reportTimer = setTimeout(report, 150);
     });
     instance.on("move zoom resize", placeAllSteps);
+    // Still arrows move with the map; they're spaced again once it settles.
+    let paused = false;
+    instance.on("moveend zoomend resize", () => {
+      paused = false;
+      placeAllArrows();
+    });
+    // Moving arrows follow lines in screen pixels, which a zoom doesn't
+    // scale: they pause, still on the map, from a zoom's first frame (or
+    // animation) until it ends.
+    instance.on("zoom zoomanim", () => {
+      if (paused) return;
+      paused = true;
+      placeAllArrows(true);
+    });
     instance.on("zoomend", updateLabels);
     const disableGestures = enableGestures(instance);
     return () => {
@@ -228,6 +270,7 @@ export function MapCanvas(props: Props) {
     language,
     data,
     undiscovered,
+    unfinished,
     position,
     beaten,
     route,
@@ -240,6 +283,7 @@ export function MapCanvas(props: Props) {
     group.clearLayers();
     graceMarkers.current = [];
     steps.current = [];
+    arrows.current = [];
     labels.current = [];
     const byId = new Map(nodes.map((n) => [n.id, n]));
     // A grace with a note is on its note path, so it shows like a pathed grace.
@@ -248,6 +292,8 @@ export function MapCanvas(props: Props) {
       edges.filter((e) => !isWalked(e)).map((e) => [e.nodes[0], e]),
     );
     const portalEnds = new Set<string>();
+    // The path the player is on: its arrows move, the rest stay still.
+    const current = currentPath(edges, position, unfinished);
 
     for (const edge of edges) {
       // Note paths are drawn as notes beside their pins, below.
@@ -261,6 +307,11 @@ export function MapCanvas(props: Props) {
         }
       });
       const runs = edgeRuns(edge, byId, layer);
+      arrows.current.push({
+        runs,
+        color: pathStyle(edge).color,
+        moving: edge === current,
+      });
       // A waygate may have only isolated endpoints on this layer. Its number
       // still belongs here, even though the jump itself has no drawn line.
       const stepRuns = runs.length
@@ -325,6 +376,7 @@ export function MapCanvas(props: Props) {
       steps.current.push({ marker, runs: stepRuns });
     }
     placeAllSteps();
+    placeAllArrows();
 
     for (const line of route) {
       if (line.layer !== layer) continue;
@@ -497,6 +549,7 @@ export function MapCanvas(props: Props) {
     data,
     layer,
     undiscovered,
+    unfinished,
     position,
     beaten,
     route,
@@ -538,6 +591,100 @@ function addArrow(
       iconSize: [16, 16],
     }),
   }).addTo(group);
+}
+
+/**
+ * Arrows along each path on screen, pointing the way it's walked. The
+ * current path's arrows move along it, in its direction, unless motion is
+ * reduced or they're `paused`.
+ */
+function placeArrows(
+  instance: L.Map,
+  /** Where still arrows go; null leaves them as they are. */
+  layer: L.LayerGroup | null,
+  /** Where the current path's arrows go. */
+  movingLayer: L.LayerGroup,
+  paths: { runs: Point[][]; color: string; moving: boolean }[],
+  maxZoom: number,
+  paused: boolean,
+) {
+  layer?.clearLayers();
+  movingLayer.clearLayers();
+  const { x: width, y: height } = instance.getSize();
+  const box = { left: 0, top: 0, right: width, bottom: height };
+  const still =
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  for (const { runs, color, moving } of paths)
+    for (const run of runs) {
+      const onScreen = run.map((p): Point => {
+        const { x, y } = instance.latLngToContainerPoint(
+          instance.unproject(p, maxZoom),
+        );
+        return [x, y];
+      });
+      if (moving && !still && !paused) {
+        addMovingArrows(instance, movingLayer, onScreen, color, {
+          left: -ARROW_SPACING,
+          top: -ARROW_SPACING,
+          right: width + ARROW_SPACING,
+          bottom: height + ARROW_SPACING,
+        });
+        continue;
+      }
+      const target = moving ? movingLayer : layer;
+      if (!target) continue;
+      arrowsAlong(onScreen, ARROW_SPACING, box).forEach(({ point, angle }) =>
+        L.marker(instance.containerPointToLatLng(point), {
+          interactive: false,
+          keyboard: false,
+          // Under pins, step numbers and their names.
+          zIndexOffset: -1000,
+          icon: L.divIcon({
+            className: moving ? "path-arrow is-moving" : "path-arrow",
+            html: `<span style="color:${color};transform:rotate(${angle}deg)">${ARROW_SYMBOL}</span>`,
+            iconSize: [0, 0],
+          }),
+        }).addTo(target),
+      );
+    }
+}
+
+/**
+ * Arrows that move along a line on screen, one every `ARROW_SPACING`
+ * pixels, each following the line with CSS `offset-path`. Only the part near
+ * the screen gets them, and their place along it follows the clock, so
+ * placing them again as the map moves barely shifts them.
+ */
+function addMovingArrows(
+  instance: L.Map,
+  layer: L.LayerGroup,
+  line: Point[],
+  color: string,
+  box: Parameters<typeof clipToBox>[1],
+) {
+  const now = performance.now() / 1000;
+  const spans = clipToBox(line, box).flatMap((part) => {
+    const length = lineLength(part);
+    const count = Math.max(1, Math.round(length / ARROW_SPACING));
+    const duration = length / ARROW_SPEED;
+    const path = `M${part.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join("L")}`;
+    return Array.from({ length: count }, (_, i) => {
+      const delay = -((now + (i * duration) / count) % duration);
+      return `<span style="color:${color};offset-path:path('${path}');animation-duration:${duration.toFixed(2)}s;animation-delay:${delay.toFixed(2)}s">${ARROW_SYMBOL}</span>`;
+    });
+  });
+  if (!spans.length) return;
+  // One marker at the screen's top-left corner holds them all.
+  L.marker(instance.containerPointToLatLng([0, 0]), {
+    interactive: false,
+    keyboard: false,
+    zIndexOffset: -1000,
+    icon: L.divIcon({
+      className: "path-arrow is-moving",
+      html: spans.join(""),
+      iconSize: [0, 0],
+    }),
+  }).addTo(layer);
 }
 
 /**

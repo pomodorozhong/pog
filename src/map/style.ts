@@ -29,6 +29,11 @@ export const NODE_SYMBOL: Record<NodeKind, string> = {
   entrance: "▣",
 };
 
+/** A chevron along a path, pointing right before it's turned the path's way. */
+export const ARROW_SYMBOL =
+  '<svg viewBox="0 0 10 10" aria-hidden="true">' +
+  '<path d="M3 1.5 7 5 3 8.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 /**
  * Marks a pin where bosses are fought: a skull, drawn rather than a text
  * glyph so it's symmetric and the same in every font. The eyes, nose and

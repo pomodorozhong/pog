@@ -55,6 +55,7 @@ import {
   countByStatus,
   walkedBosses,
 } from "./wishlist/wishlist";
+import { unfinishedPins } from "./map/pathArrows";
 import { NodeProgress, ProgressPanel } from "./progress/ProgressPanel";
 import { beatenBosses, undiscoveredGraces } from "./progress/progress";
 import { activeProfile, addProfile, TEMPLATES } from "./profiles/profiles";
@@ -248,6 +249,16 @@ export default function App() {
   const beaten = useMemo(
     () => (data ? beatenBosses(data, progress) : new Set<string>()),
     [data, progress],
+  );
+  const unfinished = useMemo(
+    () =>
+      unfinishedPins(
+        map.nodes,
+        undiscovered,
+        beaten,
+        profile ? combinedWishlist(map, profile.wishlist).pinned : [],
+      ),
+    [map, undiscovered, beaten, profile],
   );
 
   const nodeById = useMemo(
@@ -780,6 +791,7 @@ export default function App() {
             language={language}
             data={data}
             undiscovered={undiscovered}
+            unfinished={unfinished}
             position={progress?.position ?? null}
             beaten={beaten}
             route={route}
