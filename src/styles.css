@@ -311,11 +311,12 @@ body {
   min-width: calc(var(--step-font) * 1.6);
   padding: 0 calc(var(--step-font) / 3);
   border-radius: 6px;
-  background: var(--color-ink);
-  color: var(--color-text);
+  /* The path's color, with dark text: 5.5:1 or more on every one. */
+  background: var(--path-color, var(--color-text));
+  color: var(--color-ink);
   font: 700 var(--step-font) / 1.6 var(--font-sans);
   text-align: center;
-  box-shadow: 0 0 0 1px rgb(238 233 219 / 0.5);
+  box-shadow: 0 0 0 1.5px rgb(0 0 0 / 0.7);
   cursor: pointer;
 }
 .path-step.is-highlighted .step-number {
