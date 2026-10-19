@@ -74,7 +74,7 @@ const doc: MapDocument = {
  * `save()` each time, and its stamp is `stamp()`.
  */
 function setup(
-  save: () => { name: string; set: number[] },
+  save: () => { name: string; set: number[] } | Response,
   stamp: () => string,
   autoImport = true,
 ) {
@@ -88,11 +88,12 @@ function setup(
       save: { steamId: "1", slot: 0, name: "Tarnished" },
     })),
   };
-  const fetch = vi.fn(async (url: string) =>
-    Response.json(
-      url.startsWith("/api/save/stamp") ? { stamp: stamp() } : save(),
-    ),
-  );
+  const fetch = vi.fn(async (url: string) => {
+    if (url.startsWith("/api/save/stamp"))
+      return Response.json({ stamp: stamp() });
+    const answer = save();
+    return answer instanceof Response ? answer : Response.json(answer);
+  });
   vi.stubGlobal("fetch", fetch);
   function Host() {
     const [state, setState] = useState(player);
@@ -145,6 +146,33 @@ describe("importing automatically when the game saves", () => {
         "Imported from the save: +1 bosses beaten, −0 not beaten",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("reads again after a checksum mismatch, and waits for a change after other failures", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let status = 409;
+    let stamp = "a";
+    const { fetch, player } = setup(
+      () =>
+        status === 200
+          ? { name: "Tarnished", set: [71000] }
+          : Response.json({ error: "No." }, { status }),
+      () => stamp,
+    );
+    await act(() => vi.advanceTimersByTimeAsync(AUTO_IMPORT_INTERVAL * 2));
+    // The game was writing: each check reads again.
+    expect(flagReads(fetch)).toBe(3);
+
+    status = 422;
+    await act(() => vi.advanceTimersByTimeAsync(AUTO_IMPORT_INTERVAL * 3));
+    // A save that can't be read is read once, until it changes.
+    expect(flagReads(fetch)).toBe(4);
+
+    status = 200;
+    stamp = "b";
+    await act(() => vi.advanceTimersByTimeAsync(AUTO_IMPORT_INTERVAL));
+    expect(flagReads(fetch)).toBe(5);
+    expect(activeProfile(player()).progress.flags).toEqual([71000]);
   });
 
   it("reads nothing while switched off", async () => {

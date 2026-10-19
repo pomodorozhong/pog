@@ -9,6 +9,7 @@ import {
   fetchSlotFlags,
   importFlags,
   planImport,
+  SaveRequestError,
   summarizeImport,
 } from "./importSave";
 
@@ -77,8 +78,9 @@ export function AutoImport({
       const location = player.saveLocation;
       const profile = activeProfile(player);
       const link = profile.save;
+      let stamp: string | null = null;
       try {
-        const stamp = await fetchSaveStamp(location);
+        stamp = await fetchSaveStamp(location);
         if (link && stamp && stamp !== seen) {
           const { known, isBoss } = importFlags(data, doc, language);
           const result = await fetchSlotFlags(location, link, known);
@@ -107,9 +109,13 @@ export function AutoImport({
             });
           }
         }
-      } catch {
-        // The game may be writing (checksum mismatch), or the save is
-        // missing: try again at the next check. The manual import says why.
+      } catch (error) {
+        // A checksum mismatch means the game was writing: read again at the
+        // next check. Anything else waits until the save changes, so a save
+        // that can't be read isn't read every few seconds. The manual import
+        // says why.
+        if (!(error instanceof SaveRequestError && error.status === 409))
+          seen = stamp;
       }
       if (!stopped) timer = setTimeout(check, AUTO_IMPORT_INTERVAL);
     }

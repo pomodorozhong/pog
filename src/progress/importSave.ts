@@ -15,6 +15,16 @@ export type SaveSummary = { steamId: string; slots: SaveSlot[]; file: string };
 export type SaveSearch = { saves: SaveSummary[]; searched: string[] };
 export type SlotFlags = { name: string; set: number[] };
 
+/** A failed save request, with the server's status (409: the game was writing). */
+export class SaveRequestError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 async function call<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -22,7 +32,8 @@ async function call<T>(url: string, init?: RequestInit): Promise<T> {
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok)
-    throw new Error(
+    throw new SaveRequestError(
+      response.status,
       body.error ?? `The save cannot be read (${response.status}).`,
     );
   return body as T;
