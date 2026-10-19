@@ -22,7 +22,7 @@ A map-based route planner for Elden Ring (base game and Shadow of the Erdtree). 
 | Spoilers        | Fine. Show missable and quest-lock warnings freely.                                                                                                                      |
 | Viewer mode     | Required: a read-only URL used as an OBS browser source, mirroring the operator's screen.                                                                                |
 | DLC             | In scope (separate map layers).                                                                                                                                          |
-| Platform        | Mac, game running in CrossOver. Everything runs natively on macOS.                                                                                                       |
+| Platform        | Mac, game running through Steam or CrossOver. Everything runs natively on macOS.                                                                                         |
 | Live position   | No. The player sets their position by hand (for example "at grace X").                                                                                                   |
 | Progress import | A manual "Import progress from save" button, not automatic file watching.                                                                                                |
 | Game assets     | Generated locally by the extractor, never committed. Only the script is in git.                                                                                          |
@@ -88,7 +88,7 @@ Three kinds, kept separate:
    - **Upgrade:** the single `map.json` of earlier versions becomes the first profile's map (`profile-1`) the first time it is read.
    - **Profile IDs** are lowercase letters, digits and dashes, since they name files.
    - **Deleting a profile** moves its map file into a `deleted/` folder instead of removing it, since it's player data.
-3. **Player state:** `player.json` in the app data folder: app settings (language, map view, path number size, grace filter, grace-name mode) plus the playthrough profiles and which one is active.
+3. **Player state:** `player.json` in the app data folder: app settings (language, map view, path number size, grace filter, grace-name mode, save location) plus the playthrough profiles and which one is active.
    - **Each profile:** ID, name, goal, constraints (structured fields plus a free-text note), wishlist (item, the pin holding it if any, status needed / acquired / skipped, note), progress (discovered graces, picked-up items, beaten bosses, as event flags), current position, and the linked save slot (Steam ID, slot index, character name).
    - **Upgrades:** older files upgrade on read; a version 1 file (no profiles) becomes one untitled profile.
 
@@ -144,7 +144,8 @@ Create and switch (the header's switcher), rename and delete. A new profile star
 
 "Import progress from save" reads the character's event flags and marks discovered graces and beaten bosses in the active profile (items follow once their flags are extracted). It asks only about bosses at the map's pins and graces, so other bosses' flags stay as they are (#60). The review lists each boss by name, with every boss on the map sharing a flag.
 
-- **Where:** `drive_c/users/crossover/AppData/Roaming/EldenRing/<Steam ID>/ER0000.sl2` in the CrossOver bottle: an unencrypted BND4 with 10 character slots, each behind an MD5 checksum.
+- **Where:** `drive_c/users/<user>/AppData/Roaming/EldenRing/<Steam ID>/ER0000.sl2` in a Windows prefix: an unencrypted BND4 with 10 character slots, each behind an MD5 checksum. The server looks in every CrossOver bottle and in the prefix Steam itself runs the game in (`~/Library/Application Support/Steam/steamapps/compatdata/1245620/pfx`), and lists each save it finds with its path, since two places can hold the same Steam account (#43).
+- **Choosing the save:** picking a character remembers its save file in `player.json` (`saveLocation`, shared by every playthrough), and later imports read only that file. "Choose another location" takes a full path to a save folder, a Steam ID folder or an `ER0000.sl2` file, typed or pasted, since a browser file picker can't give the server a path to read again. When nothing is found, the import lists every place it looked. `ROUTE_OF_GRACE_SAVE_DIR` still wins over both.
 - **Safety:** the app never writes the save; it copies the file, checks each slot's MD5, and parses the copy.
 - **Finding the flags:** the event-flag block sits after variable-length sections in each slot (`server/save.ts`, following er-save-manager's documentation). A flag's byte comes from the community's block table (see extraction above).
 - **Slot linking:** the first import asks for the character slot and links it to the profile; later imports reuse the link. If the slot now holds a character with a different name, it asks instead of importing. The changes are shown before they are applied.

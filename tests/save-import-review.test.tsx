@@ -168,3 +168,64 @@ describe("importing progress with bosses", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("choosing where the save is", () => {
+  it("lists where it looked, reads a chosen location and remembers the save", async () => {
+    const initial = initialDocuments().player;
+    let player: PlayerDocument = initial;
+    const file = "/Volumes/Backup/EldenRing/76561198000000001/ER0000.sl2";
+    const fetch = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === "/api/save/slots")
+        return Response.json({ saves: [], searched: ["/bottle/one", "/pfx"] });
+      if (url.startsWith("/api/save/slots?"))
+        return Response.json({
+          saves: [
+            {
+              steamId: "76561198000000001",
+              slots: [{ index: 2, name: "Tarnished" }],
+              file,
+            },
+          ],
+          searched: ["/Volumes/Backup/EldenRing"],
+        });
+      expect(JSON.parse(init!.body as string).location).toBe(file);
+      return Response.json({ name: "Tarnished", set: [71000] });
+    });
+    vi.stubGlobal("fetch", fetch);
+    render(
+      <SaveImport
+        t={(key, values) => translate("en", key, values)}
+        language="en"
+        data={data}
+        player={player}
+        setPlayer={(next) => (player = next)}
+        doc={mapWith([])}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Import progress from save"));
+    expect(
+      await screen.findByText("No Elden Ring saves found. Looked in:"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("/bottle/one")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Choose another location"));
+    fireEvent.change(
+      screen.getByLabelText("Save folder or ER0000.sl2 file (full path)"),
+      { target: { value: " /Volumes/Backup/EldenRing " } },
+    );
+    fireEvent.click(screen.getByText("Look here"));
+    expect(fetch).toHaveBeenLastCalledWith(
+      "/api/save/slots?location=%2FVolumes%2FBackup%2FEldenRing",
+      expect.anything(),
+    );
+    fireEvent.click(await screen.findByText("Tarnished (slot 3)"));
+    fireEvent.click(await screen.findByText("Apply"));
+    expect(player.saveLocation).toBe(file);
+    expect(activeProfile(player).save).toEqual({
+      steamId: "76561198000000001",
+      slot: 2,
+      name: "Tarnished",
+    });
+  });
+});

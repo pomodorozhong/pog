@@ -207,6 +207,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
       "stepSize",
       "hideUnusedGraces",
       "graceNames",
+      "saveLocation",
       "activeProfile",
       "profiles",
     ])
@@ -220,6 +221,10 @@ function checkPlayer(value: unknown): value is PlayerDocument {
     includes(STEP_SIZES, v.stepSize) &&
     typeof v.hideUnusedGraces === "boolean" &&
     includes(GRACE_NAME_MODES, v.graceNames) &&
+    (v.saveLocation === null ||
+      (typeof v.saveLocation === "string" &&
+        v.saveLocation.startsWith("/") &&
+        v.saveLocation.length <= 4096)) &&
     hasExactKeys(v.view, ["layer", "x", "y", "zoom"]) &&
     includes(LAYERS, v.view.layer) &&
     [v.view.x, v.view.y, v.view.zoom].every(isCoordinate) &&
@@ -253,7 +258,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
 }
 
 export const FIRST_PROFILE_ID = "profile-1";
-const PLAYER_VERSION = 10;
+const PLAYER_VERSION = 11;
 const MAP_VERSION = 4;
 const DEFAULT_STEP_SIZE = "medium";
 const PROFILE_ID = /^[a-z0-9-]{1,64}$/;
@@ -290,6 +295,7 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
     stepSize?: unknown;
     hideUnusedGraces?: unknown;
     graceNames?: unknown;
+    saveLocation?: unknown;
   };
   if (
     v.schemaVersion === 1 &&
@@ -302,6 +308,7 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
       stepSize: DEFAULT_STEP_SIZE,
       hideUnusedGraces: false,
       graceNames: "auto",
+      saveLocation: null,
       activeProfile: FIRST_PROFILE_ID,
       profiles: [firstProfile()],
     };
@@ -314,6 +321,7 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
     // Later versions added the wishlist (3), progress (4), save link (5),
     // routing rules (6), step number size (7), grace filter (8) and names (9).
     // Version 10 dropped the path types routing avoided, since paths have none.
+    // Version 11 added the save location.
     const added = firstProfile();
     v = {
       ...v,
@@ -321,6 +329,7 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
       stepSize: "stepSize" in v ? v.stepSize : DEFAULT_STEP_SIZE,
       hideUnusedGraces: "hideUnusedGraces" in v ? v.hideUnusedGraces : false,
       graceNames: "graceNames" in v ? v.graceNames : "auto",
+      saveLocation: "saveLocation" in v ? v.saveLocation : null,
       profiles: v.profiles.map((p: unknown) =>
         p && typeof p === "object"
           ? {
@@ -480,6 +489,7 @@ export const initialDocuments = (): Documents => ({
     stepSize: DEFAULT_STEP_SIZE,
     hideUnusedGraces: false,
     graceNames: "auto",
+    saveLocation: null,
     activeProfile: FIRST_PROFILE_ID,
     profiles: [firstProfile()],
   },

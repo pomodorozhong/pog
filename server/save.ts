@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { isAbsolute, join } from "node:path";
+import { basename, dirname, extname, isAbsolute, join } from "node:path";
 
 // Reads progress out of an Elden Ring PC save (`ER0000.sl2`), read-only. The
 // layout follows the community's save documentation (er-save-manager,
@@ -22,20 +22,75 @@ export class SaveError extends Error {
   }
 }
 
-/** Where the game keeps saves: one folder per Steam ID. */
-export function resolveSaveRoot(
-  override = process.env.ROUTE_OF_GRACE_SAVE_DIR,
-) {
-  if (override !== undefined && (!override || !isAbsolute(override)))
-    throw new Error("ROUTE_OF_GRACE_SAVE_DIR must be an absolute path.");
-  return (
-    override ??
-    join(
-      homedir(),
-      "Library/Application Support/CrossOver/Bottles/Elden Ring",
-      "drive_c/users/crossover/AppData/Roaming/EldenRing",
-    )
+/** Elden Ring's Steam app ID, which names its Windows prefix in Steam's own library. */
+const STEAM_APP_ID = "1245620";
+
+const subfolders = async (folder: string) =>
+  readdir(folder, { withFileTypes: true }).then(
+    (entries) => entries.filter((e) => e.isDirectory()).map((e) => e.name),
+    () => [],
   );
+
+/**
+ * Where the game may keep saves on this Mac: the save folder (one folder per
+ * Steam ID inside) of every Windows user in every CrossOver bottle, and in the
+ * prefix Steam itself runs the game in. `searched` lists every place looked
+ * at, for when nothing turns up.
+ */
+export async function defaultSaveRoots(home = homedir()) {
+  const support = join(home, "Library/Application Support");
+  const bottles = join(support, "CrossOver/Bottles");
+  const bottleNames = await subfolders(bottles);
+  const prefixes = [
+    ...bottleNames.map((b) => join(bottles, b)),
+    join(support, "Steam/steamapps/compatdata", STEAM_APP_ID, "pfx"),
+  ];
+  const roots: string[] = [];
+  // With no bottle at all, the bottles folder is where it looked.
+  const searched: string[] = bottleNames.length ? [] : [bottles];
+  for (const prefix of prefixes) {
+    const users = join(prefix, "drive_c/users");
+    const names = await subfolders(users);
+    if (!names.length) searched.push(prefix);
+    for (const user of names) {
+      const root = join(users, user, "AppData/Roaming/EldenRing");
+      searched.push(root);
+      if ((await subfolders(root)).length) roots.push(root);
+    }
+  }
+  return { roots, searched };
+}
+
+/**
+ * The save files at a location: the file itself, a Steam ID folder holding
+ * `ER0000.sl2`, or a save folder with one Steam ID folder per account.
+ */
+async function saveFiles(location: string): Promise<string[]> {
+  const found = await stat(location).catch(() => null);
+  if (found?.isFile()) return extname(location) === ".sl2" ? [location] : [];
+  if (!found?.isDirectory()) return [];
+  const own = join(location, "ER0000.sl2");
+  if (
+    await stat(own).then(
+      (f) => f.isFile(),
+      () => false,
+    )
+  )
+    return [own];
+  const files = [];
+  for (const folder of (await subfolders(location)).filter((f) =>
+    STEAM_ID.test(f),
+  )) {
+    const file = join(location, folder, "ER0000.sl2");
+    if (
+      await stat(file).then(
+        (f) => f.isFile(),
+        () => false,
+      )
+    )
+      files.push(file);
+  }
+  return files;
 }
 
 /** The files inside the BND4 container, each with its MD5 checksum checked. */
@@ -188,45 +243,69 @@ export function readSlotFlags(
 
 const STEAM_ID = /^\d{1,20}$/;
 
-/** Reads saves from disk. The file is read into memory once per request and never written. */
+/** A save file found on disk, with its account and characters. */
+export type FoundSave = SaveSummary & { file: string };
+
+/**
+ * Reads saves from disk. Each file is read into memory once per request and
+ * never written. `ROUTE_OF_GRACE_SAVE_DIR`, when set, is the only place read,
+ * over the player's chosen location and the search.
+ */
 export class SaveReader {
   constructor(
-    private root = resolveSaveRoot(),
     private flagTablePath: string,
-  ) {}
-
-  private async load(steamId: string): Promise<Buffer> {
-    if (!STEAM_ID.test(steamId)) throw new SaveError(400, "Invalid Steam ID.");
-    try {
-      return await readFile(join(this.root, steamId, "ER0000.sl2"));
-    } catch {
-      throw new SaveError(404, "No save found for that Steam account.");
-    }
+    private override = process.env.ROUTE_OF_GRACE_SAVE_DIR,
+    private home = homedir(),
+  ) {
+    if (override !== undefined && (!override || !isAbsolute(override)))
+      throw new Error("ROUTE_OF_GRACE_SAVE_DIR must be an absolute path.");
   }
 
-  /** Every Steam account's save, with its characters. */
-  async list(): Promise<SaveSummary[]> {
-    let folders: string[];
-    try {
-      folders = (await readdir(this.root)).filter((f) => STEAM_ID.test(f));
-    } catch {
-      throw new SaveError(404, `No Elden Ring saves in ${this.root}.`);
+  /** The places to read: the override, the player's location, or the search. */
+  private async roots(location: string | null) {
+    if (this.override !== undefined)
+      return { roots: [this.override], searched: [this.override] };
+    if (location !== null) {
+      if (!isAbsolute(location))
+        throw new SaveError(400, "The save location must be a full path.");
+      return { roots: [location], searched: [location] };
     }
-    const saves = [];
-    for (const folder of folders) {
-      try {
+    return defaultSaveRoots(this.home);
+  }
+
+  /** Every save at the location (null: everywhere the game keeps them), with its characters. */
+  async list(
+    location: string | null,
+  ): Promise<{ saves: FoundSave[]; searched: string[] }> {
+    const { roots, searched } = await this.roots(location);
+    const saves: FoundSave[] = [];
+    for (const root of roots)
+      for (const file of await saveFiles(root)) {
+        let summary;
+        try {
+          summary = readSummary(await readFile(file));
+        } catch (error) {
+          if (error instanceof SaveError && error.status === 409) throw error;
+          continue;
+        }
+        // The Steam ID folder names the account, even for a save copied from another one.
+        const folder = basename(dirname(file));
         saves.push({
-          ...readSummary(await this.load(folder)),
-          steamId: folder,
+          ...summary,
+          steamId: STEAM_ID.test(folder) ? folder : summary.steamId,
+          file,
         });
-      } catch (error) {
-        if (error instanceof SaveError && error.status === 409) throw error;
       }
-    }
-    return saves;
+    return { saves, searched };
   }
 
-  async flags(steamId: string, slot: number, wanted: number[]) {
+  async flags(
+    location: string | null,
+    steamId: string,
+    slot: number,
+    wanted: number[],
+  ) {
+    if (!STEAM_ID.test(steamId)) throw new SaveError(400, "Invalid Steam ID.");
     if (!Number.isInteger(slot) || slot < 0 || slot >= SLOT_COUNT)
       throw new SaveError(400, "Invalid slot.");
     let table;
@@ -238,6 +317,11 @@ export class SaveReader {
         "The event flag table is missing. Run npm run extract.",
       );
     }
-    return readSlotFlags(await this.load(steamId), slot, table, wanted);
+    const save = (await this.list(location)).saves.find(
+      (s) => s.steamId === steamId,
+    );
+    if (!save)
+      throw new SaveError(404, "No save found for that Steam account.");
+    return readSlotFlags(await readFile(save.file), slot, table, wanted);
   }
 }
