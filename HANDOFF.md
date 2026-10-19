@@ -6,9 +6,9 @@
 
 - Task: #52 Link bosses to any pin or grace
 - PR: none; branch created from `main` at caee934 (after #62), linked to #52 and pushed
-- Code checkpoint: f0da85a (`feat: link bosses to any pin or grace`)
-- State: built: a `bosses` list on pins and graces, the pin details' Bosses card (search by any health bar's name with the nearest grace to tell same-named bosses apart, add, remove, reorder, Beaten tag), the skull pin and badge on the map (faded once every boss there is beaten), grace bosses merged on profile import, zh-TW strings and `docs/architecture.md`. Not done, by choice: reorder for items, boss suggestions by position.
-- Verification: lint, typecheck, `npm test` (132 passed), build, Prettier; in the app against the real catalog with a scratch data folder: bosses added to a grace and to a pin, reordered, the map badge and skull pin, and the faded skull after setting Margit's flag. The only console error is the missing favicon, which isn't from this change.
+- Code checkpoint: 70633c9 (`fix: draw the boss marker as a symmetric skull icon`), after f0da85a (`feat: link bosses to any pin or grace`)
+- State: built: a `bosses` list on pins and graces, the pin details' Bosses card (search by any health bar's name with the nearest grace to tell same-named bosses apart, add, remove, reorder, Beaten tag), the skull pin and badge on the map, drawn as an SVG skull after the player found the ☠ glyph lopsided and unreadable (faded once every boss there is beaten), grace bosses merged on profile import, zh-TW strings and `docs/architecture.md`. Not done, by choice: reorder for items, boss suggestions by position.
+- Verification: lint, typecheck, `npm test` (132 passed), build, Prettier; in the app against the real catalog with a scratch data folder: bosses added to a grace and to a pin, reordered, the map badge and skull pin (also checked at 3×), and the faded skull after setting Margit's flag. The only console error is the missing favicon, which isn't from this change.
 - Next action: the PR (`Closes #52`) awaits the player's approval to push and open
 
 ## Ranked work
