@@ -110,6 +110,31 @@ export function summarizeImport(
     .join(" · ");
 }
 
+/**
+ * The automatic import's short note, without the parts that are zero:
+ * "+1 graces discovered · 1 bosses no longer beaten".
+ */
+export function summarizeChanges(
+  t: Translate,
+  plan: ImportPlan,
+  isBoss: (flag: number) => boolean,
+) {
+  const count = (flags: number[], bosses: boolean) =>
+    flags.filter((f) => isBoss(f) === bosses).length;
+  return (
+    [
+      [plan.added, false, "+{count} graces discovered"],
+      [plan.removed, false, "{count} graces no longer discovered"],
+      [plan.added, true, "+{count} bosses beaten"],
+      [plan.removed, true, "{count} bosses no longer beaten"],
+    ] as const
+  )
+    .map(([flags, bosses, text]) => ({ text, count: count(flags, bosses) }))
+    .filter((part) => part.count > 0)
+    .map(({ text, count }) => t(text, { count }))
+    .join(" · ");
+}
+
 /** Which of `flags` are set for the linked character, in the save at `location`. */
 export const fetchSlotFlags = (
   location: string | null,

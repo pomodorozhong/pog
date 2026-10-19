@@ -16,6 +16,7 @@ import {
   AutoImport,
   AutoImportSwitch,
 } from "../src/progress/AutoImport";
+import { summarizeChanges } from "../src/progress/importSave";
 import { initialDocuments } from "../src/storage/schema";
 
 afterEach(() => {
@@ -126,9 +127,7 @@ describe("importing automatically when the game saves", () => {
       () => stamp,
     );
     expect(
-      await screen.findByText(
-        "Imported from the save: +1 graces discovered, −0 not discovered",
-      ),
+      await screen.findByText("Imported from the save: +1 graces discovered"),
     ).toBeInTheDocument();
     expect(activeProfile(player()).progress.flags).toEqual([71000]);
 
@@ -142,9 +141,7 @@ describe("importing automatically when the game saves", () => {
     expect(flagReads(fetch)).toBe(2);
     expect(activeProfile(player()).progress.flags).toEqual([71000, 10000800]);
     expect(
-      screen.getByText(
-        "Imported from the save: +1 bosses beaten, −0 not beaten",
-      ),
+      screen.getByText("Imported from the save: +1 bosses beaten"),
     ).toBeInTheDocument();
   });
 
@@ -199,9 +196,7 @@ describe("importing automatically when the game saves", () => {
 
     fireEvent.click(screen.getByText("Import from “Someone”"));
     expect(
-      await screen.findByText(
-        "Imported from the save: +1 graces discovered, −0 not discovered",
-      ),
+      await screen.findByText("Imported from the save: +1 graces discovered"),
     ).toBeInTheDocument();
     expect(activeProfile(player()).save?.name).toBe("Someone");
     expect(flagReads(fetch)).toBe(2);
@@ -245,5 +240,23 @@ describe("the automatic import's switch", () => {
     expect(
       screen.getByText(/^On: starts once this playthrough is linked/),
     ).toBeInTheDocument();
+  });
+});
+
+describe("the automatic import's note", () => {
+  const t = (key: string, values?: Record<string, string | number>) =>
+    translate("en", key, values);
+  const isBoss = (flag: number) => flag === 10000800;
+  it("leaves out what didn't change", () => {
+    expect(
+      summarizeChanges(t, { added: [71000], removed: [], flags: [] }, isBoss),
+    ).toBe("+1 graces discovered");
+    expect(
+      summarizeChanges(
+        t,
+        { added: [10000800], removed: [71000], flags: [] },
+        isBoss,
+      ),
+    ).toBe("1 graces no longer discovered · +1 bosses beaten");
   });
 });

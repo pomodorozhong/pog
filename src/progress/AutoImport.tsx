@@ -10,7 +10,7 @@ import {
   importFlags,
   planImport,
   SaveRequestError,
-  summarizeImport,
+  summarizeChanges,
 } from "./importSave";
 
 /** How often the save's modification time is checked. */
@@ -104,7 +104,7 @@ export function AutoImport({
               watching: about,
               kind: "imported",
               text: t("Imported from the save: {changes}", {
-                changes: summarizeImport(t, plan, isBoss),
+                changes: summarizeChanges(t, plan, isBoss),
               }),
             });
           }
