@@ -73,6 +73,7 @@ Everything below comes from the player's own install, read natively on macOS in 
 - Event flags (grace discovered, item picked up, boss beaten) tie these sources together. They are the natural keys for each profile's progress and for prerequisites.
 - **Patches can change formats:** `regulation.bin` switched from Kraken to ZSTD compression in a recent patch. Param field offsets come from Paramdex and are checked against row size, so a layout change fails loudly. After a game patch, rerun `npm run extract`.
 - **Some bosses share a flag:** the Night's Cavalry at `1039510800` and the Deathbird at `1044530800` have the Bell Bearing Hunter's flag `1043530800` in the game's own param, so the save can't tell them apart.
+- **No boss portraits:** the menu image archive the extractor reads (`menu/hi/00_solo`) holds item icons (`MENU_Knowledge`, 2,969), 35 loading screens (`MENU_Load`, plus 23 PS5 copies), tutorial and stage images, and nothing per boss; the game has no bestiary. Remembrance icons are the nearest boss pictures, which would need each boss linked to its drop. Other menu archives and the DLC's aren't checked.
 - **`dlc-underground` has no graces:** every DLC grace has display mask 0, so the surface/underground bit doesn't apply there.
 - **Known gaps:** about 120 tiny archive files use an Oodle codec we don't decode, and 3 icons referenced by items don't exist. Neither affects the app.
 - JavaScript's `&` is signed; use `>>> 0` for handle masks. Filenames that differ only in case clash on macOS.
