@@ -16,6 +16,10 @@ The default game folder is the "Elden Ring" CrossOver bottle. Use `--game-dir` o
 - `eventflag_bst.txt`: where each block of 1000 event flags sits in a save slot, for the save import. It isn't in the game files: it's downloaded from [ER-Save-Lib](https://github.com/ClayAmore/ER-Save-Lib) at a pinned commit and checked against its SHA-256 (the only network access).
 - `map/<layer>/{z}/{x}/{y}.jpg`: Leaflet tile pyramids for `overworld`, `underground`, `dlc` and `dlc-underground`, fully revealed, with the map in the top-left corner. `map/index.json` gives each layer's size and maximum zoom.
 
+## Item location report
+
+`scripts/extract/item_locations_report.py` counts the item lots the map layout files give a position, and how many catalog items that places (spike #8; findings in `docs/architecture.md`). It writes nothing to `game-data/`; `--json FILE` saves the placements for inspection.
+
 ## How it works
 
 | Step         | Notes                                                                                                                                                                                             |

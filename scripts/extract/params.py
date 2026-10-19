@@ -1,4 +1,4 @@
-"""Read the item, grace and boss params out of regulation.bin."""
+"""Read the item, item lot, grace and boss params out of regulation.bin."""
 
 from __future__ import annotations
 
@@ -38,6 +38,12 @@ LAYOUTS = {
         "defeatBossFlagId": (68, "<I"),
         "bossPos": (72, "<3f"),
         "bossMap": (84, "<BBB"),  # area, block (grid x), map (grid z), as in BonfireWarpParam
+    },
+    "ItemLotParam_map": {
+        "size": 152,
+        "lotItemId": (0, "<8i"),
+        "lotItemCategory": (32, "<8i"),  # 1 goods, 2 weapon, 3 armor, 4 talisman, 5 Ash of War
+        "getItemFlagId": (128, "<I"),
     },
     "WorldMapLegacyConvParam": {
         "size": 48,
