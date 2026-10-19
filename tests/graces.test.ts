@@ -112,3 +112,40 @@ describe("a stored map", () => {
     expect(validDocument("map", doc([node("grace/1", 1, 2)]))).toBe(false);
   });
 });
+
+describe("bosses in a stored map", () => {
+  it("are a list of catalog ids on a pin or a grace, none twice", () => {
+    const pin = { ...node("j", 1, 2), bosses: ["boss/1", "boss/2"] };
+    expect(validDocument("map", doc([pin]))).toBe(true);
+    expect(
+      validDocument("map", {
+        ...doc(),
+        graces: { "grace/1": { bosses: ["boss/1"] } },
+      }),
+    ).toBe(true);
+    expect(
+      validDocument("map", doc([{ ...pin, bosses: ["boss/1", "boss/1"] }])),
+    ).toBe(false);
+    expect(
+      validDocument("map", {
+        ...doc(),
+        graces: { "grace/1": { bosses: "boss/1" } },
+      }),
+    ).toBe(false);
+  });
+
+  it("are dropped from a grace once cleared", () => {
+    const start = applyMapAction(
+      doc(),
+      { type: "updateNode", id: "grace/1", changes: { bosses: ["boss/1"] } },
+      fixed,
+    );
+    expect(start.graces).toEqual({ "grace/1": { bosses: ["boss/1"] } });
+    const cleared = applyMapAction(
+      start,
+      { type: "updateNode", id: "grace/1", changes: { bosses: [] } },
+      fixed,
+    );
+    expect(cleared).not.toHaveProperty("graces");
+  });
+});

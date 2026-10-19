@@ -117,8 +117,8 @@ export function applyMapAction(
       if (!node) {
         // A game grace can't move or change kind; what a pin holds, it can.
         if (!fixed.has(action.id)) return doc;
-        const { label, place, items } = action.changes;
-        return updateGrace(doc, action.id, { label, place, items });
+        const { label, place, items, bosses } = action.changes;
+        return updateGrace(doc, action.id, { label, place, items, bosses });
       }
       const updated = { ...node, ...action.changes };
       return {

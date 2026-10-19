@@ -60,21 +60,23 @@ export function importMap(
     edges.push({ ...edge, nodes });
   }
 
-  // What was added to graces: items join the grace's own, a label or
+  // What was added to graces: items and bosses join the grace's own, a label or
   // entrance comes along only if the grace has none here.
   const graces: MapAction[] = [];
   for (const [id, added] of Object.entries(source.graces ?? {})) {
     const grace = target.nodes.find((n) => n.id === id);
     if (!grace || (layer && grace.layer !== layer)) continue;
-    const own = grace.items ?? [];
-    const items = [
+    const joined = (own: string[] = [], more: string[] = []) => [
       ...own,
-      ...(added.items ?? []).filter((i) => !own.includes(i)),
+      ...more.filter((i) => !own.includes(i)),
     ];
+    const items = joined(grace.items, added.items);
+    const bosses = joined(grace.bosses, added.bosses);
     const changes = {
       ...(!grace.label && added.label ? { label: added.label } : {}),
       ...(!grace.place && added.place ? { place: added.place } : {}),
-      ...(items.length > own.length ? { items } : {}),
+      ...(items.length > (grace.items?.length ?? 0) ? { items } : {}),
+      ...(bosses.length > (grace.bosses?.length ?? 0) ? { bosses } : {}),
     };
     if (Object.keys(changes).length)
       graces.push({ type: "updateNode", id, changes });

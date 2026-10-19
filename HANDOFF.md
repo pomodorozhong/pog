@@ -2,35 +2,34 @@
 
 ## In progress
 
-### feat/item-location-spike
+### feat/boss-links
 
-- Task: #8 Spike: item locations from the map layout files (`map/mapstudio/*.msb` treasure entries), and per its comment, compare community sources of item coordinates and recommend one
-- PR: none yet; branch created from `main` at 1e20883 (after #61), linked to #8 and pushed
-- Code checkpoint: 8cca077 (`feat(extract): report item locations from map layout treasures`)
-- State: done, awaiting a PR. `read_msb_treasures` (`scripts/extract/formats.py`), the `ItemLotParam_map` layout, and `scripts/extract/item_locations_report.py`: 3,466 of 5,410 map item lots get a position, placing 999 of the 1,838 catalog items found in map lots. Findings, the community source comparison and the recommendation (game data: MSB treasures, then boss drops and enemy parts) are in `docs/architecture.md`; the handoff note is on #8, and pointer comments are on #9, #10 and #11.
-- Verification: report run against the Steam install (all 3,575 spots on the map, median 74 px from a grace; spot checks listed in the docs); `npm run extract` leaves `catalog.json` unchanged; lint, typecheck, `npm test` (126 passed), build, Prettier.
-- Next action: open the PR with the `open-pr` skill (`Closes #8`)
+- Task: #52 Link bosses to any pin or grace
+- PR: none; branch created from `main` at caee934 (after #62), linked to #52 and pushed
+- Code checkpoint: 70633c9 (`fix: draw the boss marker as a symmetric skull icon`), after f0da85a (`feat: link bosses to any pin or grace`)
+- State: built: a `bosses` list on pins and graces, the pin details' Bosses card (search by any health bar's name with the nearest grace to tell same-named bosses apart, add, remove, reorder, Beaten tag), the skull pin and badge on the map, drawn as an SVG skull after the player found the ☠ glyph lopsided and unreadable (faded once every boss there is beaten), grace bosses merged on profile import, zh-TW strings and `docs/architecture.md`. Not done, by choice: reorder for items, boss suggestions by position.
+- Verification: lint, typecheck, `npm test` (132 passed), build, Prettier; in the app against the real catalog with a scratch data folder: bosses added to a grace and to a pin, reordered, the map badge and skull pin (also checked at 3×), and the faded skull after setting Margit's flag. The only console error is the missing favicon, which isn't from this change.
+- Next action: the PR (`Closes #52`) awaits the player's approval to push and open
 
 ## Ranked work
 
-1. #8 Spike: item locations from map layout files or community sources (moved up by the player)
-2. #52 Link bosses to any pin or grace
-3. #60 Turn the item progress view into a playthrough progress tracker with bosses (needs #52; needs-decision)
-4. #43 Choose where the save file is (blocks trying the save import)
-5. #37 Grace icons cover path numbers and lines
-6. #44 Show which way a path goes
-7. #33 Step numbers pinned to the screen edge can overlap (small)
-8. #36 Layer summary misses paths drawn only through graces (small)
-9. #59 Color the item progress view's step badges like their paths (small)
-10. #48 Spike: waygate locations and destinations from game data
-11. #41 Edit a selected path (insert a node between two others)
-12. #19 Bring over chosen paths from another map, with a preview
-13. #22 Note what feels awkward (all ten flows tried; keep adding notes)
-14. #6 Save import review shows "Apply" when nothing changed (small)
-15. #27 Ashen Capital graces read as undiscovered (small; affects fast travel after Leyndell burns)
-16. #3 Add end-to-end browser tests
-17. #7 Check English and zh-TW together
+1. #52 Link bosses to any pin or grace
+2. #60 Turn the item progress view into a playthrough progress tracker with bosses (needs #52; needs-decision)
+3. #43 Choose where the save file is (blocks trying the save import)
+4. #37 Grace icons cover path numbers and lines
+5. #44 Show which way a path goes
+6. #33 Step numbers pinned to the screen edge can overlap (small)
+7. #36 Layer summary misses paths drawn only through graces (small)
+8. #59 Color the item progress view's step badges like their paths (small)
+9. #48 Spike: waygate locations and destinations from game data
+10. #41 Edit a selected path (insert a node between two others)
+11. #19 Bring over chosen paths from another map, with a preview
+12. #22 Note what feels awkward (all ten flows tried; keep adding notes)
+13. #6 Save import review shows "Apply" when nothing changed (small)
+14. #27 Ashen Capital graces read as undiscovered (small; affects fast travel after Leyndell burns)
+15. #3 Add end-to-end browser tests
+16. #7 Check English and zh-TW together
 
 ## Pending
 
-- P-02: delete the local branch `feat/boss-flags`. Its PR (#61) is squash-merged, so only its step commits would be lost locally. Needs the player's OK because deleting branches is hard to undo; blocks nothing.
+None.

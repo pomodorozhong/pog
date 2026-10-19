@@ -90,6 +90,23 @@ export async function loadGameData(
   return { catalog, layers, byId, uniquePlaces, graceFlags };
 }
 
+/** The game grace nearest a boss's arena on its layer, to tell same-named bosses apart. */
+export function nearestGrace(
+  data: GameData,
+  boss: CatalogBoss,
+): CatalogGrace | undefined {
+  if (boss.layer === undefined || boss.x === undefined || boss.y === undefined)
+    return undefined;
+  let best: CatalogGrace | undefined;
+  let bestDistance = Infinity;
+  for (const grace of data.catalog.graces) {
+    if (grace.layer !== boss.layer) continue;
+    const d = Math.hypot(grace.x - boss.x, grace.y - boss.y);
+    if (d < bestDistance) [best, bestDistance] = [grace, d];
+  }
+  return best;
+}
+
 export const iconUrl = (icon: number) => `/game-data/icons/${icon}.webp`;
 export const isItem = (
   entry: CatalogItem | CatalogName,
@@ -107,24 +124,36 @@ export function refCandidates(
 
 const fold = (text: string) => text.normalize("NFKC").toLowerCase();
 
-/** Match either language; English matches at a word start rank first. */
-export function searchCatalog<T extends { name: Localized }>(
-  entries: T[],
-  query: string,
-  limit = 30,
-): T[] {
+/** How well a name matches the folded query: 0 best, -1 not at all. */
+function matchScore(name: Localized, q: string): number {
+  const en = fold(name.en);
+  const zh = fold(name["zh-TW"]);
+  if (en === q || zh === q) return 0;
+  if (en.startsWith(q) || zh.startsWith(q)) return 1;
+  if (en.includes(` ${q}`)) return 2;
+  if (en.includes(q) || zh.includes(q)) return 3;
+  return -1;
+}
+
+/**
+ * Match either language; English matches at a word start rank first. A boss
+ * also matches by its other health bars' names, a little lower.
+ */
+export function searchCatalog<
+  T extends { name: Localized; otherNames?: Localized[] },
+>(entries: T[], query: string, limit = 30): T[] {
   const q = fold(query.trim());
   if (!q) return [];
   const scored: [number, T][] = [];
   for (const entry of entries) {
-    const en = fold(entry.name.en);
-    const zh = fold(entry.name["zh-TW"]);
-    let score = -1;
-    if (en === q || zh === q) score = 0;
-    else if (en.startsWith(q) || zh.startsWith(q)) score = 1;
-    else if (en.includes(` ${q}`)) score = 2;
-    else if (en.includes(q) || zh.includes(q)) score = 3;
-    if (score >= 0) scored.push([score, entry]);
+    const scores = [
+      matchScore(entry.name, q),
+      ...(entry.otherNames ?? []).map((n) => {
+        const s = matchScore(n, q);
+        return s < 0 ? s : s + 0.5;
+      }),
+    ].filter((s) => s >= 0);
+    if (scores.length) scored.push([Math.min(...scores), entry]);
   }
   return scored
     .sort((a, b) => a[0] - b[0] || a[1].name.en.length - b[1].name.en.length)

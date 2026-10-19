@@ -223,6 +223,49 @@ body {
   font: 700 10px/16px var(--font-sans);
   box-shadow: 0 0 0 1px var(--color-gold);
 }
+/* A pin holding only bosses. */
+.map-node.has-bosses {
+  width: 28px !important;
+  height: 28px !important;
+  margin: -14px 0 0 -14px !important;
+  background: #8c2f2b;
+  border-color: var(--color-gold);
+  color: #f3e9cf;
+}
+.map-node.has-bosses .boss-icon {
+  width: 20px;
+  height: 20px;
+}
+/* Bosses at a pin that also holds items, or at a grace: a round badge,
+   with how many beside the skull when more than one. */
+.boss-badge {
+  position: absolute;
+  right: -14px;
+  bottom: -10px;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  height: 18px;
+  min-width: 18px;
+  padding: 0 3px;
+  border-radius: 9px;
+  background: #8c2f2b;
+  color: #f3e9cf;
+  box-shadow: 0 0 0 1px var(--color-gold);
+}
+.boss-badge .boss-icon {
+  width: 13px;
+  height: 13px;
+}
+.boss-count {
+  font: 700 10px/1 var(--font-sans);
+}
+/* Every boss here beaten in this playthrough: faded. */
+.map-node.has-bosses.bosses-beaten,
+.map-node.bosses-beaten .boss-badge {
+  background: #4d3a37;
+  color: #a7a093;
+}
 /* Graces not discovered in this playthrough yet: unlit. */
 .map-node--grace.is-undiscovered {
   background: #8d8673;

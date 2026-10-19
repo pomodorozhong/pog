@@ -79,6 +79,7 @@ describe("cross-layer waygate numbers", () => {
           data={data}
           undiscovered={new Set()}
           position={null}
+          beaten={new Set()}
           route={[]}
           stops={new Map()}
           routeNodes={new Set()}
@@ -137,6 +138,7 @@ const canvasProps = (): ComponentProps<typeof MapCanvas> => ({
   data,
   undiscovered: new Set(),
   position: null,
+  beaten: new Set(),
   route: [],
   stops: new Map(),
   routeNodes: new Set(),
@@ -357,5 +359,31 @@ describe("pin notes and items", () => {
     expect(graces[0]).not.toHaveClass("has-items");
     expect(graces[0].querySelector(".grace-item")).not.toBeNull();
     expect(graces[0]).toHaveTextContent("+1");
+  });
+});
+
+describe("bosses on the map", () => {
+  it("shows a skull pin, or a badge with how many, faded once all are beaten", () => {
+    const withBosses: MapNode[] = [
+      { ...graceNodes[0], bosses: ["boss/1", "boss/2"] },
+      { ...nodes[0], bosses: ["boss/3"] },
+    ];
+    const props = { ...canvasProps(), nodes: withBosses };
+    const { container, rerender } = render(<MapCanvas {...props} />);
+    const pin = container.querySelector(".map-node--junction")!;
+    expect(pin).toHaveClass("has-bosses");
+    expect(pin.querySelector("svg.boss-icon")).not.toBeNull();
+    const badge = container.querySelector(".map-node--grace .boss-badge")!;
+    expect(badge.querySelector("svg.boss-icon")).not.toBeNull();
+    expect(badge).toHaveTextContent("2");
+    expect(container.querySelectorAll(".bosses-beaten")).toHaveLength(0);
+
+    rerender(<MapCanvas {...props} beaten={new Set(["boss/1", "boss/3"])} />);
+    expect(container.querySelector(".map-node--junction")).toHaveClass(
+      "bosses-beaten",
+    );
+    expect(container.querySelector(".map-node--grace")).not.toHaveClass(
+      "bosses-beaten",
+    );
   });
 });

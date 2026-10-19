@@ -3,6 +3,7 @@ import type { MapNode } from "../src/domain/types";
 import type { CatalogGrace, GameData } from "../src/map/catalog";
 import { activeProfile } from "../src/profiles/profiles";
 import {
+  beatenBosses,
   discoveredCount,
   setFlag,
   setPosition,
@@ -67,6 +68,30 @@ describe("progress", () => {
     expect(
       undiscoveredGraces(data, nodes, { flags: [71000], position: null }),
     ).toEqual(new Set(["b"]));
+  });
+
+  it("finds the bosses beaten, including every boss sharing a flag", () => {
+    const boss = (id: string, flag: number) => ({
+      id,
+      name: { en: id, "zh-TW": id },
+      dlc: false,
+      flag,
+    });
+    const withBosses = {
+      ...data,
+      catalog: {
+        ...data.catalog,
+        bosses: [
+          boss("boss/1", 9001),
+          boss("boss/2", 9002),
+          boss("boss/3", 9001),
+        ],
+      },
+    } as GameData;
+    expect(beatenBosses(withBosses, { flags: [9001], position: null })).toEqual(
+      new Set(["boss/1", "boss/3"]),
+    );
+    expect(beatenBosses(withBosses, null)).toEqual(new Set());
   });
 
   it("rejects unsorted or repeated flags", () => {

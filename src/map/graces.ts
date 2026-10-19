@@ -67,7 +67,7 @@ export function updateGrace(
 ): MapDocument {
   const given = Object.entries(changes).filter(([, v]) => v !== undefined);
   if (!given.length) return doc;
-  const { label, place, items }: GraceDetails = {
+  const { label, place, items, bosses }: GraceDetails = {
     ...doc.graces?.[id],
     ...Object.fromEntries(given),
   };
@@ -75,6 +75,7 @@ export function updateGrace(
     ...(label ? { label } : {}),
     ...(place ? { place } : {}),
     ...(items?.length ? { items } : {}),
+    ...(bosses?.length ? { bosses } : {}),
   };
   const graces = Object.fromEntries(
     Object.entries({ ...doc.graces, [id]: details }).filter(
