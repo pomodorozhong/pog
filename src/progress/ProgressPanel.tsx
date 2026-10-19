@@ -61,6 +61,7 @@ export function ProgressPanel({
         data={data}
         player={player}
         setPlayer={setPlayer}
+        doc={doc}
       />
       <div className="flex items-center gap-2.5 border-t border-[#22352e] pt-2.5">
         {here ? (

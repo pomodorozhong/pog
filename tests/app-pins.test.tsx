@@ -353,7 +353,7 @@ describe("items on a walked path", () => {
       [],
       [walked],
     );
-    const list = screen.getByRole("region", { name: "Items in route order" });
+    const list = screen.getByRole("region", { name: "Playthrough tracker" });
     expect(
       within(list).getByRole("button", { name: "Longsword: acquired" }),
     ).toHaveAttribute("aria-pressed", "false");
@@ -410,7 +410,7 @@ describe("wishlist entries per pin", () => {
       [walked],
       [spare],
     );
-    const list = screen.getByRole("region", { name: "Items in route order" });
+    const list = screen.getByRole("region", { name: "Playthrough tracker" });
     const rows = within(list).getAllByRole("button", {
       name: "Longsword: acquired",
     });
@@ -425,7 +425,9 @@ describe("wishlist entries per pin", () => {
     expect(
       within(list).queryByRole("button", { name: "Buckler: acquired" }),
     ).toBeNull();
-    expect(screen.getByText("1 of 2 acquired")).toBeInTheDocument();
+    expect(
+      screen.getByText("1 of 2 items acquired · 0 of 0 bosses beaten"),
+    ).toBeInTheDocument();
   });
 
   it("attach an entry with no pin from a pin's item editor", async () => {

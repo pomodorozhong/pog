@@ -1,5 +1,10 @@
 import { useState } from "react";
-import type { Language, PlayerDocument, SaveLink } from "../domain/types";
+import type {
+  Language,
+  MapDocument,
+  PlayerDocument,
+  SaveLink,
+} from "../domain/types";
 import type { Translate } from "../i18n/translation";
 import type { GameData } from "../map/catalog";
 import { activeProfile } from "../profiles/profiles";
@@ -19,24 +24,32 @@ type Step =
   | { kind: "renamed"; link: SaveLink; found: string }
   | { kind: "review"; link: SaveLink; plan: ImportPlan };
 
-/** "Import progress from save": read the linked character's flags, show what changes, apply. */
+/**
+ * "Import progress from save": read the linked character's flags, show what
+ * changes, apply. It asks about every grace, and about the bosses at the
+ * map's pins and graces; other bosses' flags stay as they are.
+ */
 export function SaveImport({
   t,
   language,
   data,
   player,
   setPlayer,
+  doc,
 }: {
   t: Translate;
   language: Language;
   data: GameData;
   player: PlayerDocument;
   setPlayer(player: PlayerDocument): void;
+  /** The profile's map with its game graces. */
+  doc: MapDocument;
 }) {
   const profile = activeProfile(player);
   const [step, setStep] = useState<Step>({ kind: "idle" });
+  const onMap = new Set(doc.nodes.flatMap((n) => n.bosses ?? []));
   const bossName = new Map<number, string>();
-  for (const b of data.catalog.bosses)
+  for (const b of data.catalog.bosses.filter((b) => onMap.has(b.id)))
     bossName.set(
       b.flag,
       [bossName.get(b.flag), b.name[language]].filter(Boolean).join(" / "),

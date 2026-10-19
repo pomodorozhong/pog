@@ -10,6 +10,7 @@ import type { MapCanvasHandlers } from "../src/map/MapCanvas";
 import type { MapEdge, MapNode, WishlistItem } from "../src/domain/types";
 import { initialDocuments } from "../src/storage/schema";
 import App from "../src/App";
+import { drawn } from "./paths";
 
 // The real app; the Leaflet surface is replaced by buttons that send the same clicks.
 vi.mock("../src/map/MapCanvas", () => ({
@@ -59,16 +60,35 @@ const attic: MapNode = {
   items: ["weapon/2", "weapon/3"],
 };
 
-async function open(wishlist: WishlistItem[]) {
+const bosses = [
+  {
+    id: "boss/1",
+    name: { en: "Margit, the Fell Omen", "zh-TW": "「惡兆」瑪爾基特" },
+    dlc: false,
+    flag: 9000,
+  },
+  {
+    id: "boss/2",
+    name: { en: "Tree Sentinel", "zh-TW": "大樹守衛" },
+    dlc: false,
+    flag: 9001,
+  },
+];
+
+async function open(
+  wishlist: WishlistItem[],
+  map: { nodes?: MapNode[]; edges?: MapEdge[] } = {},
+) {
   const documents = initialDocuments();
-  documents.map.nodes = [pin, attic];
+  documents.map.nodes = map.nodes ?? [pin, attic];
+  documents.map.edges = map.edges ?? [];
   documents.player.profiles[0].wishlist = wishlist;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
       const body =
         url === "/game-data/catalog.json"
-          ? { items, graces: [], bosses: [], places: [], npcs: [] }
+          ? { items, graces: [], bosses, places: [], npcs: [] }
           : url === "/game-data/map/index.json"
             ? Object.fromEntries(
                 ["overworld", "underground", "dlc", "dlc-underground"].map(
@@ -93,7 +113,7 @@ async function open(wishlist: WishlistItem[]) {
 }
 
 const listed = () =>
-  within(screen.getByRole("region", { name: "Items in route order" }))
+  within(screen.getByRole("region", { name: "Playthrough tracker" }))
     .queryAllByRole("button", { name: /: acquired$/ })
     .map((b) => b.getAttribute("aria-label")!.replace(": acquired", ""));
 
@@ -113,7 +133,7 @@ describe("the route list", () => {
     await open(wishlist);
     expect(listed()).toEqual(["Longsword", "Buckler", "Rusted Anchor"]);
     const search = screen.getByRole("searchbox", {
-      name: "Search the wishlist",
+      name: "Search the playthrough",
     });
     fireEvent.change(search, { target: { value: "圓盾" } });
     expect(listed()).toEqual(["Buckler"]);
@@ -122,7 +142,7 @@ describe("the route list", () => {
     fireEvent.change(search, { target: { value: "boss" } });
     expect(listed()).toEqual(["Rusted Anchor"]);
     fireEvent.change(search, { target: { value: "nothing like it" } });
-    expect(screen.getByText("No wishlist items match.")).toBeInTheDocument();
+    expect(screen.getByText("Nothing matches.")).toBeInTheDocument();
   });
 
   it("is filtered by status", async () => {
@@ -132,6 +152,49 @@ describe("the route list", () => {
     expect(listed()).toEqual(["Buckler"]);
     fireEvent.click(within(show).getByRole("button", { name: /Needed/ }));
     expect(listed()).toEqual(["Longsword", "Rusted Anchor"]);
+  });
+});
+
+describe("the playthrough tracker", () => {
+  it("lists the bosses a walked path reaches and marks them beaten", async () => {
+    await open([], {
+      nodes: [
+        { ...pin, bosses: ["boss/1"] },
+        attic,
+        { ...pin, id: "crypt", items: [], bosses: ["boss/2"] },
+      ],
+      edges: [{ ...drawn("e1", ["cellar", "attic"]), step: 1 }],
+    });
+    const tracker = screen.getByRole("region", { name: "Playthrough tracker" });
+    // At a pin, its bosses come before its items; a boss off the walk isn't listed.
+    expect(
+      within(tracker)
+        .getAllByRole("button", { name: /: (acquired|beaten)$/ })
+        .map((b) => b.getAttribute("aria-label")),
+    ).toEqual([
+      "Margit, the Fell Omen: beaten",
+      "Longsword: acquired",
+      "Buckler: acquired",
+      "Rusted Anchor: acquired",
+    ]);
+    expect(
+      screen.getByText("0 of 3 items acquired · 0 of 1 bosses beaten"),
+    ).toBeInTheDocument();
+
+    const margit = screen.getByRole("button", {
+      name: "Margit, the Fell Omen: beaten",
+    });
+    fireEvent.click(margit);
+    expect(margit).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByText("0 of 3 items acquired · 1 of 1 bosses beaten"),
+    ).toBeInTheDocument();
+    // A beaten boss counts as done in the filter.
+    const show = screen.getByRole("group", { name: "Show" });
+    fireEvent.click(within(show).getByRole("button", { name: /Acquired/ }));
+    expect(
+      within(tracker).getAllByRole("button", { name: /: (acquired|beaten)$/ }),
+    ).toHaveLength(1);
   });
 });
 
@@ -146,7 +209,7 @@ describe("the side panel", () => {
     // A list item opens its pin's details.
     fireEvent.click(
       within(
-        screen.getByRole("region", { name: "Items in route order" }),
+        screen.getByRole("region", { name: "Playthrough tracker" }),
       ).getAllByRole("button", { name: /^Longsword/ })[0],
     );
     expect(pencil).toHaveAttribute("aria-pressed", "true");
@@ -161,7 +224,7 @@ describe("the side panel", () => {
     ).toBeInTheDocument();
     fireEvent.click(pencil);
     expect(
-      screen.getByRole("region", { name: "Items in route order" }),
+      screen.getByRole("region", { name: "Playthrough tracker" }),
     ).toBeInTheDocument();
   });
 

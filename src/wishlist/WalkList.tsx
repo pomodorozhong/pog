@@ -8,23 +8,39 @@ import {
   type WishlistStatus,
 } from "../domain/types";
 import type { Translate } from "../i18n/translation";
-import { iconUrl, isItem, type GameData } from "../map/catalog";
+import {
+  iconUrl,
+  isItem,
+  type CatalogBoss,
+  type GameData,
+} from "../map/catalog";
+import { BOSS_SYMBOL } from "../map/style";
 import { activeProfile } from "../profiles/profiles";
+import { beatenBosses, setFlag } from "../progress/progress";
 import { STATUS_NAMES, pinName } from "./WishlistPanel";
 import {
   combinedWishlist,
   countByStatus,
+  playthroughOrder,
   updateWishlistItem,
-  walkOrder,
   type PinnedEntry,
+  type TrackerRow,
 } from "./wishlist";
+
+/** A tracker row; an entry on no walked path has no step. */
+type Row =
+  | TrackerRow
+  | { kind: "item"; entry: PinnedEntry; pin: string; step?: undefined };
 
 const fold = (text: string) => text.normalize("NFKC").toLowerCase();
 
 /**
- * The item progress: each wishlist entry at a pin, in the order the walk
- * reaches it, with tap-to-mark status. Entries not attached to a pin aren't
- * shown. A search box and a status filter narrow what's shown.
+ * The playthrough tracker: what the walk reaches, in walking order, with
+ * tap-to-mark progress. Each wishlist entry at a pin is acquired or not; each
+ * boss at a pin a walked path reaches is beaten or not, by its game flag.
+ * Entries not attached to a pin aren't shown. A search box and a status
+ * filter narrow what's shown; a beaten boss counts as done, like an acquired
+ * item.
  */
 export function WalkList({
   t,
@@ -50,61 +66,94 @@ export function WalkList({
     doc,
     profile.wishlist,
   );
-  const { onRoute, offRoute } = walkOrder(doc, wishlist);
+  const { onRoute, offRoute } = playthroughOrder(doc, wishlist);
   const counts = countByStatus(wishlist);
-  // Tapping marks an item acquired; tapping an acquired item marks it needed again.
-  const toggle = (entry: PinnedEntry) =>
-    setPlayer(
-      updateWishlistItem(player, profile.id, entry.item, entry.pin, {
-        status: entry.status === "acquired" ? "needed" : "acquired",
-      }),
-    );
+  const beaten = beatenBosses(data, profile.progress);
+  const bosses = onRoute.flatMap((r) => (r.kind === "boss" ? [r.boss] : []));
+  const bossesBeaten = bosses.filter((b) => beaten.has(b)).length;
+  const shownCounts: Record<WishlistStatus | "all", number> = {
+    all: wishlist.length + bosses.length,
+    needed: counts.needed + bosses.length - bossesBeaten,
+    acquired: counts.acquired + bossesBeaten,
+    skipped: counts.skipped,
+  };
+  /** A boss's progress reads as an item's: beaten is acquired. */
+  const statusOf = (row: Row): WishlistStatus =>
+    row.kind === "item"
+      ? row.entry.status
+      : beaten.has(row.boss)
+        ? "acquired"
+        : "needed";
+  // Tapping marks an item acquired, or a boss beaten; tapping again undoes it.
+  const toggle = (row: Row) => {
+    if (row.kind === "item")
+      return setPlayer(
+        updateWishlistItem(player, profile.id, row.entry.item, row.pin, {
+          status: row.entry.status === "acquired" ? "needed" : "acquired",
+        }),
+      );
+    const boss = data.byId.get(row.boss) as CatalogBoss | undefined;
+    if (boss)
+      setPlayer(setFlag(player, profile.id, boss.flag, !beaten.has(row.boss)));
+  };
   const where = (pin: string) => pinName(t, language, data, doc, pin);
-  // An item matches by its name in either language, its pin's name or its note.
+  // A row matches by its name in either language, its pin's name or its note.
   const q = fold(query.trim());
-  const matches = (entry: WishlistItem, pin: string) => {
-    if (shown !== "all" && entry.status !== shown) return false;
+  const matches = (row: Row) => {
+    if (shown !== "all" && statusOf(row) !== shown) return false;
     if (!q) return true;
-    const item = data.byId.get(entry.item);
-    return [item?.name.en, item?.name["zh-TW"], where(pin), entry.note].some(
+    const id = row.kind === "item" ? row.entry.item : row.boss;
+    const entry = data.byId.get(id);
+    const note = row.kind === "item" ? row.entry.note : "";
+    return [entry?.name.en, entry?.name["zh-TW"], where(row.pin), note].some(
       (text) => text && fold(text).includes(q),
     );
   };
-  const route = onRoute.filter((r) => matches(r.entry, r.pin));
-  const off = offRoute.filter((r) => matches(r.entry, r.pin));
+  const route = onRoute.filter(matches);
+  const off = offRoute
+    .map((r): Row => ({ kind: "item", ...r }))
+    .filter(matches);
 
-  const row = (entry: PinnedEntry, step?: number) => {
-    const item = data.byId.get(entry.item);
-    const name = item?.name[language] ?? entry.item;
+  const row = (r: Row) => {
+    const id = r.kind === "item" ? r.entry.item : r.boss;
+    const item = data.byId.get(id);
+    const name = item?.name[language] ?? id;
+    const status = statusOf(r);
     const place =
-      step === undefined
-        ? t("{place} · not on a path yet", { place: where(entry.pin) })
-        : where(entry.pin);
+      r.step === undefined
+        ? t("{place} · not on a path yet", { place: where(r.pin) })
+        : where(r.pin);
     return (
-      <li
-        key={`${entry.pin} ${entry.item}`}
-        className="flex items-center gap-2"
-      >
+      <li key={`${r.pin} ${id}`} className="flex items-center gap-2">
         <span
-          className={`grid h-5 w-7 shrink-0 place-items-center rounded-full text-xs font-semibold ${step === undefined ? "border border-dashed border-line text-muted" : "bg-gold text-ink"}`}
+          className={`grid h-5 w-7 shrink-0 place-items-center rounded-full text-xs font-semibold ${r.step === undefined ? "border border-dashed border-line text-muted" : "bg-gold text-ink"}`}
         >
-          {step ?? "–"}
+          {r.step ?? "–"}
         </span>
         <button
           className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left"
-          onClick={() => showNode(entry.pin)}
+          onClick={() => showNode(r.pin)}
         >
-          {item && isItem(item) && item.icon && (
-            <img
-              src={iconUrl(item.icon)}
-              alt=""
-              className="size-8 shrink-0 rounded bg-ink"
-              loading="lazy"
+          {r.kind === "boss" ? (
+            <span
+              className="grid size-8 shrink-0 place-items-center rounded bg-ink text-danger [&>svg]:size-5"
+              dangerouslySetInnerHTML={{ __html: BOSS_SYMBOL }}
             />
+          ) : (
+            item &&
+            isItem(item) &&
+            item.icon && (
+              <img
+                src={iconUrl(item.icon)}
+                alt=""
+                className="size-8 shrink-0 rounded bg-ink"
+                loading="lazy"
+              />
+            )
           )}
           <span className="flex min-w-0 flex-col">
             <span
-              className={`truncate ${entry.status === "needed" ? "" : "text-muted line-through"}`}
+              className={`truncate ${status === "needed" ? "" : "text-muted line-through"}`}
             >
               {name}
             </span>
@@ -113,12 +162,20 @@ export function WalkList({
         </button>
         <button
           className="grid size-11 shrink-0 place-items-center"
-          aria-pressed={entry.status === "acquired"}
-          aria-label={t("{item}: acquired", { item: name })}
-          title={t(STATUS_NAMES[entry.status])}
-          onClick={() => toggle(entry)}
+          aria-pressed={status === "acquired"}
+          aria-label={
+            r.kind === "item"
+              ? t("{item}: acquired", { item: name })
+              : t("{boss}: beaten", { boss: name })
+          }
+          title={
+            r.kind === "item"
+              ? t(STATUS_NAMES[status])
+              : t(status === "acquired" ? "Beaten" : "Not beaten")
+          }
+          onClick={() => toggle(r)}
         >
-          <StatusMark status={entry.status} />
+          <StatusMark status={status} />
         </button>
       </li>
     );
@@ -126,15 +183,15 @@ export function WalkList({
 
   return (
     <section
-      aria-label={t("Items in route order")}
+      aria-label={t("Playthrough tracker")}
       className="flex min-h-0 flex-1 flex-col text-sm"
     >
-      {wishlist.length > 0 && (
+      {shownCounts.all > 0 && (
         <div className="flex flex-col gap-2 px-4 pb-2">
           <input
             className="field w-full"
             type="search"
-            aria-label={t("Search the wishlist")}
+            aria-label={t("Search the playthrough")}
             placeholder={t("Search English or 中文")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -152,7 +209,7 @@ export function WalkList({
               >
                 {t(status === "all" ? "All" : STATUS_NAMES[status])}
                 <span className="ml-1.5 text-[11px] opacity-70">
-                  {status === "all" ? wishlist.length : counts[status]}
+                  {shownCounts[status]}
                 </span>
               </button>
             ))}
@@ -160,7 +217,7 @@ export function WalkList({
         </div>
       )}
       <div className="min-h-0 overflow-y-auto px-4 pb-2">
-        {wishlist.length === 0 ? (
+        {shownCounts.all === 0 ? (
           <p className="text-muted">
             {unpinned.length
               ? t(
@@ -171,14 +228,14 @@ export function WalkList({
         ) : (
           !route.length &&
           !off.length && (
-            <p className="py-4 text-muted">{t("No wishlist items match.")}</p>
+            <p className="py-4 text-muted">{t("Nothing matches.")}</p>
           )
         )}
-        <ul>{route.map((r) => row(r.entry, r.step))}</ul>
+        <ul>{route.map(row)}</ul>
         {off.length > 0 && (
           <>
             <h4 className="label pt-2">{t("Not on the route yet")}</h4>
-            <ul>{off.map((r) => row(r.entry))}</ul>
+            <ul>{off.map(row)}</ul>
           </>
         )}
       </div>
