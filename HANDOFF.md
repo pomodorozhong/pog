@@ -5,12 +5,11 @@
 ### feat/item-location-spike
 
 - Task: #8 Spike: item locations from the map layout files (`map/mapstudio/*.msb` treasure entries), and per its comment, compare community sources of item coordinates and recommend one
-- PR: none; branch is local only, created from `main` at 1e20883 (after #61), not pushed or linked to #8
+- PR: none yet; branch created from `main` at 1e20883 (after #61), linked to #8 and pushed
 - Code checkpoint: 8cca077 (`feat(extract): report item locations from map layout treasures`)
-- State: done, awaiting push and PR. `read_msb_treasures` (`scripts/extract/formats.py`), the `ItemLotParam_map` layout, and `scripts/extract/item_locations_report.py`: 3,466 of 5,410 map item lots get a position, placing 999 of the 1,838 catalog items found in map lots. Findings, the community source comparison and the recommendation (game data: MSB treasures, then boss drops and enemy parts) are in `docs/architecture.md`; the handoff note is on #8.
+- State: done, awaiting a PR. `read_msb_treasures` (`scripts/extract/formats.py`), the `ItemLotParam_map` layout, and `scripts/extract/item_locations_report.py`: 3,466 of 5,410 map item lots get a position, placing 999 of the 1,838 catalog items found in map lots. Findings, the community source comparison and the recommendation (game data: MSB treasures, then boss drops and enemy parts) are in `docs/architecture.md`; the handoff note is on #8, and pointer comments are on #9, #10 and #11.
 - Verification: report run against the Steam install (all 3,575 spots on the map, median 74 px from a grace; spot checks listed in the docs); `npm run extract` leaves `catalog.json` unchanged; lint, typecheck, `npm test` (126 passed), build, Prettier.
-- Next action: once P-01 is approved, push and open the PR with the `open-pr` skill (`Closes #8`)
-- Pending: P-01 link this branch to #8 and push it, which blocks resuming from another computer.
+- Next action: open the PR with the `open-pr` skill (`Closes #8`)
 
 ## Ranked work
 
