@@ -6,9 +6,10 @@
 
 - Task: #52 Link bosses to any pin or grace
 - PR: none; branch created from `main` at caee934 (after #62), linked to #52 and pushed
-- Code checkpoint: caee934 (no commits yet)
-- State: building the approved plan: a `bosses` list on pins and graces (data, pin details card with search, add, remove and reorder, beaten tag, map marker and badge), zh-TW strings, tests and docs. Not doing now: reorder for items, boss suggestions by position.
-- Next action: finish the build, run the checks, then open the PR with the `open-pr` skill (`Closes #52`)
+- Code checkpoint: f0da85a (`feat: link bosses to any pin or grace`)
+- State: built: a `bosses` list on pins and graces, the pin details' Bosses card (search by any health bar's name with the nearest grace to tell same-named bosses apart, add, remove, reorder, Beaten tag), the skull pin and badge on the map (faded once every boss there is beaten), grace bosses merged on profile import, zh-TW strings and `docs/architecture.md`. Not done, by choice: reorder for items, boss suggestions by position.
+- Verification: lint, typecheck, `npm test` (132 passed), build, Prettier; in the app against the real catalog with a scratch data folder: bosses added to a grace and to a pin, reordered, the map badge and skull pin, and the faded skull after setting Margit's flag. The only console error is the missing favicon, which isn't from this change.
+- Next action: the PR (`Closes #52`) awaits the player's approval to push and open
 
 ## Ranked work
 
@@ -30,3 +31,5 @@
 16. #7 Check English and zh-TW together
 
 ## Pending
+
+None.
