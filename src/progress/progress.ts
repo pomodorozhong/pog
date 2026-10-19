@@ -78,3 +78,14 @@ export function discoveredCount(data: GameData, progress: Progress) {
   const flags = new Set(progress.flags);
   return data.catalog.graces.filter((g) => flags.has(g.flag)).length;
 }
+
+/** Catalog ids of the bosses whose "beaten" flag is set in this progress. */
+export function beatenBosses(
+  data: GameData,
+  progress: Progress | null,
+): Set<string> {
+  const flags = new Set(progress?.flags);
+  return new Set(
+    data.catalog.bosses.filter((b) => flags.has(b.flag)).map((b) => b.id),
+  );
+}

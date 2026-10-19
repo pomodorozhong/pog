@@ -28,3 +28,6 @@ export const NODE_SYMBOL: Record<NodeKind, string> = {
   item: "◆",
   entrance: "▣",
 };
+
+/** Marks a pin where bosses are fought. */
+export const BOSS_SYMBOL = "☠";

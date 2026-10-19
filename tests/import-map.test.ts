@@ -131,14 +131,17 @@ describe("importing what was added to graces", () => {
         label: "theirs",
         place: "place/7",
         items: ["weapon/1", "weapon/2"],
+        bosses: ["boss/1"],
       },
     },
   };
 
-  it("adds items to the grace's own, and a label or entrance only if missing", () => {
+  it("adds items and bosses to the grace's own, and a label or entrance only if missing", () => {
     const target: MapDocument = {
       ...doc([]),
-      graces: { "grace/1": { label: "mine", items: ["weapon/2"] } },
+      graces: {
+        "grace/1": { label: "mine", items: ["weapon/2"], bosses: ["boss/2"] },
+      },
     };
     expect(importMap(shown(target), source)).toMatchObject({ graces: 1 });
     expect(copy(target, source).graces).toEqual({
@@ -146,6 +149,7 @@ describe("importing what was added to graces", () => {
         label: "mine",
         place: "place/7",
         items: ["weapon/2", "weapon/1"],
+        bosses: ["boss/2", "boss/1"],
       },
     });
     // Nothing new the second time.

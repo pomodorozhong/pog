@@ -47,6 +47,11 @@ export type MapNode = {
    */
   items?: string[];
   /**
+   * Catalog ids of the bosses fought here ("boss/<row>"), in the player's
+   * order. Missing means none.
+   */
+  bosses?: string[];
+  /**
    * A game grace marked as a dungeon entrance: the place's catalog id. A grace
    * keeps its own id in `ref`, so its place is kept here; a pin's is its `ref`.
    */
@@ -57,7 +62,9 @@ export type MapNode = {
  * What the player added to a game grace: what a pin of their own holds. A map
  * stores it only once something is set, and drops it when it's all cleared.
  */
-export type GraceDetails = Partial<Pick<MapNode, "label" | "place" | "items">>;
+export type GraceDetails = Partial<
+  Pick<MapNode, "label" | "place" | "items" | "bosses">
+>;
 
 /** The items picked up at a pin, from its item list or an older map's item pin. */
 export const pinItems = (node: MapNode): string[] =>

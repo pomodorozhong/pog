@@ -51,7 +51,7 @@ import { LayerButton } from "./map/LayerButton";
 import { WalkList } from "./wishlist/WalkList";
 import { combinedWishlist, countByStatus } from "./wishlist/wishlist";
 import { NodeProgress, ProgressPanel } from "./progress/ProgressPanel";
-import { undiscoveredGraces } from "./progress/progress";
+import { beatenBosses, undiscoveredGraces } from "./progress/progress";
 import { activeProfile, addProfile, TEMPLATES } from "./profiles/profiles";
 import { displayName } from "./map/catalog";
 import { detour, routeLines } from "./routing/order";
@@ -238,6 +238,11 @@ export default function App() {
         ? undiscoveredGraces(data, map.nodes, progress)
         : new Set<string>(),
     [data, map.nodes, progress],
+  );
+
+  const beaten = useMemo(
+    () => (data ? beatenBosses(data, progress) : new Set<string>()),
+    [data, progress],
   );
 
   const nodeById = useMemo(
@@ -473,6 +478,7 @@ export default function App() {
       extendPath={extendPath}
       deleteSelection={deleteSelection}
       recovery={mapSave.recovery ?? playerSave.recovery}
+      beaten={beaten}
       profile={
         <>
           <ProfilePanel t={t} player={player} setPlayer={setPlayer} />
@@ -762,6 +768,7 @@ export default function App() {
             data={data}
             undiscovered={undiscovered}
             position={progress?.position ?? null}
+            beaten={beaten}
             route={route}
             stops={stops}
             routeNodes={routeNodes}

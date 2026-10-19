@@ -24,8 +24,10 @@ import {
   displayName,
   iconUrl,
   isItem,
+  nearestGrace,
   refCandidates,
   searchCatalog,
+  type CatalogBoss,
   type CatalogItem,
   type CatalogName,
   type GameData,
@@ -75,6 +77,8 @@ type Props = {
    * catalog search. `addItem` puts an item on the selected node.
    */
   unpinnedItems(node: MapNode, addItem: (item: string) => void): ReactNode;
+  /** Catalog ids of the bosses beaten in this playthrough. */
+  beaten: Set<string>;
 };
 
 export function Inspector(props: Props) {
@@ -134,6 +138,7 @@ function NodePanel({
   nodeControls,
   itemControls,
   unpinnedItems,
+  beaten,
 }: Props & { node: MapNode }) {
   // Game graces are game data: they hold what a pin does, but can't be moved,
   // deleted or given another kind.
@@ -318,6 +323,15 @@ function NodePanel({
         })}
       </section>
 
+      <BossList
+        t={t}
+        language={language}
+        data={data}
+        bosses={node.bosses ?? []}
+        beaten={beaten}
+        setBosses={(bosses) => update({ bosses })}
+      />
+
       <section className="card space-y-2" aria-label={t("Label and note")}>
         <label className="block">
           <span className="label">{t("Label")}</span>
@@ -456,6 +470,94 @@ function HeaderLine({
   );
 }
 
+/** The bosses fought at a node, in the player's order. */
+function BossList({
+  t,
+  language,
+  data,
+  bosses,
+  beaten,
+  setBosses,
+}: {
+  t: Translate;
+  language: Language;
+  data: GameData;
+  bosses: string[];
+  beaten: Set<string>;
+  setBosses(bosses: string[]): void;
+}) {
+  const move = (from: number, to: number) => {
+    const next = [...bosses];
+    next.splice(to, 0, ...next.splice(from, 1));
+    setBosses(next);
+  };
+  const near = (entry: CatalogItem | CatalogName) => {
+    const grace = nearestGrace(data, entry as CatalogBoss);
+    return grace && t("near {place}", { place: grace.name[language] });
+  };
+  const moveButton =
+    "grid size-7 place-items-center rounded-full text-muted hover:text-gold disabled:invisible";
+  return (
+    <section className="card space-y-2" aria-label={t("Bosses")}>
+      <h3 className="label">
+        {t("Bosses ({count})", { count: bosses.length })}
+      </h3>
+      {bosses.map((id, i) => {
+        const boss = data.byId.get(id);
+        const name = boss?.name[language] ?? id;
+        return (
+          <p key={id} className="flex items-center gap-1 text-sm">
+            <span className="min-w-0 flex-1 truncate" title={name}>
+              {name}
+            </span>
+            {beaten.has(id) && (
+              <span className="rounded-full bg-sage/20 px-2 text-xs text-sage">
+                {t("Beaten")}
+              </span>
+            )}
+            <button
+              className={moveButton}
+              aria-label={t("Move {boss} up", { boss: name })}
+              title={t("Move up")}
+              disabled={i === 0}
+              onClick={() => move(i, i - 1)}
+            >
+              ↑
+            </button>
+            <button
+              className={moveButton}
+              aria-label={t("Move {boss} down", { boss: name })}
+              title={t("Move down")}
+              disabled={i === bosses.length - 1}
+              onClick={() => move(i, i + 1)}
+            >
+              ↓
+            </button>
+            <button
+              className="grid size-7 place-items-center rounded-full text-muted hover:text-danger"
+              aria-label={t("Remove {item}", { item: name })}
+              title={t("Remove")}
+              onClick={() => setBosses(bosses.filter((b) => b !== id))}
+            >
+              <CloseIcon />
+            </button>
+          </p>
+        );
+      })}
+      <CatalogSearch
+        t={t}
+        language={language}
+        label={t("Add a boss")}
+        placeholder={t("Add a boss · English or 中文")}
+        adding
+        entries={data.catalog.bosses.filter((b) => !bosses.includes(b.id))}
+        detail={near}
+        pick={(id) => setBosses([...bosses, id])}
+      />
+    </section>
+  );
+}
+
 /** A search box over catalog entries, in either language. */
 function CatalogSearch({
   t,
@@ -465,6 +567,7 @@ function CatalogSearch({
   autoFocus,
   placeholder,
   adding = false,
+  detail,
   pick,
 }: {
   t: Translate;
@@ -475,6 +578,8 @@ function CatalogSearch({
   placeholder?: string;
   /** Drawn as a slot for one more entry: a dashed pill with a "+". */
   adding?: boolean;
+  /** More to tell results apart by, after the other language's name. */
+  detail?(entry: CatalogItem | CatalogName): string | undefined;
   pick(id: string): void;
 }) {
   const [query, setQuery] = useState("");
@@ -533,8 +638,13 @@ function CatalogSearch({
                     {result.name[language]}
                   </span>
                   <span className="block truncate text-xs text-muted">
-                    {result.name[other]}
-                    {result.dlc && ` · ${t("DLC")}`}
+                    {[
+                      result.name[other],
+                      detail?.(result),
+                      result.dlc && t("DLC"),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </span>
                 </span>
               </button>

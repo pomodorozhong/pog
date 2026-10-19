@@ -56,6 +56,32 @@ const elleh = {
   flag: 1,
   legacy: false,
 };
+// Two bosses share a name; the grace nearest each arena tells them apart.
+const godfrey = {
+  id: "boss/1",
+  name: { en: "Godfrey, First Elden Lord", "zh-TW": "初始王 葛孚雷" },
+  otherNames: [{ en: "Hoarah Loux, Warrior", "zh-TW": "戰士 荷萊·露" }],
+  dlc: false,
+  flag: 901,
+  layer: "overworld",
+  x: 12,
+  y: 22,
+};
+const avatar = {
+  id: "boss/2",
+  name: { en: "Erdtree Avatar", "zh-TW": "黃金樹化身" },
+  dlc: false,
+  flag: 902,
+  layer: "overworld",
+  x: 14,
+  y: 18,
+};
+const avatarElsewhere = {
+  id: "boss/3",
+  name: avatar.name,
+  dlc: true,
+  flag: 903,
+};
 const cave = {
   id: "place/7",
   name: { en: "Murkwater Cave", "zh-TW": "濁流洞窟" },
@@ -67,11 +93,13 @@ async function open(
   graces: (typeof elleh)[] = [],
   edges: MapEdge[] = [],
   wishlist: WishlistItem[] = [],
+  flags: number[] = [],
 ) {
   const documents = initialDocuments();
   documents.map.nodes = nodes;
   documents.map.edges = edges;
   documents.player.profiles[0].wishlist = wishlist;
+  documents.player.profiles[0].progress.flags = flags;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
@@ -80,6 +108,7 @@ async function open(
           ? {
               items: [sword, shield],
               graces,
+              bosses: [godfrey, avatar, avatarElsewhere],
               places: [cave],
               npcs: [],
             }
@@ -231,6 +260,68 @@ describe("a game grace", () => {
     fireEvent.click(within(kind).getByRole("button", { name: "Grace" }));
     expect(mapNodes().find((n) => n.id === "grace/1")).not.toHaveProperty(
       "place",
+    );
+  });
+});
+
+describe("bosses at a pin or grace", () => {
+  const junction: MapNode = {
+    id: "j",
+    layer: "overworld",
+    x: 0,
+    y: 0,
+    kind: "junction",
+    label: "",
+    ref: null,
+  };
+
+  const pinBosses = () => mapNodes().find((n) => n.id === "j")!.bosses;
+
+  it("are found by any health bar's name, reordered, removed, and marked beaten", async () => {
+    await open([junction], [elleh], [], [], [902]);
+    fireEvent.click(screen.getByRole("button", { name: "j" }));
+    expect(screen.getByText("Bosses (0)")).toBeInTheDocument();
+    pick("Add a boss", "hoarah", "Godfrey, First Elden Lord");
+    fireEvent.change(screen.getByRole("textbox", { name: "Add a boss" }), {
+      target: { value: "avatar" },
+    });
+    // The arena with a position names its nearest grace; the other has none.
+    const results = screen.getAllByRole("button", { name: /Erdtree Avatar/ });
+    expect(results.map((r) => r.textContent)).toEqual([
+      "Erdtree Avatar黃金樹化身 · near Church of Elleh",
+      "Erdtree Avatar黃金樹化身 · DLC",
+    ]);
+    fireEvent.click(results[0]);
+    expect(pinBosses()).toEqual(["boss/1", "boss/2"]);
+    expect(screen.getByText("Bosses (2)")).toBeInTheDocument();
+    expect(screen.getAllByText("Beaten")).toHaveLength(1);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Move Erdtree Avatar up" }),
+    );
+    expect(pinBosses()).toEqual(["boss/2", "boss/1"]);
+    expect(
+      screen.getByRole("button", { name: "Move Erdtree Avatar up" }),
+    ).toBeDisabled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove Godfrey, First Elden Lord" }),
+    );
+    expect(pinBosses()).toEqual(["boss/2"]);
+  });
+
+  it("are kept with what the player added to a grace", async () => {
+    await open([], [elleh]);
+    fireEvent.click(screen.getByRole("button", { name: "grace/1" }));
+    pick("Add a boss", "godfrey", "Godfrey, First Elden Lord");
+    expect(mapNodes().find((n) => n.id === "grace/1")).toMatchObject({
+      kind: "grace",
+      bosses: ["boss/1"],
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove Godfrey, First Elden Lord" }),
+    );
+    expect(mapNodes().find((n) => n.id === "grace/1")).not.toHaveProperty(
+      "bosses",
     );
   });
 });

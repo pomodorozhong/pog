@@ -53,10 +53,11 @@ function checkGraces(value: unknown): boolean {
   return Object.entries(value).every(
     ([id, g]) =>
       GRACE_ID.test(id) &&
-      hasExactKeys(g, [], ["label", "place", "items"]) &&
+      hasExactKeys(g, [], ["label", "place", "items", "bosses"]) &&
       (g.label === undefined || typeof g.label === "string") &&
       (g.place === undefined || typeof g.place === "string") &&
-      (g.items === undefined || isItemList(g.items)),
+      (g.items === undefined || isItemList(g.items)) &&
+      (g.bosses === undefined || isItemList(g.bosses)),
   );
 }
 
@@ -77,7 +78,7 @@ function checkMap(value: unknown): value is MapDocument {
       !hasExactKeys(
         n,
         ["id", "layer", "x", "y", "kind", "label", "ref"],
-        ["items"],
+        ["items", "bosses"],
       ) ||
       typeof n.id !== "string" ||
       GRACE_ID.test(n.id) ||
@@ -90,7 +91,8 @@ function checkMap(value: unknown): value is MapDocument {
       !includes(NODE_KINDS, n.kind) ||
       typeof n.label !== "string" ||
       !(n.ref === null || typeof n.ref === "string") ||
-      !(n.items === undefined || isItemList(n.items))
+      !(n.items === undefined || isItemList(n.items)) ||
+      !(n.bosses === undefined || isItemList(n.bosses))
     )
       return false;
     nodeIds.add(n.id);

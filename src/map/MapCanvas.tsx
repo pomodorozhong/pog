@@ -24,7 +24,7 @@ import type { Draft } from "./drawing";
 import { edgeRuns } from "./editing";
 import { enableGestures } from "./gestures";
 import { placeStep } from "./stepPlacement";
-import { NODE_SYMBOL, pathStyle } from "./style";
+import { BOSS_SYMBOL, NODE_SYMBOL, pathStyle } from "./style";
 import { isGameGrace } from "./graces";
 
 export type Selection = { kind: "node" | "edge"; id: string } | null;
@@ -57,6 +57,8 @@ type Props = MapCanvasHandlers & {
   undiscovered: Set<string>;
   /** The node the player is at, or null. */
   position: string | null;
+  /** Catalog ids of the bosses beaten in this playthrough. */
+  beaten: Set<string>;
   /** The planned route, drawn over the paths. */
   route: RouteLine[];
   /** Route stop numbers, by node. */
@@ -227,6 +229,7 @@ export function MapCanvas(props: Props) {
     data,
     undiscovered,
     position,
+    beaten,
     route,
     stops,
     routeNodes,
@@ -343,9 +346,10 @@ export function MapCanvas(props: Props) {
       if (node.layer !== layer) continue;
       const selected = selection?.kind === "node" && selection.id === node.id;
       const items = pinItems(node);
-      const itemNames = items.flatMap((id) => {
-        const item = data.byId.get(id);
-        return item ? [item.name[language]] : [];
+      const bosses = node.bosses ?? [];
+      const itemNames = [...items, ...bosses].flatMap((id) => {
+        const entry = data.byId.get(id);
+        return entry ? [entry.name[language]] : [];
       });
       const grace = node.kind === "grace";
       const place = node.place ? data.byId.get(node.place) : undefined;
@@ -376,15 +380,29 @@ export function MapCanvas(props: Props) {
         items.length > 1
           ? `<span class="item-count">+${items.length - 1}</span>`
           : "";
-      const image = grace
-        ? NODE_SYMBOL.grace +
-          (icon && `<span class="grace-item">${icon}</span>`) +
-          count
-        : (icon || NODE_SYMBOL[node.kind]) + count;
+      // Bosses show as a skull: the pin's own symbol when it holds nothing
+      // else, otherwise a badge, with how many when more than one.
+      const bossOnly = bosses.length > 0 && !grace && !icon;
+      const bossBadge =
+        bosses.length > 0 && !bossOnly
+          ? `<span class="boss-badge">${BOSS_SYMBOL}${bosses.length > 1 ? bosses.length : ""}</span>`
+          : "";
+      const image =
+        (grace
+          ? NODE_SYMBOL.grace +
+            (icon && `<span class="grace-item">${icon}</span>`) +
+            count
+          : bossOnly
+            ? BOSS_SYMBOL
+            : (icon || NODE_SYMBOL[node.kind]) + count) + bossBadge;
       const classes = [
         "map-node",
         `map-node--${node.kind}`,
         items.length > 0 && !grace && "has-items",
+        bossOnly && "has-bosses",
+        bosses.length > 0 &&
+          bosses.every((id) => beaten.has(id)) &&
+          "bosses-beaten",
         selected && "is-selected",
         portalEnds.has(node.id) && "has-portal",
         draft?.from === node.id && "is-draft-start",
@@ -438,7 +456,7 @@ export function MapCanvas(props: Props) {
           // What the player added to a grace keeps it shown, like a path.
           onPath:
             pathNodes.has(node.id) ||
-            !!(node.label || node.place || items.length),
+            !!(node.label || node.place || items.length || bosses.length),
         });
       else marker.addTo(group);
       if (name) {
@@ -480,6 +498,7 @@ export function MapCanvas(props: Props) {
     layer,
     undiscovered,
     position,
+    beaten,
     route,
     stops,
     routeNodes,
