@@ -241,6 +241,7 @@ describe("planning an import", () => {
       flags: [1, 3, 99],
       lastGrace: null,
       moveTo: null,
+      acquired: [],
     });
   });
 

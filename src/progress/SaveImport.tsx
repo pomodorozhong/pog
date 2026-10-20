@@ -36,8 +36,9 @@ type Step =
 
 /**
  * "Import progress from save": read the linked character's flags, show what
- * changes, apply. It asks about every grace, and about the bosses at the
- * map's pins and graces; other bosses' flags stay as they are.
+ * changes, apply. It asks about every grace, about the bosses at the map's
+ * pins and graces, and about the pickups of the wishlist entries the game
+ * data tracks; other flags stay as they are.
  */
 export function SaveImport({
   t,
@@ -59,11 +60,8 @@ export function SaveImport({
   const [step, setStep] = useSharedState<Step>("save-import.step", {
     kind: "idle",
   });
-  const { known, isBoss, bossName, graceName } = importFlags(
-    data,
-    doc,
-    language,
-  );
+  const { known, isBoss, isItem, bossName, graceName, itemName, tracked } =
+    importFlags(data, doc, language, profile.wishlist);
   const slotName = (link: { slot: number; name: string }) =>
     t("{name} (slot {slot})", { name: link.name, slot: link.slot + 1 });
 
@@ -94,6 +92,7 @@ export function SaveImport({
           known,
           result.set,
           lastGraceOnMap(data, doc, result.lastGrace),
+          tracked,
         ),
         location,
       };
@@ -300,9 +299,12 @@ export function SaveImport({
       {step.kind === "review" && (
         <div className="space-y-2 text-sm">
           <p>{t("From {character}:", { character: slotName(step.link) })}</p>
-          {step.plan.added.length + step.plan.removed.length > 0 ? (
+          {step.plan.added.length +
+            step.plan.removed.length +
+            step.plan.acquired.length >
+          0 ? (
             <p className="text-muted">
-              {summarizeChanges(t, step.plan, isBoss)}
+              {summarizeChanges(t, step.plan, isBoss, isItem)}
             </p>
           ) : (
             !step.plan.moveTo && (
@@ -326,9 +328,13 @@ export function SaveImport({
                   +{" "}
                   {isBoss(flag)
                     ? t("Beaten {boss}", { boss: bossName.get(flag) ?? flag })
-                    : t("Discovered {grace}", {
-                        grace: graceName.get(flag) ?? flag,
-                      })}
+                    : isItem(flag)
+                      ? t("Picked up {item}", {
+                          item: itemName.get(flag) ?? flag,
+                        })
+                      : t("Discovered {grace}", {
+                          grace: graceName.get(flag) ?? flag,
+                        })}
                 </li>
               ))}
               {step.plan.removed.map((flag) => (
@@ -338,9 +344,13 @@ export function SaveImport({
                     ? t("Not beaten: {boss}", {
                         boss: bossName.get(flag) ?? flag,
                       })
-                    : t("Not discovered: {grace}", {
-                        grace: graceName.get(flag) ?? flag,
-                      })}
+                    : isItem(flag)
+                      ? t("Not picked up: {item}", {
+                          item: itemName.get(flag) ?? flag,
+                        })
+                      : t("Not discovered: {grace}", {
+                          grace: graceName.get(flag) ?? flag,
+                        })}
                 </li>
               ))}
             </ul>

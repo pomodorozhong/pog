@@ -4,9 +4,12 @@ import type {
   PlayerDocument,
   Progress,
   SaveLink,
+  WishlistItem,
 } from "../domain/types";
 import type { Translate } from "../i18n/translation";
 import type { CatalogGrace, GameData } from "../map/catalog";
+import { combinedWishlist } from "../wishlist/wishlist";
+import { trackedEntries } from "./pickups";
 
 export type SaveSlot = { index: number; name: string };
 /** A save file the server found, with its account and characters. */
@@ -60,14 +63,16 @@ export const fetchSaveStamp = (location: string | null) =>
   ).then((r) => r.stamp);
 
 /**
- * What an import asks the save about: every grace, and the bosses at the
- * map's pins and graces (`doc` with its game graces), with their names.
- * Bosses that share a flag share one name, joined.
+ * What an import asks the save about: every grace, the bosses at the map's
+ * pins and graces (`doc` with its game graces), and the pickups of the
+ * wishlist entries the game data tracks (see `trackingPickup`), with their
+ * names. Bosses or items that share a flag share one name, joined.
  */
 export function importFlags(
   data: GameData,
   doc: MapDocument,
   language: Language,
+  wishlist: WishlistItem[] = [],
 ) {
   const onMap = new Set(doc.nodes.flatMap((n) => n.bosses ?? []));
   const bossName = new Map<number, string>();
@@ -79,36 +84,63 @@ export function importFlags(
   const graceName = new Map(
     data.catalog.graces.map((g) => [g.flag, g.name[language]]),
   );
+  // Entries joined from a walked path count too; one acquired by the save is saved then.
+  const { pinned, unpinned } = combinedWishlist(doc, wishlist);
+  const entries = [...pinned, ...unpinned].map(
+    ({ item, pin, status, note }): WishlistItem => ({
+      item,
+      ...(pin !== undefined && { pin }),
+      status,
+      note,
+    }),
+  );
+  const tracked = trackedEntries(data, doc.nodes, entries);
+  const itemName = new Map<number, string>();
+  for (const { entry, flag } of tracked) {
+    const name = data.byId.get(entry.item)?.name[language] ?? entry.item;
+    const names = itemName.get(flag)?.split(" / ") ?? [];
+    if (!names.includes(name)) itemName.set(flag, [...names, name].join(" / "));
+  }
   return {
-    known: [...new Set([...graceName.keys(), ...bossName.keys()])],
+    known: [
+      ...new Set([...graceName.keys(), ...bossName.keys(), ...itemName.keys()]),
+    ],
     isBoss: (flag: number) => !graceName.has(flag) && bossName.has(flag),
+    isItem: (flag: number) =>
+      !graceName.has(flag) && !bossName.has(flag) && itemName.has(flag),
     bossName,
     graceName,
+    itemName,
+    tracked,
   };
 }
 
 /**
  * What an import changes, without the parts that are zero:
- * "+1 graces discovered · 1 bosses no longer beaten".
+ * "+1 graces discovered · 1 bosses no longer beaten · +2 wishlist items acquired".
  */
 export function summarizeChanges(
   t: Translate,
   plan: ImportPlan,
   isBoss: (flag: number) => boolean,
+  isItem: (flag: number) => boolean = () => false,
 ) {
-  const count = (flags: number[], bosses: boolean) =>
-    flags.filter((f) => isBoss(f) === bosses).length;
+  const kind = (flag: number) =>
+    isBoss(flag) ? "boss" : isItem(flag) ? "item" : "grace";
+  const count = (flags: number[], of: string) =>
+    flags.filter((f) => kind(f) === of).length;
   return (
     [
-      [plan.added, false, "+{count} graces discovered"],
-      [plan.removed, false, "{count} graces no longer discovered"],
-      [plan.added, true, "+{count} bosses beaten"],
-      [plan.removed, true, "{count} bosses no longer beaten"],
+      ["+{count} graces discovered", count(plan.added, "grace")],
+      ["{count} graces no longer discovered", count(plan.removed, "grace")],
+      ["+{count} bosses beaten", count(plan.added, "boss")],
+      ["{count} bosses no longer beaten", count(plan.removed, "boss")],
+      ["+{count} wishlist items acquired", plan.acquired.length],
+      ["{count} items no longer picked up", count(plan.removed, "item")],
     ] as const
   )
-    .map(([flags, bosses, text]) => ({ text, count: count(flags, bosses) }))
-    .filter((part) => part.count > 0)
-    .map(({ text, count }) => t(text, { count }))
+    .filter(([, n]) => n > 0)
+    .map(([text, n]) => t(text, { count: n }))
     .join(" · ");
 }
 
@@ -167,23 +199,28 @@ export type ImportPlan = {
   lastGrace: string | null;
   /** Where "I'm here" moves to: the new last grace, unless it's there already. */
   moveTo: string | null;
+  /** Needed wishlist entries whose pickup the save has: they become acquired. */
+  acquired: WishlistItem[];
 };
 
 /** Whether applying the plan changes anything. */
 export const changesSomething = (plan: ImportPlan) =>
-  plan.added.length + plan.removed.length > 0 || plan.lastGrace !== null;
+  plan.added.length + plan.removed.length + plan.acquired.length > 0 ||
+  plan.lastGrace !== null;
 
 /**
  * The save is the truth for every flag it was asked about (`known`); flags
  * it wasn't asked about stay as they are. The position follows the last
  * grace rested at only when that changes, so "I'm here" set by hand stays
- * until the character rests somewhere new.
+ * until the character rests somewhere new. A needed wishlist entry whose
+ * pickup flag is set becomes acquired; the save never makes one needed again.
  */
 export function planImport(
   progress: Progress,
   known: number[],
   set: number[],
   lastGrace: string | null = null,
+  tracked: { entry: WishlistItem; flag: number }[] = [],
 ): ImportPlan {
   const before = new Set(progress.flags);
   const inSave = new Set(set);
@@ -201,12 +238,17 @@ export function planImport(
     flags: flags.filter((f, i) => i === 0 || f !== flags[i - 1]),
     lastGrace: rested,
     moveTo: rested !== progress.position ? rested : null,
+    acquired: tracked
+      .filter(
+        ({ entry, flag }) => entry.status === "needed" && inSave.has(flag),
+      )
+      .map(({ entry }) => entry),
   };
 }
 
 /**
- * Apply an import to a profile and remember which character it came from,
- * where its save is, and the last grace rested at.
+ * Apply an import to a profile: its flags, its acquired wishlist entries, and
+ * which character it came from, where its save is, and the last grace rested at.
  */
 export const applyImport = (
   player: PlayerDocument,
@@ -227,8 +269,25 @@ export const applyImport = (
             position: plan.moveTo ?? p.progress.position,
             ...(plan.lastGrace !== null && { lastGrace: plan.lastGrace }),
           },
+          wishlist: acquire(p.wishlist, plan.acquired),
           save: link,
         }
       : p,
   ),
 });
+
+/** Mark entries acquired, saving those that joined from a walked path. */
+function acquire(wishlist: WishlistItem[], acquired: WishlistItem[]) {
+  const same = (a: WishlistItem, b: WishlistItem) =>
+    a.item === b.item && a.pin === b.pin;
+  return [
+    ...wishlist.map((w) =>
+      acquired.some((a) => same(a, w))
+        ? { ...w, status: "acquired" as const }
+        : w,
+    ),
+    ...acquired
+      .filter((a) => !wishlist.some((w) => same(a, w)))
+      .map((a) => ({ ...a, status: "acquired" as const })),
+  ];
+}
