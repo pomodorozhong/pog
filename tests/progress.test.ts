@@ -5,6 +5,9 @@ import { activeProfile } from "../src/profiles/profiles";
 import {
   beatenBosses,
   discoveredCount,
+  discoveredGraces,
+  isDiscovered,
+  setDiscovered,
   setFlag,
   setPosition,
   undiscoveredGraces,
@@ -68,6 +71,38 @@ describe("progress", () => {
     expect(
       undiscoveredGraces(data, nodes, { flags: [71000], position: null }),
     ).toEqual(new Set(["b"]));
+  });
+
+  it("counts a Leyndell grace discovered by its Ashen Capital twin", () => {
+    // grace/110500 hides behind grace/110000: same name and spot, its own flag.
+    const throne = (id: string, flag: number) => ({
+      ...grace(id, flag),
+      name: { en: "Elden Throne", "zh-TW": "艾爾登王座" },
+    });
+    const twins = [
+      throne("grace/110000", 71100),
+      throne("grace/110500", 71120),
+    ];
+    const leyndell = {
+      catalog: { items: [], graces: twins, bosses: [], places: [], npcs: [] },
+      graceFlags: new Map(twins.map((g) => [g.id, g.flag])),
+    } as unknown as GameData;
+    const shown = node("grace/110000", "grace", "grace/110000");
+    const burned = { flags: [71120], position: null };
+    expect(isDiscovered(leyndell, shown, new Set(burned.flags))).toBe(true);
+    expect(undiscoveredGraces(leyndell, [shown], burned)).toEqual(new Set());
+    expect(discoveredGraces(leyndell, [shown], burned)).toEqual([
+      "grace/110000",
+    ]);
+
+    // Marking it undiscovered clears both flags; discovered sets its own.
+    const start = initialDocuments().player;
+    const id = start.activeProfile;
+    let player = setFlag(setFlag(start, id, 71100, true), id, 71120, true);
+    player = setDiscovered(player, id, leyndell, shown, false);
+    expect(activeProfile(player).progress.flags).toEqual([]);
+    player = setDiscovered(player, id, leyndell, shown, true);
+    expect(activeProfile(player).progress.flags).toEqual([71100]);
   });
 
   it("finds the bosses beaten, including every boss sharing a flag", () => {

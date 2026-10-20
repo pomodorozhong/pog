@@ -12,21 +12,31 @@ const distance = (a: { x: number; y: number }, b: { x: number; y: number }) =>
   Math.hypot(a.x - b.x, a.y - b.y);
 
 /**
- * The game's graces as map nodes. Graces that share a name and spot with an
- * earlier one (Leyndell and its ashen twin) are left out, so one marker shows.
+ * The graces that show on the map, and the twins hidden behind them. A grace
+ * that shares a name and spot with an earlier one (Leyndell, Royal Capital
+ * and its Ashen Capital twin) is hidden, so one marker shows. Twins have
+ * separate "discovered" flags.
  */
-export function gameGraceNodes(graces: CatalogGrace[]): MapNode[] {
-  const nodes: MapNode[] = [];
-  const kept: CatalogGrace[] = [];
+export function graceTwins(graces: CatalogGrace[]) {
+  const shown: CatalogGrace[] = [];
+  const twins = new Map<string, CatalogGrace[]>();
   for (const grace of graces) {
-    const twin = kept.some(
+    const twin = shown.find(
       (g) =>
         g.layer === grace.layer &&
         g.name.en === grace.name.en &&
         distance(g, grace) <= 4,
     );
-    if (twin) continue;
-    kept.push(grace);
+    if (twin) twins.set(twin.id, [...(twins.get(twin.id) ?? []), grace]);
+    else shown.push(grace);
+  }
+  return { shown, twins };
+}
+
+/** The game's graces as map nodes, without the twins hidden behind them. */
+export function gameGraceNodes(graces: CatalogGrace[]): MapNode[] {
+  const nodes: MapNode[] = [];
+  for (const grace of graceTwins(graces).shown) {
     nodes.push({
       id: grace.id,
       layer: grace.layer,

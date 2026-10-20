@@ -8,7 +8,13 @@ import type { Translate } from "../i18n/translation";
 import { displayName, type GameData } from "../map/catalog";
 import { NODE_KIND_NAMES } from "../map/labels";
 import { activeProfile } from "../profiles/profiles";
-import { discoveredCount, graceFlag, setFlag, setPosition } from "./progress";
+import {
+  discoveredCount,
+  graceFlag,
+  isDiscovered,
+  setDiscovered,
+  setPosition,
+} from "./progress";
 import { AutoImportSwitch } from "./AutoImport";
 import { SaveImport } from "./SaveImport";
 
@@ -107,21 +113,17 @@ export function NodeProgress({
 }: Props & { node: MapNode }) {
   const profile = activeProfile(player);
   const flag = graceFlag(data, node);
+  const discovered = isDiscovered(data, node, new Set(profile.progress.flags));
   const here = profile.progress.position === node.id;
   return (
     <>
       {flag !== undefined && (
         <button
           className="chip"
-          aria-pressed={profile.progress.flags.includes(flag)}
+          aria-pressed={discovered}
           onClick={() =>
             setPlayer(
-              setFlag(
-                player,
-                profile.id,
-                flag,
-                !profile.progress.flags.includes(flag),
-              ),
+              setDiscovered(player, profile.id, data, node, !discovered),
             )
           }
         >
