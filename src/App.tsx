@@ -75,7 +75,7 @@ import {
 } from "./storage/usePersistentDocument";
 import { useShared, useSharedState, useSharedValue } from "./sync/shared";
 import type { LiveSnapshot } from "./sync/types";
-import { useOperatorSync, useViewerSync } from "./sync/useLiveSync";
+import { useAppSync, useMirrorSync } from "./sync/useLiveSync";
 
 export type Tool = "select" | "pin" | "path";
 const STEP_SIZE_NAMES: Record<StepSize, string> = {
@@ -107,9 +107,9 @@ const TOOLS: { tool: Tool; label: string; key: string; tip: string }[] = [
 
 export default function App() {
   const shared = useShared();
-  /** A read-only viewer, such as an OBS browser source, mirroring the operator. */
-  const viewer = shared.viewer;
-  /** Whether a viewer has had a snapshot; until then it shows the saves. */
+  /** A read-only mirror, such as an OBS browser source, mirroring the app. */
+  const mirror = shared.mirror;
+  /** Whether a mirror has had a snapshot; until then it shows the saves. */
   const live = useRef(false);
   const [data, setData] = useState<GameData | null>(null);
   const [dataError, setDataError] = useState(false);
@@ -203,7 +203,7 @@ export default function App() {
       setDraft(null);
       setMapProfile(profile);
     },
-    { readOnly: viewer },
+    { readOnly: mirror },
   );
   const readSavedMap = mapSave.read;
   const readMap = useCallback(
@@ -222,10 +222,10 @@ export default function App() {
       views.current.set(loaded.view.layer, loaded.view);
       setPlayer(loaded);
     },
-    { readOnly: viewer },
+    { readOnly: mirror },
   );
 
-  // The operator's window publishes what it shows; a viewer follows it.
+  // The app's window publishes what it shows; a mirror follows it.
   const statuses = useMemo(
     () => [mapSave.status, playerSave.status],
     [mapSave.status, playerSave.status],
@@ -233,14 +233,14 @@ export default function App() {
   const [liveStatuses, setLiveStatuses] = useState<SaveStatus[] | null>(null);
   const published = useMemo(
     () =>
-      !viewer && player && mapProfile && mapLoaded
+      !mirror && player && mapProfile && mapLoaded
         ? { player, map: doc, mapProfile, saveStatus: statuses }
         : null,
-    [viewer, player, mapProfile, mapLoaded, doc, statuses],
+    [mirror, player, mapProfile, mapLoaded, doc, statuses],
   );
-  useOperatorSync(shared, published);
+  useAppSync(shared, published);
   const shownRaw = useRef({ player: "", map: "" });
-  useViewerSync(shared, (snapshot: LiveSnapshot) => {
+  useMirrorSync(shared, (snapshot: LiveSnapshot) => {
     live.current = true;
     // Snapshots arrive many times a second; redraw only what changed.
     const player = JSON.stringify(snapshot.player);
@@ -253,11 +253,11 @@ export default function App() {
     shownRaw.current = { player, map };
     setLiveStatuses(snapshot.saveStatus);
   });
-  // While the operator pans or zooms, viewers follow every frame.
+  // While the app pans or zooms, mirrors follow every frame.
   const settledView = player?.view ?? null;
   useEffect(() => {
-    if (!viewer && settledView) shared.set("map.view", settledView);
-  }, [viewer, shared, settledView]);
+    if (!mirror && settledView) shared.set("map.view", settledView);
+  }, [mirror, shared, settledView]);
   const liveView = useSharedValue<MapView | null>("map.view", null);
 
   useEffect(() => {
@@ -362,12 +362,12 @@ export default function App() {
       if (activeTool !== "path") selectAndEdit({ kind: "edge", id });
     },
     onViewChange(view: MapView) {
-      if (viewer) return;
+      if (mirror) return;
       views.current.set(view.layer, view);
       setPlayer((p) => (p && p.view.layer === view.layer ? { ...p, view } : p));
     },
     onViewMove(view: MapView) {
-      if (!viewer) shared.set("map.view", view);
+      if (!mirror) shared.set("map.view", view);
     },
   };
 
@@ -445,9 +445,9 @@ export default function App() {
     setSelection(null);
   }, [selection, edit, setSelection]);
 
-  // Keyboard shortcuts, ignored while typing and on a viewer.
+  // Keyboard shortcuts, ignored while typing and on a mirror.
   useEffect(() => {
-    if (viewer) return;
+    if (mirror) return;
     function onKey(event: KeyboardEvent) {
       const target = event.target as HTMLElement;
       if (target.closest("input, textarea, select")) return;
@@ -474,7 +474,7 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [
-    viewer,
+    mirror,
     draft,
     deleteSelection,
     changeHistory,
@@ -769,10 +769,10 @@ export default function App() {
   );
 
   return (
-    // A viewer takes no input: it shows what the operator does.
+    // A mirror takes no input: it shows what the app does.
     <div
-      className={`flex h-full flex-col ${viewer ? "pointer-events-none" : ""}`}
-      inert={viewer}
+      className={`flex h-full flex-col ${mirror ? "pointer-events-none" : ""}`}
+      inert={mirror}
     >
       <header className="relative z-[1100] border-b border-line bg-panel">
         <ProfileSummary
@@ -785,7 +785,7 @@ export default function App() {
               <span className="ml-auto text-xs has-[span:empty]:hidden">
                 <SaveIndicator
                   t={t}
-                  statuses={(viewer && liveStatuses) || statuses}
+                  statuses={(mirror && liveStatuses) || statuses}
                   quiet
                 />
               </span>
@@ -800,7 +800,7 @@ export default function App() {
                   <span className="label">{t("Language")}</span>
                   {languageSelect}
                 </label>
-                <ViewerLink t={t} />
+                <MirrorLink t={t} />
               </AppMenu>
             </>
           }
@@ -845,8 +845,8 @@ export default function App() {
             {...handlers}
             layer={layer}
             info={data.layers[layer]}
-            view={viewer && liveView?.layer === layer ? liveView : player.view}
-            follow={viewer}
+            view={mirror && liveView?.layer === layer ? liveView : player.view}
+            follow={mirror}
             nodes={map.nodes}
             edges={map.edges}
             selection={selection}
@@ -927,17 +927,17 @@ function AppMenu({ t, children }: { t: Translate; children: ReactNode }) {
   );
 }
 
-/** The address of the viewer, to add as a browser source in OBS. */
-function ViewerLink({ t }: { t: Translate }) {
-  const [copied, setCopied] = useSharedState("app.viewer-link-copied", false);
-  const url = new URL("/?mode=viewer", window.location.href).href;
+/** The address of the mirror, to add as a browser source in OBS. */
+function MirrorLink({ t }: { t: Translate }) {
+  const [copied, setCopied] = useSharedState("app.mirror-link-copied", false);
+  const url = new URL("/?mode=mirror", window.location.href).href;
   return (
-    <section aria-label={t("Viewer link")} className="flex flex-col gap-1">
-      <span className="label">{t("Viewer link")}</span>
+    <section aria-label={t("Mirror link")} className="flex flex-col gap-1">
+      <span className="label">{t("Mirror link")}</span>
       <div className="flex gap-1.5">
         <input
           className="field min-w-0 flex-1 text-xs"
-          aria-label={t("Viewer link")}
+          aria-label={t("Mirror link")}
           readOnly
           value={url}
           onFocus={(event) => event.target.select()}

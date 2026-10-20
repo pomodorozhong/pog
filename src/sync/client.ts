@@ -1,29 +1,29 @@
-import { validViewerMessage } from "./schema";
+import { validMirrorMessage } from "./schema";
 import {
   LIVE_SYNC_PATH,
   MAX_SYNC_BYTES,
   type LiveSnapshot,
   type SyncStatus,
-  type ViewerMessage,
+  type MirrorMessage,
 } from "./types";
 
 type Options = {
-  viewer: boolean;
-  onMessage: (message: ViewerMessage) => void;
+  mirror: boolean;
+  onMessage: (message: MirrorMessage) => void;
   onStatus: (status: SyncStatus) => void;
   createSocket?: (url: string) => WebSocket;
 };
 
-// The operator publishes snapshots; a viewer never sends even an initial save.
+// The app publishes snapshots; a mirror never sends even an initial save.
 export function createLiveConnection({
-  viewer,
+  mirror,
   onMessage,
   onStatus,
   createSocket = (url) => new WebSocket(url),
 }: Options) {
   const url = new URL(LIVE_SYNC_PATH, window.location.href);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  url.searchParams.set("mode", viewer ? "viewer" : "operator");
+  url.searchParams.set("mode", mirror ? "mirror" : "app");
   let socket: WebSocket | null = null;
   let latest: LiveSnapshot | null = null;
   let dirty = false;
@@ -35,7 +35,7 @@ export function createLiveConnection({
   const flush = () => {
     clearTimeout(pending);
     pending = undefined;
-    if (viewer || disposed || !dirty || !latest || socket?.readyState !== 1)
+    if (mirror || disposed || !dirty || !latest || socket?.readyState !== 1)
       return;
     if (socket.bufferedAmount > MAX_SYNC_BYTES) {
       pending = setTimeout(flush, 50);
@@ -84,10 +84,10 @@ export function createLiveConnection({
       flush();
     });
     connection.addEventListener("message", (event) => {
-      if (!viewer || disposed || socket !== connection) return;
+      if (!mirror || disposed || socket !== connection) return;
       try {
         const value: unknown = JSON.parse(String(event.data));
-        if (validViewerMessage(value)) onMessage(value);
+        if (validMirrorMessage(value)) onMessage(value);
       } catch {
         // An incomplete or invalid frame never replaces the last valid display.
       }
@@ -100,7 +100,7 @@ export function createLiveConnection({
   const resume = () => {
     if (document.visibilityState === "hidden" || !navigator.onLine) return;
     if (socket?.readyState === 1) {
-      if (!viewer) {
+      if (!mirror) {
         dirty = Boolean(latest);
         flush();
       }
@@ -125,7 +125,7 @@ export function createLiveConnection({
   connect();
   return {
     update(snapshot: LiveSnapshot) {
-      if (viewer || disposed) return;
+      if (mirror || disposed) return;
       latest = snapshot;
       dirty = true;
       schedule();

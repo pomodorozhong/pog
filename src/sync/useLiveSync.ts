@@ -7,13 +7,10 @@ import type { LiveSnapshot } from "./types";
 type Documents = Omit<LiveSnapshot, "ui">;
 
 /**
- * The operator's window publishes what it shows whenever the documents or the
+ * The app's window publishes what it shows whenever the documents or the
  * shared screen state change; the connection batches them.
  */
-export function useOperatorSync(
-  store: SharedStore,
-  documents: Documents | null,
-) {
+export function useAppSync(store: SharedStore, documents: Documents | null) {
   const latest = useRef(documents);
   const connection = useRef<ReturnType<typeof createLiveConnection>>(null);
   const publish = useRef(() => {
@@ -21,9 +18,9 @@ export function useOperatorSync(
       connection.current?.update({ ...latest.current, ui: store.values() });
   });
   useEffect(() => {
-    if (store.viewer || !store.connected) return;
+    if (store.mirror || !store.connected) return;
     const live = createLiveConnection({
-      viewer: false,
+      mirror: false,
       onMessage() {},
       onStatus() {},
     });
@@ -45,16 +42,16 @@ export function useOperatorSync(
   }, [documents]);
   // A render can open, close or refill a panel without a scroll event.
   useLayoutEffect(() => {
-    if (!store.viewer) captureScrolling(store);
+    if (!store.mirror) captureScrolling(store);
   });
 }
 
 /**
- * A viewer follows the operator's snapshots. Until the first one arrives it
- * shows the saved documents; when the operator's window closes it keeps the
+ * A mirror follows the app's snapshots. Until the first one arrives it
+ * shows the saved documents; when the app's window closes it keeps the
  * last one. The connection state is on `<html data-live>` for tests.
  */
-export function useViewerSync(
+export function useMirrorSync(
   store: SharedStore,
   onSnapshot: (snapshot: LiveSnapshot) => void,
 ) {
@@ -63,12 +60,12 @@ export function useViewerSync(
     handler.current = onSnapshot;
   });
   useEffect(() => {
-    if (!store.viewer || !store.connected) return;
+    if (!store.mirror || !store.connected) return;
     const root = document.documentElement;
     const live = createLiveConnection({
-      viewer: true,
+      mirror: true,
       onMessage(message) {
-        root.dataset.operator = message.operatorConnected ? "on" : "off";
+        root.dataset.app = message.appConnected ? "on" : "off";
         if (!message.snapshot) return;
         store.replace(message.snapshot.ui);
         handler.current(message.snapshot);
@@ -79,7 +76,7 @@ export function useViewerSync(
         root.dataset.live = status;
       },
     });
-    // Panels change size with the viewer's own window and as images load.
+    // Panels change size with the mirror's own window and as images load.
     const resize = new ResizeObserver(() => followScrolling(store));
     resize.observe(root);
     return () => {
@@ -89,6 +86,6 @@ export function useViewerSync(
   }, [store]);
   // Every snapshot rerenders; panels follow once the new content is laid out.
   useLayoutEffect(() => {
-    if (store.viewer) followScrolling(store);
+    if (store.mirror) followScrolling(store);
   });
 }

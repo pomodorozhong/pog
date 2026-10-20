@@ -9,5 +9,5 @@
 - Every test starts with an empty folder and a `player.json` with the import from the save turned off, so a save on this computer never changes what a test sees.
 - They need the extracted game data (`npm run extract`), which stays out of git. Without it every test is skipped with that message.
 - Tests check both the screen and the saved files (`saved("player")`, `saved("maps/<profile id>")` in `tests/e2e/fixtures.ts`). Map clicks are positions from the center of the map (`tests/e2e/app.ts`); keep them clear of graces.
-- `viewer.spec.ts` opens the viewer in its own browser context, as OBS is, and checks that it follows the operator and never sends a request or WebSocket frame.
+- `mirror.spec.ts` opens the mirror in its own browser context, as OBS is, and checks that it follows the app and never sends a request or WebSocket frame.
 - Run one spec with `npx playwright test flows`, or watch it with `--headed`. Failures leave traces in `test-results/` (ignored by git).

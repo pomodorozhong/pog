@@ -62,10 +62,10 @@ export function AutoImport({
   const profile = activeProfile(player);
   const link = profile.save;
   // Polling restarts, and imports at once, when any of these change.
-  // A viewer shows the operator's imports; it never reads the save itself.
-  const { viewer } = useShared();
+  // A mirror shows the app's imports; it never reads the save itself.
+  const { mirror } = useShared();
   const watching =
-    !viewer && player.autoImport && link
+    !mirror && player.autoImport && link
       ? JSON.stringify([
           profile.id,
           link.steamId,

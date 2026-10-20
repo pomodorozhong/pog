@@ -23,7 +23,7 @@ const show = (store: SharedStore) =>
     </SharedProvider>,
   );
 
-it("shares the operator's state, and forgets it when the component goes", () => {
+it("shares the app's state, and forgets it when the component goes", () => {
   const store = createSharedStore(false, false);
   const view = show(store);
   expect(store.values()).toEqual({ "panel.open": false });
@@ -34,7 +34,7 @@ it("shares the operator's state, and forgets it when the component goes", () => 
   expect(store.values()).toEqual({});
 });
 
-it("shows the operator's value on a viewer, and ignores clicks there", () => {
+it("shows the app's value on a mirror, and ignores clicks there", () => {
   const store = createSharedStore(true, false);
   show(store);
   expect(screen.getByRole("button")).toHaveTextContent("closed");
@@ -42,7 +42,7 @@ it("shows the operator's value on a viewer, and ignores clicks there", () => {
   expect(screen.getByRole("button")).toHaveTextContent("open");
   act(() => screen.getByRole("button").click());
   expect(screen.getByRole("button")).toHaveTextContent("open");
-  // The operator's component went away: back to where it starts.
+  // The app's component went away: back to where it starts.
   act(() => store.replace({}));
   expect(screen.getByRole("button")).toHaveTextContent("closed");
 });

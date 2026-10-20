@@ -1,5 +1,5 @@
 import { validDocument } from "../storage/schema.ts";
-import type { LiveSnapshot, ViewerMessage } from "./types.ts";
+import type { LiveSnapshot, MirrorMessage } from "./types.ts";
 
 const SAVE_STATUSES = [
   "loading",
@@ -13,7 +13,7 @@ const SAVE_STATUSES = [
 const record = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
-// The UI values are the operator's own screen state; the relay is local only,
+// The UI values are the app's own screen state; the relay is local only,
 // so they are checked for shape, not content.
 export function validSnapshot(value: unknown): value is LiveSnapshot {
   return (
@@ -28,10 +28,10 @@ export function validSnapshot(value: unknown): value is LiveSnapshot {
   );
 }
 
-export function validViewerMessage(value: unknown): value is ViewerMessage {
+export function validMirrorMessage(value: unknown): value is MirrorMessage {
   return (
     record(value) &&
-    typeof value.operatorConnected === "boolean" &&
+    typeof value.appConnected === "boolean" &&
     (value.snapshot === null || validSnapshot(value.snapshot))
   );
 }

@@ -239,7 +239,7 @@
   "Each time the game saves, graces discovered and bosses beaten on this map are read from the linked character and applied at once, with a short note of what changed. The save decides every grace and boss on this map: one you marked by hand is cleared if the save doesn't have it. When the character rests at a new grace, “I'm here” moves there. Items aren't read. Applies to every playthrough.": "每次遊戲存檔時，會從連結的角色讀取已發現的賜福與此地圖上已擊敗的頭目，立即套用並簡短說明變更。此地圖上的賜福與頭目一律以存檔為準：手動標記、但存檔中沒有的會被清除。角色在新的賜福休息時，「我在這裡」會移到該處。不讀取道具。適用於所有周目。",
   "You're at {grace}": "目前位於{grace}",
   "Last rested at {grace}: “I'm here” moves there.": "最後在{grace}休息：「我在這裡」會移到該處。",
-  "Viewer link": "觀看連結",
+  "Mirror link": "鏡像連結",
   "Copy": "複製",
   "Copied": "已複製",
   "Add it as a browser source in OBS. It shows what this window shows and can't change anything.": "在 OBS 加入為瀏覽器來源。它顯示這個視窗的畫面，無法更改任何內容。"

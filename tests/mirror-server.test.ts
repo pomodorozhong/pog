@@ -2,8 +2,8 @@
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { createServer, type Server } from "node:http";
 import WebSocket from "ws";
-import { attachViewerRelay } from "../server/viewer";
-import type { ViewerMessage } from "../src/sync/types";
+import { attachMirrorRelay } from "../server/mirror";
+import type { MirrorMessage } from "../src/sync/types";
 import { liveSnapshot } from "./sync-fixture";
 
 let server: Server;
@@ -12,9 +12,9 @@ let url: string;
 const clients: WebSocket[] = [];
 beforeEach(async () => {
   server = createServer((_request, response) => response.writeHead(404).end());
-  dispose = attachViewerRelay(server);
+  dispose = attachMirrorRelay(server);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  url = `ws://127.0.0.1:${(server.address() as { port: number }).port}/api/viewer`;
+  url = `ws://127.0.0.1:${(server.address() as { port: number }).port}/api/mirror`;
 });
 afterEach(async () => {
   for (const client of clients.splice(0)) client.terminate();
@@ -33,60 +33,60 @@ function connect(mode: string, origin?: string) {
 const opened = (socket: WebSocket) =>
   new Promise<void>((resolve) => socket.once("open", resolve));
 const next = (socket: WebSocket) =>
-  new Promise<ViewerMessage>((resolve) =>
+  new Promise<MirrorMessage>((resolve) =>
     socket.once("message", (raw) => resolve(JSON.parse(raw.toString()))),
   );
 const closed = (socket: WebSocket) =>
   new Promise<number>((resolve) => socket.once("close", resolve));
 
 it("sends initial snapshots, fans out updates within one second, and retains the last display after disconnect", async () => {
-  const viewer = connect("viewer");
-  const empty = next(viewer);
-  await opened(viewer);
-  expect(await empty).toEqual({ snapshot: null, operatorConnected: false });
-  const operator = connect("operator");
-  await opened(operator);
+  const mirror = connect("mirror");
+  const empty = next(mirror);
+  await opened(mirror);
+  expect(await empty).toEqual({ snapshot: null, appConnected: false });
+  const app = connect("app");
+  await opened(app);
   const snapshot = liveSnapshot();
   snapshot.ui["app.sheet"] = "edit";
-  const update = next(viewer);
+  const update = next(mirror);
   const started = performance.now();
-  operator.send(JSON.stringify(snapshot));
-  expect(await update).toEqual({ snapshot, operatorConnected: true });
+  app.send(JSON.stringify(snapshot));
+  expect(await update).toEqual({ snapshot, appConnected: true });
   expect(performance.now() - started).toBeLessThan(1000);
-  const other = connect("viewer");
+  const other = connect("mirror");
   const initial = next(other);
   await opened(other);
-  expect(await initial).toEqual({ snapshot, operatorConnected: true });
-  const end = next(viewer);
-  operator.close();
-  expect(await end).toEqual({ snapshot, operatorConnected: false });
-  const replacement = connect("operator");
+  expect(await initial).toEqual({ snapshot, appConnected: true });
+  const end = next(mirror);
+  app.close();
+  expect(await end).toEqual({ snapshot, appConnected: false });
+  const replacement = connect("app");
   await opened(replacement);
-  const following = next(viewer);
+  const following = next(mirror);
   const latest = liveSnapshot();
   latest.player.language = "zh-TW";
   replacement.send(JSON.stringify(latest));
   expect(await following).toEqual({
     snapshot: latest,
-    operatorConnected: true,
+    appConnected: true,
   });
 });
 
-it("rejects viewer publication without replacing the operator's snapshot", async () => {
-  const operator = connect("operator");
-  await opened(operator);
-  const viewer = connect("viewer");
-  const initial = next(viewer);
-  await opened(viewer);
+it("rejects mirror publication without replacing the app's snapshot", async () => {
+  const app = connect("app");
+  await opened(app);
+  const mirror = connect("mirror");
+  const initial = next(mirror);
+  await opened(mirror);
   await initial;
   const snapshot = liveSnapshot();
-  const update = next(viewer);
-  operator.send(JSON.stringify(snapshot));
+  const update = next(mirror);
+  app.send(JSON.stringify(snapshot));
   await update;
-  const rejected = closed(viewer);
-  viewer.send(JSON.stringify({ ...snapshot, mapProfile: "unauthorized" }));
+  const rejected = closed(mirror);
+  mirror.send(JSON.stringify({ ...snapshot, mapProfile: "unauthorized" }));
   expect(await rejected).toBe(1008);
-  const fresh = connect("viewer");
+  const fresh = connect("mirror");
   const saved = next(fresh);
   await opened(fresh);
   expect((await saved).snapshot).toEqual(snapshot);
@@ -100,10 +100,10 @@ it("validates incoming snapshots", async () => {
     JSON.stringify({ ...liveSnapshot(), saveStatus: ["unknown"] }),
     JSON.stringify({ ...liveSnapshot(), ui: [] }),
   ]) {
-    const operator = connect("operator");
-    await opened(operator);
-    const rejected = closed(operator);
-    operator.send(invalid);
+    const app = connect("app");
+    await opened(app);
+    const rejected = closed(app);
+    app.send(invalid);
     expect(await rejected).toBe(1008);
   }
 });
@@ -115,7 +115,7 @@ it("rejects cross-origin connections, rebinding hosts and unknown modes", async 
     {},
   ]) {
     const socket = new WebSocket(
-      `${url}?mode=${Object.keys(options).length ? "viewer" : "invalid"}`,
+      `${url}?mode=${Object.keys(options).length ? "mirror" : "invalid"}`,
       options,
     );
     socket.on("error", () => {});

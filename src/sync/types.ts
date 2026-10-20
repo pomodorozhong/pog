@@ -1,7 +1,7 @@
 import type { MapDocument, PlayerDocument } from "../domain/types.ts";
 import type { SaveStatus } from "../storage/usePersistentDocument.ts";
 
-export const LIVE_SYNC_PATH = "/api/viewer";
+export const LIVE_SYNC_PATH = "/api/mirror";
 /** Both documents at their largest, plus the screen state. */
 export const MAX_SYNC_BYTES = 8 * 1024 * 1024 + 64 * 1024;
 
@@ -15,7 +15,7 @@ export type ScrollPosition = {
   page: number;
 };
 
-/** What the operator's window shows, sent to viewers as it changes. */
+/** What the app's window shows, sent to mirrors as it changes. */
 export type LiveSnapshot = {
   player: PlayerDocument;
   /** The map of `mapProfile`, with edits not saved yet. */
@@ -30,9 +30,9 @@ export type LiveSnapshot = {
   ui: Record<string, unknown>;
 };
 
-export type ViewerMessage = {
+export type MirrorMessage = {
   snapshot: LiveSnapshot | null;
-  operatorConnected: boolean;
+  appConnected: boolean;
 };
 
 export type SyncStatus = "connecting" | "connected" | "disconnected";

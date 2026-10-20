@@ -2,8 +2,8 @@ import type { Browser, Page } from "@playwright/test";
 import { MAP, onMap, openApp, placePin } from "./app";
 import { expect, test } from "./fixtures";
 
-/** A viewer in its own browser, as OBS is, recording anything it sends. */
-async function openViewer(
+/** A mirror in its own browser, as OBS is, recording anything it sends. */
+async function openMirror(
   browser: Browser,
   size = { width: 1600, height: 1000 },
   base = "",
@@ -18,13 +18,13 @@ async function openViewer(
   page.on("websocket", (socket) =>
     socket.on("framesent", (frame) => frames.push(String(frame.payload))),
   );
-  await page.goto(`${base}/?mode=viewer`);
+  await page.goto(`${base}/?mode=mirror`);
   await following(page);
   return { page, context, writes, frames };
 }
 
 const following = (page: Page) =>
-  expect(page.locator("html")).toHaveAttribute("data-operator", "on");
+  expect(page.locator("html")).toHaveAttribute("data-app", "on");
 
 /** How far apart the selected pin is on the two maps, in pixels. */
 async function pinGap(one: Page, other: Page) {
@@ -48,14 +48,14 @@ const topEntry = (page: Page, name: string) =>
     return index;
   });
 
-test("a viewer follows the operator's screen and never changes anything", async ({
+test("a mirror follows the app's screen and never changes anything", async ({
   page,
   browser,
   saved,
 }) => {
   await openApp(page);
-  const viewer = await openViewer(browser);
-  const shows = viewer.page;
+  const mirror = await openMirror(browser);
+  const shows = mirror.page;
 
   // Panels and what is selected.
   await page.getByRole("button", { name: "Edit", exact: true }).click();
@@ -81,17 +81,17 @@ test("a viewer follows the operator's screen and never changes anything", async 
   // Menus, and the language.
   await page.getByRole("button", { name: "Menu" }).click();
   await expect(
-    shows.getByRole("region", { name: "Viewer link" }),
+    shows.getByRole("region", { name: "Mirror link" }),
   ).toBeVisible();
   await page.getByRole("combobox", { name: "Language" }).selectOption("zh-TW");
-  await expect(shows.getByRole("region", { name: "觀看連結" })).toBeVisible();
+  await expect(shows.getByRole("region", { name: "鏡像連結" })).toBeVisible();
 
   // A reload catches up at once.
   await shows.reload();
-  await expect(shows.getByRole("region", { name: "觀看連結" })).toBeVisible();
+  await expect(shows.getByRole("region", { name: "鏡像連結" })).toBeVisible();
   await expect(shows.getByRole("region", { name: "選取的節點" })).toBeVisible();
 
-  // Clicks and keys on the viewer do nothing.
+  // Clicks and keys on the mirror do nothing.
   await shows.keyboard.press("Escape");
   await shows.keyboard.press("n");
   const spot = await onMap(shows, 100, 60);
@@ -99,12 +99,12 @@ test("a viewer follows the operator's screen and never changes anything", async 
   await expect(shows.getByRole("region", { name: "選取的節點" })).toBeVisible();
   await expect(page.getByRole("region", { name: "選取的節點" })).toBeVisible();
   expect((await saved(MAP)).nodes).toHaveLength(1);
-  expect(viewer.writes).toEqual([]);
-  expect(viewer.frames).toEqual([]);
-  await viewer.context.close();
+  expect(mirror.writes).toEqual([]);
+  expect(mirror.frames).toEqual([]);
+  await mirror.context.close();
 });
 
-test("panels follow the same entry in a viewer of another size", async ({
+test("panels follow the same entry in a mirror of another size", async ({
   page,
   browser,
 }) => {
@@ -116,8 +116,8 @@ test("panels follow the same entry in a viewer of another size", async ({
     .getByRole("combobox", { name: "Start from" })
     .selectOption({ index: 1 });
   await page.getByRole("button", { name: "Create" }).click();
-  const viewer = await openViewer(browser, { width: 1100, height: 700 });
-  const shows = viewer.page;
+  const mirror = await openMirror(browser, { width: 1100, height: 700 });
+  const shows = mirror.page;
   await page
     .getByRole("region", { name: "Wishlist" })
     .getByRole("button", { name: /Notes and status/ })
@@ -134,70 +134,70 @@ test("panels follow the same entry in a viewer of another size", async ({
   expect(entry).toBeGreaterThan(3);
   await expect.poll(() => topEntry(shows, "inspector")).toBe(entry);
 
-  // The viewer's own window changes size: it keeps to the same entry.
+  // The mirror's own window changes size: it keeps to the same entry.
   await shows.setViewportSize({ width: 900, height: 600 });
   await expect.poll(() => topEntry(shows, "inspector")).toBe(entry);
-  await viewer.context.close();
+  await mirror.context.close();
 });
 
-test("a viewer keeps the last screen when the operator's window closes, and catches up after going offline", async ({
+test("a mirror keeps the last screen when the app's window closes, and catches up after going offline", async ({
   browser,
 }) => {
-  const operator = await (await browser.newContext()).newPage();
-  await openApp(operator);
-  const viewer = await openViewer(browser);
-  const shows = viewer.page;
-  await operator.getByRole("button", { name: "Edit", exact: true }).click();
+  const app = await (await browser.newContext()).newPage();
+  await openApp(app);
+  const mirror = await openMirror(browser);
+  const shows = mirror.page;
+  await app.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(
     shows.getByRole("region", { name: "Playthrough" }),
   ).toBeVisible();
 
-  await viewer.context.setOffline(true);
+  await mirror.context.setOffline(true);
   await expect(shows.locator("html")).toHaveAttribute(
     "data-live",
     "disconnected",
   );
-  await operator.getByRole("button", { name: "Done" }).click();
-  await viewer.context.setOffline(false);
+  await app.getByRole("button", { name: "Done" }).click();
+  await mirror.context.setOffline(false);
   await expect(
     shows.getByRole("region", { name: "Playthrough tracker" }),
   ).toBeVisible();
 
-  await operator.getByRole("button", { name: "Edit", exact: true }).click();
+  await app.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(
     shows.getByRole("region", { name: "Playthrough" }),
   ).toBeVisible();
-  await operator.close();
-  await expect(shows.locator("html")).toHaveAttribute("data-operator", "off");
+  await app.close();
+  await expect(shows.locator("html")).toHaveAttribute("data-app", "off");
   await expect(
     shows.getByRole("region", { name: "Playthrough" }),
   ).toBeVisible();
-  await viewer.context.close();
+  await mirror.context.close();
 });
 
-test("the preview server relays to viewers too", async ({ page, browser }) => {
+test("the preview server relays to mirrors too", async ({ page, browser }) => {
   const preview = "http://127.0.0.1:5199";
   await page.goto(preview);
   await expect(
     page.getByRole("region", { name: "Playthrough tracker" }),
   ).toBeVisible();
-  const viewer = await openViewer(browser, undefined, preview);
+  const mirror = await openMirror(browser, undefined, preview);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(
-    viewer.page.getByRole("region", { name: "Playthrough" }),
+    mirror.page.getByRole("region", { name: "Playthrough" }),
   ).toBeVisible();
-  await viewer.context.close();
+  await mirror.context.close();
 });
 
-test("the viewer's map never goes blank while the operator zooms", async ({
+test("the mirror's map never goes blank while the app zooms", async ({
   page,
   browser,
 }) => {
   await openApp(page);
-  const viewer = await openViewer(browser);
-  const shows = viewer.page;
+  const mirror = await openMirror(browser);
+  const shows = mirror.page;
   await expect(shows.locator("img.leaflet-tile-loaded").first()).toBeVisible();
-  // Count the loaded tiles on screen in every frame the viewer draws.
+  // Count the loaded tiles on screen in every frame the mirror draws.
   await shows.evaluate(() => {
     const counts: number[] = [];
     (window as unknown as { tileCounts: number[] }).tileCounts = counts;
@@ -226,5 +226,5 @@ test("the viewer's map never goes blank while the operator zooms", async ({
   );
   expect(counts.length).toBeGreaterThan(30);
   expect(Math.min(...counts)).toBeGreaterThan(0);
-  await viewer.context.close();
+  await mirror.context.close();
 });

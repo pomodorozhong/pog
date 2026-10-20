@@ -20,7 +20,7 @@ type Session<N extends DocumentName> = {
  * after loading. Saves are debounced; the client keeps them in order. When
  * `key` changes (another profile's map), the last edit of the old document is
  * saved at once and the new one is loaded. A null key loads nothing yet.
- * A read-only document (on a viewer) loads but never saves.
+ * A read-only document (on a mirror) loads but never saves.
  */
 export function usePersistentDocument<N extends DocumentName>(
   name: N,

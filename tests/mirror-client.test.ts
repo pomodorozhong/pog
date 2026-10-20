@@ -26,11 +26,11 @@ class Socket extends EventTarget {
 }
 afterEach(() => vi.useRealTimers());
 
-it("coalesces operator updates and republishes the latest state after reconnecting", () => {
+it("coalesces app updates and republishes the latest state after reconnecting", () => {
   vi.useFakeTimers();
   const sockets: Socket[] = [];
   const live = createLiveConnection({
-    viewer: false,
+    mirror: false,
     onMessage: vi.fn(),
     onStatus: vi.fn(),
     createSocket: () => {
@@ -60,16 +60,16 @@ it("coalesces operator updates and republishes the latest state after reconnecti
   expect(sockets).toHaveLength(2);
 });
 
-it("keeps viewers read-only and ignores invalid frames", () => {
+it("keeps mirrors read-only and ignores invalid frames", () => {
   vi.useFakeTimers();
   const socket = new Socket();
   const receive = vi.fn();
   const live = createLiveConnection({
-    viewer: true,
+    mirror: true,
     onMessage: receive,
     onStatus: vi.fn(),
     createSocket: (url) => {
-      expect(new URL(url).searchParams.get("mode")).toBe("viewer");
+      expect(new URL(url).searchParams.get("mode")).toBe("mirror");
       return socket as unknown as WebSocket;
     },
   });
@@ -77,9 +77,9 @@ it("keeps viewers read-only and ignores invalid frames", () => {
   live.update(liveSnapshot());
   vi.advanceTimersByTime(100);
   expect(socket.sent).toEqual([]);
-  socket.message({ snapshot: { player: {} }, operatorConnected: true });
+  socket.message({ snapshot: { player: {} }, appConnected: true });
   expect(receive).not.toHaveBeenCalled();
-  const message = { snapshot: liveSnapshot(), operatorConnected: true };
+  const message = { snapshot: liveSnapshot(), appConnected: true };
   socket.message(message);
   expect(receive).toHaveBeenCalledWith(message);
   live.dispose();

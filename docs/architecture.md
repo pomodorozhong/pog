@@ -20,7 +20,7 @@ A map-based route planner for Elden Ring (base game and Shadow of the Erdtree). 
 | Names           | Official in-game English and zh-TW names win over any other source. Player-written text is kept as written.                                               |
 | Language        | English and Traditional Chinese (zh-TW) for all interface text.                                                                                           |
 | Spoilers        | Fine. Show missable and quest-lock warnings freely.                                                                                                       |
-| Viewer mode     | Required: a read-only URL used as an OBS browser source, mirroring the operator's screen.                                                                 |
+| Mirror mode     | Required: a read-only URL used as an OBS browser source, copying the player's own app window.                                                             |
 | DLC             | In scope (separate map layers).                                                                                                                           |
 | Platform        | Mac, game running through Steam or CrossOver. Everything runs natively on macOS.                                                                          |
 | Position        | Follows the last grace rested at in the save (#69), and the player can set it by hand. Whether the save holds a live position is an open spike (#66).     |
@@ -142,13 +142,13 @@ Everything here runs for the active profile (`src/routing/`).
 - **Next stops:** the planned route as a list in the side panel. It isn't drawn on the map, since the player draws their own paths.
 - **Planned, not built:** fast travel blocked where the game blocks it (inside legacy dungeons before their grace); fitting a new wishlist item into the route at the cheapest point and saying where ("best after the Liurnia grace"); and the "Blocked by X" view ("beating Radahn unlocks 4 of your wishlist items", #17), which needs requirement flags (#15).
 
-### OBS viewer
+### OBS mirror
 
-A local mirror of the operator's own screen, for streaming: the player works in a normal browser window, and `/?mode=viewer` is the OBS browser source stream viewers see, so nothing has to be operated inside OBS. There is one viewer, on the same computer; the menu's "Viewer link" gives its address.
+A read-only copy of the player's own app window, for streaming: the player works in a normal browser window, and `/?mode=mirror` is the OBS browser source that stream viewers see, so nothing has to be operated inside OBS. It is not an audience feature. There is one mirror, on the same computer; the menu's "Mirror link" gives its address.
 
-- **Relay** (`server/viewer.ts`, attached to the dev and preview servers): a WebSocket at `/api/viewer`, local requests only. The operator's window publishes snapshots; the relay validates them, keeps the latest in memory and sends it to viewers, and closes any viewer that sends anything. Each server port has its own live session.
+- **Relay** (`server/mirror.ts`, attached to the dev and preview servers): a WebSocket at `/api/mirror`, local requests only. The app's window publishes snapshots; the relay validates them, keeps the latest in memory and sends it to mirrors, and closes any mirror that sends anything. Each server port has its own live session.
 - **Snapshot** (`src/sync/types.ts`): the player document, the active map with edits not saved yet, save status, and the screen state by key. Screen state is component state written with `useSharedState` instead of `useState` (what is selected, open menus and modals, filters, import steps), the map view on every frame of a move, and scroll positions. Snapshots are batched over 50 ms.
-- **Viewer:** lays out at its own size, so OBS's source size picks the narrow or wide layout. The map keeps to the operator's center and zoom; a scrolling panel (`data-scroll-sync`) keeps to the same entry and how far through it, not to pixels. It reads the saved documents until the first snapshot, keeps the last screen when the operator's window closes, and catches up after a reload or reconnect. It never saves, never reads the game's save, ignores keys, and its page is `inert`, so it looks like the operator's screen rather than disabled. No status shows on it; `<html data-live data-operator>` holds the connection state for tests.
+- **Mirror:** lays out at its own size, so OBS's source size picks the narrow or wide layout. The map keeps to the app's center and zoom; a scrolling panel (`data-scroll-sync`) keeps to the same entry and how far through it, not to pixels. It reads the saved documents until the first snapshot, keeps the last screen when the app's window closes, and catches up after a reload or reconnect. It never saves, never reads the game's save, ignores keys, and its page is `inert`, so it looks like the app's screen rather than disabled. No status shows on it; `<html data-live data-app>` holds the connection state for tests.
 
 ### Agent tools (#12)
 

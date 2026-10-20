@@ -2,8 +2,8 @@ import type { SharedStore } from "./shared";
 import type { ScrollPosition } from "./types";
 
 /**
- * Scrolling panels carry `data-scroll-sync="<name>"`. A viewer lays out at its
- * own size, so a panel follows the operator's by entry (the nth list item or
+ * Scrolling panels carry `data-scroll-sync="<name>"`. A mirror lays out at its
+ * own size, so a panel follows the app's by entry (the nth list item or
  * section in it) and how far through that entry its top is, not by pixels.
  */
 const SCROLL_ATTRIBUTE = "data-scroll-sync";
@@ -34,7 +34,7 @@ export function restorePosition(panel: HTMLElement, position: ScrollPosition) {
     position.anchor === null
       ? undefined
       : panel.querySelectorAll<HTMLElement>(ENTRIES)[position.anchor];
-  // Nothing scrolled at the operator: stay at the top.
+  // Nothing scrolled at the app: stay at the top.
   if (!entry || (position.anchor === 0 && position.page === 0)) {
     panel.scrollTop = position.page * range(panel);
     return;
@@ -46,8 +46,8 @@ export function restorePosition(panel: HTMLElement, position: ScrollPosition) {
 }
 
 /**
- * Record where every panel on the operator's screen is scrolled to, and forget
- * panels that are gone, so one that opens again starts at the top for viewers
+ * Record where every panel on the app's screen is scrolled to, and forget
+ * panels that are gone, so one that opens again starts at the top for mirrors
  * too. Runs on every scroll and after every render.
  */
 export function captureScrolling(store: SharedStore) {
@@ -71,7 +71,7 @@ export function captureScrolling(store: SharedStore) {
     if (key.startsWith("scroll:") && !shown.has(key)) store.delete(key);
 }
 
-/** The operator's window shares where each panel is scrolled to. */
+/** The app's window shares where each panel is scrolled to. */
 export function shareScrolling(store: SharedStore) {
   const onScroll = (event: Event) => {
     if (
@@ -85,7 +85,7 @@ export function shareScrolling(store: SharedStore) {
   return () => document.removeEventListener("scroll", onScroll, true);
 }
 
-/** A viewer scrolls every panel it shows to where the operator's is. */
+/** A mirror scrolls every panel it shows to where the app's is. */
 export function followScrolling(store: SharedStore) {
   for (const panel of document.querySelectorAll<HTMLElement>(
     `[${SCROLL_ATTRIBUTE}]`,

@@ -127,8 +127,8 @@ export function enableGestures(map: L.Map): () => void {
 }
 
 /**
- * Move a map to views that arrive many times a second, such as a viewer
- * following the operator's zoom, without blanking tiles: each step moves the
+ * Move a map to views that arrive many times a second, such as a mirror
+ * following the app's zoom, without blanking tiles: each step moves the
  * view as a pinch does, and once the steps stop the map settles with one
  * zoomend/moveend.
  */

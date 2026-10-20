@@ -36,7 +36,7 @@ export type MapCanvasHandlers = {
   onNodeMove(id: string, point: Point): void;
   onEdgeClick(id: string): void;
   onViewChange(view: MapView): void;
-  /** The view on every frame of a move, for viewers to follow live. */
+  /** The view on every frame of a move, for mirrors to follow live. */
   onViewMove?(view: MapView): void;
 };
 
@@ -45,7 +45,7 @@ type Props = MapCanvasHandlers & {
   info: MapLayerInfo;
   /** View to show when the layer is (re)opened, and always when `follow`. */
   view: MapView;
-  /** Keep to `view` as it changes: a viewer following the operator's map. */
+  /** Keep to `view` as it changes: a mirror following the app's map. */
   follow?: boolean;
   nodes: MapNode[];
   edges: MapEdge[];
@@ -278,7 +278,7 @@ export function MapCanvas(props: Props) {
     };
   }, [layer, info]);
 
-  // A viewer keeps to the operator's view on the same layer.
+  // A mirror keeps to the app's view on the same layer.
   const { follow, view } = props;
   useEffect(() => {
     const instance = map.current;
@@ -286,7 +286,7 @@ export function MapCanvas(props: Props) {
     const [x, y] = toPoint(instance.getCenter());
     if (x === view.x && y === view.y && instance.getZoom() === view.zoom)
       return;
-    // The operator's view changes every frame of a zoom; setView would reset
+    // The app's view changes every frame of a zoom; setView would reset
     // the tiles each time and make the map flash.
     follower.current?.moveTo(toLatLng([view.x, view.y]), view.zoom);
   }, [follow, view]);

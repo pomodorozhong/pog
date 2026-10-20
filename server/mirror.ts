@@ -10,32 +10,32 @@ import {
 import { validSnapshot } from "../src/sync/schema.ts";
 import { assertLocalRequest } from "./security.ts";
 
-// Each dev or preview server keeps one live session in memory: the operator's
-// latest snapshot, relayed to viewers (the OBS browser source). Saves still go
+// Each dev or preview server keeps one live session in memory: the app's
+// latest snapshot, relayed to mirrors (the OBS browser source). Saves still go
 // through FileStore.
-export function attachViewerRelay(server: EventEmitter) {
+export function attachMirrorRelay(server: EventEmitter) {
   const sockets = new WebSocketServer({
     noServer: true,
     maxPayload: MAX_SYNC_BYTES,
   });
-  const viewers = new Set<WebSocket>();
+  const mirrors = new Set<WebSocket>();
   const alive = new Set<WebSocket>();
   let snapshot: LiveSnapshot | null = null;
-  let operator: WebSocket | null = null;
+  let app: WebSocket | null = null;
   const message = () =>
     JSON.stringify({
       snapshot,
-      operatorConnected: operator?.readyState === WebSocket.OPEN,
+      appConnected: app?.readyState === WebSocket.OPEN,
     });
   const send = (socket: WebSocket, raw: string) => {
     if (socket.readyState !== WebSocket.OPEN) return;
-    // A paused or slow viewer reconnects to the latest state instead of accumulating frames.
+    // A paused or slow mirror reconnects to the latest state instead of accumulating frames.
     if (socket.bufferedAmount > MAX_SYNC_BYTES) socket.terminate();
     else socket.send(raw);
   };
   const broadcast = () => {
     const raw = message();
-    for (const viewer of viewers) send(viewer, raw);
+    for (const mirror of mirrors) send(mirror, raw);
   };
   const upgrade = (request: IncomingMessage, socket: Duplex, head: Buffer) => {
     const url = new URL(request.url ?? "/", "http://localhost");
@@ -43,37 +43,36 @@ export function attachViewerRelay(server: EventEmitter) {
     try {
       assertLocalRequest(request);
       const mode = url.searchParams.get("mode");
-      if (mode !== "operator" && mode !== "viewer")
-        throw new Error("Invalid mode");
+      if (mode !== "app" && mode !== "mirror") throw new Error("Invalid mode");
       sockets.handleUpgrade(request, socket, head, (connection) => {
         sockets.emit("connection", connection, request);
         alive.add(connection);
         connection.on("error", () => connection.terminate());
         connection.on("pong", () => alive.add(connection));
-        if (mode === "viewer") {
-          viewers.add(connection);
+        if (mode === "mirror") {
+          mirrors.add(connection);
           send(connection, message());
         }
         connection.on("message", (bytes, binary) => {
-          if (mode === "viewer") {
-            connection.close(1008, "Viewers cannot publish state");
+          if (mode === "mirror") {
+            connection.close(1008, "Mirrors cannot publish state");
             return;
           }
           try {
             const value: unknown = binary ? null : JSON.parse(bytes.toString());
             if (!validSnapshot(value)) throw new Error("Invalid snapshot");
             snapshot = value;
-            operator = connection;
+            app = connection;
             broadcast();
           } catch {
             connection.close(1008, "Invalid live state");
           }
         });
         connection.on("close", () => {
-          viewers.delete(connection);
+          mirrors.delete(connection);
           alive.delete(connection);
-          if (operator === connection) {
-            operator = null;
+          if (app === connection) {
+            app = null;
             broadcast();
           }
         });
