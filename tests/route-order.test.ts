@@ -3,7 +3,6 @@ import type { MapDocument, MapNode } from "../src/domain/types";
 import {
   detour,
   planRoute,
-  routeLines,
   travelTimes,
   wishlistTargets,
 } from "../src/routing/order";
@@ -99,32 +98,5 @@ describe("route targets", () => {
         ]).pinned,
       ),
     ).toEqual([{ item: "weapon/1", node: "pin" }]);
-  });
-});
-
-describe("route lines", () => {
-  it("draws drawn paths as drawn and guesses as straight lines", () => {
-    const map = line(["s", "a"], [0, 1400]);
-    map.nodes.push(node("far", 30000));
-    const times = travelTimes(buildGraph(map, open, []));
-    const route = planRoute(times, "s", ["a", "far"]);
-    expect(routeLines(map, route.legs)).toEqual([
-      {
-        layer: "overworld",
-        points: [
-          [0, 0],
-          [1400, 0],
-        ],
-        guess: false,
-      },
-      {
-        layer: "overworld",
-        points: [
-          [1400, 0],
-          [30000, 0],
-        ],
-        guess: true,
-      },
-    ]);
   });
 });

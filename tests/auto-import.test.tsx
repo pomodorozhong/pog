@@ -17,6 +17,7 @@ import {
   AutoImportSwitch,
 } from "../src/progress/AutoImport";
 import { summarizeChanges } from "../src/progress/importSave";
+import { setPosition } from "../src/progress/progress";
 import { initialDocuments } from "../src/storage/schema";
 
 afterEach(() => {
@@ -25,21 +26,35 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+const graces = [
+  {
+    id: "grace/1",
+    name: { en: "The First Step", "zh-TW": "起始之地" },
+    dlc: false,
+    layer: "overworld",
+    x: 0,
+    y: 0,
+    flag: 71000,
+    entity: 1042361950,
+    legacy: false,
+  },
+  {
+    id: "grace/2",
+    name: { en: "Gatefront", "zh-TW": "關卡前方" },
+    dlc: false,
+    layer: "overworld",
+    x: 100,
+    y: 0,
+    flag: 71001,
+    entity: 1042371950,
+    legacy: false,
+  },
+];
 const data = {
+  byId: new Map(graces.map((g) => [g.id, g])),
   catalog: {
     items: [],
-    graces: [
-      {
-        id: "grace/1",
-        name: { en: "The First Step", "zh-TW": "起始之地" },
-        dlc: false,
-        layer: "overworld",
-        x: 0,
-        y: 0,
-        flag: 71000,
-        legacy: false,
-      },
-    ],
+    graces,
     bosses: [
       {
         id: "boss/10000800",
@@ -66,6 +81,15 @@ const doc: MapDocument = {
       ref: "grace/1",
       bosses: ["boss/10000800"],
     },
+    {
+      id: "grace/2",
+      layer: "overworld",
+      x: 100,
+      y: 0,
+      kind: "grace",
+      label: "",
+      ref: "grace/2",
+    },
   ],
   edges: [],
 };
@@ -75,7 +99,7 @@ const doc: MapDocument = {
  * `save()` each time, and its stamp is `stamp()`.
  */
 function setup(
-  save: () => { name: string; set: number[] } | Response,
+  save: () => { name: string; set: number[]; lastGrace?: number } | Response,
   stamp: () => string,
   autoImport = true,
   flags: number[] = [],
@@ -98,9 +122,11 @@ function setup(
     return answer instanceof Response ? answer : Response.json(answer);
   });
   vi.stubGlobal("fetch", fetch);
+  let update: (player: PlayerDocument) => void = () => {};
   function Host() {
     const [state, setState] = useState(player);
     player = state;
+    update = setState;
     return (
       <AutoImport
         t={(key, values) => translate("en", key, values)}
@@ -113,7 +139,11 @@ function setup(
     );
   }
   render(<Host />);
-  return { fetch, player: () => player };
+  return {
+    fetch,
+    player: () => player,
+    setPlayer: (p: PlayerDocument) => update(p),
+  };
 }
 
 const flagReads = (fetch: ReturnType<typeof vi.fn>) =>
@@ -174,7 +204,7 @@ describe("importing automatically when the game saves", () => {
     expect(activeProfile(player()).progress.flags).toEqual([71000]);
   });
 
-  it("never takes a grace away, but follows the save for bosses", async () => {
+  it("follows the save for graces and bosses alike", async () => {
     const { player } = setup(
       () => ({ name: "Tarnished", set: [] }),
       () => "a",
@@ -183,11 +213,53 @@ describe("importing automatically when the game saves", () => {
     );
     expect(
       await screen.findByText(
-        "Imported from the save: 1 bosses no longer beaten",
+        "Imported from the save: 1 graces no longer discovered · 1 bosses no longer beaten",
       ),
     ).toBeInTheDocument();
-    // The grace marked by hand stays; the boss the save hasn't beaten goes.
-    expect(activeProfile(player()).progress.flags).toEqual([71000]);
+    // What was marked by hand and isn't in the save goes.
+    expect(activeProfile(player()).progress.flags).toEqual([]);
+  });
+
+  it("moves “I'm here” when the character rests at a new grace", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let lastGrace = 1042372950;
+    let stamp = "a";
+    const { player, setPlayer } = setup(
+      () => ({ name: "Tarnished", set: [71000], lastGrace }),
+      () => stamp,
+    );
+    expect(
+      await screen.findByText(
+        "Imported from the save: +1 graces discovered · You're at Gatefront",
+      ),
+    ).toBeInTheDocument();
+    expect(activeProfile(player()).progress).toMatchObject({
+      position: "grace/2",
+      lastGrace: "grace/2",
+    });
+
+    // Set by hand, it stays while the character rests at the same grace.
+    act(() => setPlayer(setPosition(player(), "profile-1", "grace/1")));
+    stamp = "b";
+    await act(() => vi.advanceTimersByTimeAsync(AUTO_IMPORT_INTERVAL));
+    expect(activeProfile(player()).progress.position).toBe("grace/1");
+
+    lastGrace = 1042362950;
+    stamp = "c";
+    await act(() => vi.advanceTimersByTimeAsync(AUTO_IMPORT_INTERVAL));
+    // Already there: the record follows, and no note.
+    expect(activeProfile(player()).progress).toMatchObject({
+      position: "grace/1",
+      lastGrace: "grace/1",
+    });
+
+    lastGrace = 1042372950;
+    stamp = "d";
+    await act(() => vi.advanceTimersByTimeAsync(AUTO_IMPORT_INTERVAL));
+    expect(activeProfile(player()).progress.position).toBe("grace/2");
+    expect(
+      screen.getByText("Imported from the save: You're at Gatefront"),
+    ).toBeInTheDocument();
   });
 
   it("reads nothing while switched off", async () => {
@@ -246,7 +318,7 @@ describe("the automatic import's switch", () => {
       screen.getByText("On: watching Tarnished (slot 1)."),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Graces are only added, never taken away/),
+      screen.getByText(/The save decides every grace and boss on this map/),
     ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("switch", { name: "Import automatically" }),
@@ -267,14 +339,19 @@ describe("the automatic import's note", () => {
   const t = (key: string, values?: Record<string, string | number>) =>
     translate("en", key, values);
   const isBoss = (flag: number) => flag === 10000800;
+  const unmoved = { lastGrace: null, moveTo: null };
   it("leaves out what didn't change", () => {
     expect(
-      summarizeChanges(t, { added: [71000], removed: [], flags: [] }, isBoss),
+      summarizeChanges(
+        t,
+        { added: [71000], removed: [], flags: [], ...unmoved },
+        isBoss,
+      ),
     ).toBe("+1 graces discovered");
     expect(
       summarizeChanges(
         t,
-        { added: [10000800], removed: [71000], flags: [] },
+        { added: [10000800], removed: [71000], flags: [], ...unmoved },
         isBoss,
       ),
     ).toBe("1 graces no longer discovered · +1 bosses beaten");

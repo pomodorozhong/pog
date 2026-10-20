@@ -1,4 +1,3 @@
-import type { MapDocument, MapNode, Point } from "../domain/types";
 import type { PinnedEntry } from "../wishlist/wishlist";
 import {
   pathTo,
@@ -127,32 +126,4 @@ export function detour(
       best = { cost: extra, after: i ? before : null };
   }
   return best;
-}
-
-/** A stretch of the route to draw on one layer. Fast travel and waygate jumps aren't drawn. */
-export type RouteLine = {
-  layer: MapNode["layer"];
-  points: Point[];
-  guess: boolean;
-};
-
-/** The planned route as lines on the map: each hop is straight between two pins. */
-export function routeLines(map: MapDocument, legs: Step[][]): RouteLine[] {
-  const nodes = new Map(map.nodes.map((n) => [n.id, n]));
-  return legs.flat().flatMap((step): RouteLine[] => {
-    const from = nodes.get(step.from);
-    const to = nodes.get(step.to);
-    if (!from || !to || from.layer !== to.layer) return [];
-    if (step.via.kind === "fast-travel") return [];
-    return [
-      {
-        layer: from.layer,
-        points: [
-          [from.x, from.y],
-          [to.x, to.y],
-        ],
-        guess: step.via.kind === "guess",
-      },
-    ];
-  });
 }

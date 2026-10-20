@@ -80,9 +80,6 @@ describe("cross-layer waygate numbers", () => {
           undiscovered={new Set()}
           position={null}
           beaten={new Set()}
-          route={[]}
-          stops={new Map()}
-          routeNodes={new Set()}
           highlight={null}
           onMapClick={vi.fn()}
           onNodeClick={vi.fn()}
@@ -139,9 +136,6 @@ const canvasProps = (): ComponentProps<typeof MapCanvas> => ({
   undiscovered: new Set(),
   position: null,
   beaten: new Set(),
-  route: [],
-  stops: new Map(),
-  routeNodes: new Set(),
   highlight: null,
   onMapClick: vi.fn(),
   onNodeClick: vi.fn(),
@@ -249,7 +243,6 @@ describe("grace names", () => {
       <MapCanvas
         {...props}
         position="grace/1"
-        routeNodes={new Set(["grace/2"])}
         selection={{ kind: "node", id: "grace/3" }}
       />,
     );
@@ -257,19 +250,19 @@ describe("grace names", () => {
       [...container.querySelectorAll(".node-label--grace")].map(
         (element) => element.textContent,
       );
-    expect(labels()).toEqual(["start", "middle", "end"]);
+    expect(labels()).toEqual(["start", "end"]);
     const unused = container.querySelectorAll(".map-node--grace")[3];
     fireEvent.mouseOver(unused);
     expect(labels()).toContain("unused");
     fireEvent.mouseOut(unused);
     expect(labels()).not.toContain("unused");
     act(() => leaflet.current!.setZoom(4, { animate: false }));
-    expect(labels()).toEqual(["start", "middle", "end"]);
+    expect(labels()).toEqual(["start", "end"]);
     fireEvent.mouseOver(unused);
     expect(labels()).toContain("unused");
     fireEvent.mouseOut(unused);
     act(() => leaflet.current!.setZoom(5, { animate: false }));
-    expect(labels()).toEqual(["start", "middle", "end"]);
+    expect(labels()).toEqual(["start", "end"]);
     act(() => leaflet.current!.setZoom(6, { animate: false }));
     expect(labels()).toHaveLength(4);
     rerender(<MapCanvas {...props} />);

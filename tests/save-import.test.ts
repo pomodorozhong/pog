@@ -11,7 +11,10 @@ import {
   SaveError,
   SaveReader,
 } from "../server/save";
-import { planImport } from "../src/progress/importSave";
+import type { MapDocument, Progress } from "../src/domain/types";
+import type { CatalogGrace, GameData } from "../src/map/catalog";
+import { gameGraceNodes } from "../src/map/graces";
+import { lastGraceOnMap, planImport } from "../src/progress/importSave";
 import {
   initialDocuments,
   upgradeDocument,
@@ -33,8 +36,11 @@ function utf16(text: string) {
   return name;
 }
 
-/** A character slot with one weapon handle (if asked) and the Roundtable Hold flag. */
-function slot(name: string, weapon = false) {
+/**
+ * A character slot with one weapon handle (if asked), the Roundtable Hold
+ * flag and the last grace rested at.
+ */
+function slot(name: string, weapon = false, lastGrace = 0) {
   const data = Buffer.alloc(SLOT_BYTES);
   data.writeUInt32LE(261, 0);
   if (weapon) data.writeUInt32LE(0x80000001, 0x20);
@@ -42,6 +48,8 @@ function slot(name: string, weapon = false) {
   utf16(name).copy(data, 0x20 + 5120 * 8 + extra + 0x94);
   // Flag 71190: block 71 at position 0, byte 190 / 8, bit 7 - 190 % 8.
   data[EMPTY_SLOT_FLAGS + extra + 23] = 1 << 1;
+  // 13 bytes before the flags: the last grace, then 9 more bytes.
+  data.writeUInt32LE(lastGrace, EMPTY_SLOT_FLAGS + extra - 13);
   return withChecksum(data);
 }
 
@@ -76,7 +84,11 @@ function save(slots: (Buffer | null)[], steamId = 76561198000000001n) {
 
 describe("reading the game save", () => {
   it("lists characters and reads their flags", () => {
-    const file = save([slot("Burning"), null, slot("Tarnished", true)]);
+    const file = save([
+      slot("Burning", false, 1042372950),
+      null,
+      slot("Tarnished", true),
+    ]);
     expect(readSummary(file)).toEqual({
       steamId: "76561198000000001",
       slots: [
@@ -87,11 +99,13 @@ describe("reading the game save", () => {
     expect(readSlotFlags(file, 0, table, [ROUNDTABLE, 10000])).toEqual({
       name: "Burning",
       set: [ROUNDTABLE],
+      lastGrace: 1042372950,
     });
     // A weapon handle is longer, which moves everything after it.
     expect(readSlotFlags(file, 2, table, [ROUNDTABLE])).toEqual({
       name: "Tarnished",
       set: [ROUNDTABLE],
+      lastGrace: 0,
     });
   });
 
@@ -185,6 +199,7 @@ describe("finding the save", () => {
     expect(await reader.flags(file, STEAM, 0, [ROUNDTABLE])).toEqual({
       name: "Burning",
       set: [ROUNDTABLE],
+      lastGrace: 0,
     });
     await expect(reader.flags(file, "1", 0, [ROUNDTABLE])).rejects.toThrow(
       "No save found",
@@ -224,7 +239,94 @@ describe("planning an import", () => {
       added: [3],
       removed: [2],
       flags: [1, 3, 99],
+      lastGrace: null,
+      moveTo: null,
     });
+  });
+
+  it("moves the position only when the last grace changes", () => {
+    const at = (position: string | null, lastGrace?: string) => ({
+      flags: [],
+      position,
+      ...(lastGrace && { lastGrace }),
+    });
+    const plan = (progress: Progress, lastGrace: string | null) => {
+      const { lastGrace: rested, moveTo } = planImport(
+        progress,
+        [],
+        [],
+        lastGrace,
+      );
+      return { rested, moveTo };
+    };
+    expect(plan(at("grace/1"), "grace/2")).toEqual({
+      rested: "grace/2",
+      moveTo: "grace/2",
+    });
+    // Set by hand since: it stays until the character rests somewhere new.
+    expect(plan(at("pin-1", "grace/2"), "grace/2")).toEqual({
+      rested: null,
+      moveTo: null,
+    });
+    expect(plan(at("grace/2", "grace/1"), "grace/2")).toEqual({
+      rested: "grace/2",
+      moveTo: null,
+    });
+    // A save that names no grace changes nothing.
+    expect(plan(at("pin-1", "grace/2"), null)).toEqual({
+      rested: null,
+      moveTo: null,
+    });
+  });
+
+  it("finds the map's grace the save names, or its shown twin", () => {
+    const grace = (id: string, entity: number, x = 0) => ({
+      id,
+      name: {
+        en: id === "grace/3" ? "Gatefront" : "Elden Throne",
+        "zh-TW": "",
+      },
+      layer: "overworld",
+      x,
+      y: 0,
+      flag: 1,
+      entity,
+      legacy: false,
+    });
+    // grace/2 is grace/1's ashen twin, hidden behind it on the map.
+    const graces = [
+      grace("grace/1", 11001950),
+      grace("grace/2", 11051950, 2),
+      grace("grace/3", 1042371950, 500),
+    ];
+    const data = {
+      catalog: { graces },
+      byId: new Map(graces.map((g) => [g.id, g])),
+    } as unknown as GameData;
+    const doc = {
+      schemaVersion: 4,
+      nodes: gameGraceNodes(graces as CatalogGrace[]),
+      edges: [],
+    } as MapDocument;
+    expect(lastGraceOnMap(data, doc, 1042372950)).toBe("grace/3");
+    expect(lastGraceOnMap(data, doc, 11052950)).toBe("grace/1");
+    expect(lastGraceOnMap(data, doc, 0)).toBeNull();
+  });
+
+  it("validates the last grace rested at", () => {
+    const player = initialDocuments().player;
+    const resting = (lastGrace: unknown) => ({
+      ...player,
+      profiles: [
+        {
+          ...player.profiles[0],
+          progress: { ...player.profiles[0].progress, lastGrace },
+        },
+      ],
+    });
+    expect(validDocument("player", player)).toBe(true);
+    expect(validDocument("player", resting("grace/61423700"))).toBe(true);
+    expect(validDocument("player", resting("pin-1"))).toBe(false);
   });
 
   it("validates the linked save slot", () => {

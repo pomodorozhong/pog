@@ -19,7 +19,6 @@ import {
   type GameData,
   type MapLayerInfo,
 } from "./catalog";
-import type { RouteLine } from "../routing/order";
 import type { Draft } from "./drawing";
 import { edgeRuns } from "./editing";
 import { enableGestures } from "./gestures";
@@ -59,12 +58,6 @@ type Props = MapCanvasHandlers & {
   position: string | null;
   /** Catalog ids of the bosses beaten in this playthrough. */
   beaten: Set<string>;
-  /** The planned route, drawn over the paths. */
-  route: RouteLine[];
-  /** Route stop numbers, by node. */
-  stops: Map<string, number>;
-  /** Every node traversed by the planned route, including fast travel. */
-  routeNodes: Set<string>;
   /** A path to point out, for example while choosing where to move a path. */
   highlight: string | null;
 };
@@ -230,9 +223,6 @@ export function MapCanvas(props: Props) {
     undiscovered,
     position,
     beaten,
-    route,
-    stops,
-    routeNodes,
     highlight,
   } = props;
   useEffect(() => {
@@ -326,18 +316,6 @@ export function MapCanvas(props: Props) {
     }
     placeAllSteps();
 
-    for (const line of route) {
-      if (line.layer !== layer) continue;
-      L.polyline(line.points.map(toLatLng), {
-        color: "#7fd1ff",
-        weight: 7,
-        opacity: line.guess ? 0.6 : 0.75,
-        dashArray: line.guess ? "2 10" : undefined,
-        lineCap: "round",
-        interactive: false,
-      }).addTo(group);
-    }
-
     if (draft && byId.get(draft.from)?.layer === layer)
       rubberBand.current!.addTo(group);
     else rubberBand.current!.setLatLngs([]);
@@ -409,14 +387,10 @@ export function MapCanvas(props: Props) {
         undiscovered.has(node.id) && "is-undiscovered",
         position === node.id && "is-position",
       ];
-      const stop = stops.get(node.id);
       const marker = L.marker(toLatLng([node.x, node.y]), {
         icon: L.divIcon({
           className: classes.filter(Boolean).join(" "),
-          html:
-            stop === undefined
-              ? image
-              : `${image}<span class="stop-badge">${stop}</span>`,
+          html: image,
           iconSize: undefined,
         }),
         draggable: editable && !isGameGrace(node.id),
@@ -460,11 +434,7 @@ export function MapCanvas(props: Props) {
         });
       else marker.addTo(group);
       if (name) {
-        const always =
-          selected ||
-          position === node.id ||
-          stops.has(node.id) ||
-          routeNodes.has(node.id);
+        const always = selected || position === node.id;
         const minZoom =
           node.kind === "grace"
             ? graceNames === "hover"
@@ -499,9 +469,6 @@ export function MapCanvas(props: Props) {
     undiscovered,
     position,
     beaten,
-    route,
-    stops,
-    routeNodes,
     highlight,
   ]);
 

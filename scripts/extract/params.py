@@ -24,6 +24,7 @@ LAYOUTS = {
     "BonfireWarpParam": {
         "size": 236,
         "eventflagId": (4, "<I"),
+        "bonfireEntityId": (8, "<I"),
         "dispMask": (30, "<B"),  # bit 0: shown on the surface map, bit 1: underground
         "areaNo": (32, "<B"),
         "gridXNo": (33, "<B"),

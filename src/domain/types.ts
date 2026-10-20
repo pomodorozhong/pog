@@ -162,6 +162,11 @@ export type Progress = {
   flags: number[];
   /** The node on this profile's map where the player is, or null. */
   position: string | null;
+  /**
+   * The grace the character last rested at, at the last import that read it.
+   * The position follows it only when it changes.
+   */
+  lastGrace?: string;
 };
 
 /** Constraints routing follows. The free-text constraints stay as a note beside them. */
