@@ -21,7 +21,7 @@ import {
 } from "./catalog";
 import type { Draft } from "./drawing";
 import { edgeRuns } from "./editing";
-import { enableGestures } from "./gestures";
+import { enableGestures, followViews } from "./gestures";
 import { arrowsAlong, clipToBox, lineLength, currentPath } from "./pathArrows";
 import { placeStep } from "./stepPlacement";
 import { ARROW_SYMBOL, BOSS_SYMBOL, NODE_SYMBOL, pathStyle } from "./style";
@@ -84,6 +84,7 @@ const ARROW_SPEED = 60;
 export function MapCanvas(props: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
+  const follower = useRef<ReturnType<typeof followViews> | null>(null);
   const overlay = useRef<L.LayerGroup | null>(null);
   const rubberBand = useRef<L.Polyline | null>(null);
   /** Every pin and grace marker, with half its size, for step numbers to avoid. */
@@ -244,9 +245,11 @@ export function MapCanvas(props: Props) {
     });
     instance.on("zoomend", updateLabels);
     const disableGestures = enableGestures(instance);
+    follower.current = followViews(instance);
     return () => {
       clearTimeout(reportTimer);
       disableGestures();
+      follower.current?.dispose();
       instance.remove();
       map.current = null;
     };
@@ -283,7 +286,9 @@ export function MapCanvas(props: Props) {
     const [x, y] = toPoint(instance.getCenter());
     if (x === view.x && y === view.y && instance.getZoom() === view.zoom)
       return;
-    instance.setView(toLatLng([view.x, view.y]), view.zoom, { animate: false });
+    // The operator's view changes every frame of a zoom; setView would reset
+    // the tiles each time and make the map flash.
+    follower.current?.moveTo(toLatLng([view.x, view.y]), view.zoom);
   }, [follow, view]);
 
   // Redraw nodes, edges and the path being drawn.

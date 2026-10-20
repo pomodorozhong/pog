@@ -188,3 +188,43 @@ test("the preview server relays to viewers too", async ({ page, browser }) => {
   ).toBeVisible();
   await viewer.context.close();
 });
+
+test("the viewer's map never goes blank while the operator zooms", async ({
+  page,
+  browser,
+}) => {
+  await openApp(page);
+  const viewer = await openViewer(browser);
+  const shows = viewer.page;
+  await expect(shows.locator("img.leaflet-tile-loaded").first()).toBeVisible();
+  // Count the loaded tiles on screen in every frame the viewer draws.
+  await shows.evaluate(() => {
+    const counts: number[] = [];
+    (window as unknown as { tileCounts: number[] }).tileCounts = counts;
+    const count = () => {
+      counts.push(
+        [...document.querySelectorAll("img.leaflet-tile-loaded")].filter(
+          (tile) => {
+            const box = tile.getBoundingClientRect();
+            return box.width > 0 && box.right > 0 && box.left < innerWidth;
+          },
+        ).length,
+      );
+      requestAnimationFrame(count);
+    };
+    count();
+  });
+  const { x, y } = await onMap(page, 0, 0);
+  await page.mouse.move(x, y);
+  for (const notch of [-120, -120, -120, -120, 120, 120, 120, 120]) {
+    await page.mouse.wheel(0, notch);
+    await page.waitForTimeout(120);
+  }
+  await page.waitForTimeout(1000);
+  const counts = await shows.evaluate(
+    () => (window as unknown as { tileCounts: number[] }).tileCounts,
+  );
+  expect(counts.length).toBeGreaterThan(30);
+  expect(Math.min(...counts)).toBeGreaterThan(0);
+  await viewer.context.close();
+});

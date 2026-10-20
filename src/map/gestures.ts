@@ -125,3 +125,35 @@ export function enableGestures(map: L.Map): () => void {
     container.removeEventListener("gesturechange", stopPageZoom);
   };
 }
+
+/**
+ * Move a map to views that arrive many times a second, such as a viewer
+ * following the operator's zoom, without blanking tiles: each step moves the
+ * view as a pinch does, and once the steps stop the map settles with one
+ * zoomend/moveend.
+ */
+export function followViews(map: L.Map) {
+  const internal = map as unknown as {
+    _move(center: L.LatLng, zoom: number, data?: object): void;
+    _moveEnd(zoomChanged: boolean): void;
+  };
+  let moving = false;
+  let settle: ReturnType<typeof setTimeout> | undefined;
+  const finish = () => {
+    if (!moving) return;
+    moving = false;
+    map.fire("zoom");
+    internal._moveEnd(true);
+  };
+  return {
+    moveTo(center: L.LatLng, zoom: number) {
+      clearTimeout(settle);
+      moving = true;
+      internal._move(center, zoom, { pinch: true, round: false });
+      settle = setTimeout(finish, 150);
+    },
+    dispose() {
+      clearTimeout(settle);
+    },
+  };
+}
