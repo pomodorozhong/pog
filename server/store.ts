@@ -55,15 +55,16 @@ function nameOf(key: DocumentKey): DocumentName {
 
 // Each document (player state, each profile's map) is its own JSON file.
 export class FileStore {
+  private dataMoved?: Promise<void>;
+
   constructor(private paths = resolveStoragePaths()) {}
 
-  async read(
-    key: DocumentKey,
-  ): Promise<{
+  async read(key: DocumentKey): Promise<{
     state: Documents[DocumentName] | null;
     revision: string | null;
   }> {
     const name = nameOf(key);
+    await this.moveLegacyData();
     if (key === mapKey(FIRST_PROFILE_ID)) await this.moveLegacyMap();
     let raw: string;
     try {
@@ -103,6 +104,7 @@ export class FileStore {
     const raw = JSON.stringify(state, null, 1);
     if (Buffer.byteLength(raw) > MAX_SAVE_BYTES)
       throw new StorageError(413, "Saved data exceeds the 4 MiB limit.");
+    await this.moveLegacyData();
     const path = this.paths.document(key);
     let release: (() => Promise<void>) | undefined;
     let compromised = false;
@@ -156,6 +158,28 @@ export class FileStore {
       await rm(temporary, { force: true }).catch(() => {});
       await release?.().catch(() => {});
     }
+  }
+
+  /** Before the rename to pog, the data folder was `route-of-grace`; it moves to the new folder once. */
+  private moveLegacyData() {
+    const legacy = this.paths.legacyData;
+    if (!legacy) return;
+    this.dataMoved ??= (async () => {
+      try {
+        await mkdir(dirname(this.paths.data), { recursive: true, mode: 0o700 });
+        await rename(legacy, this.paths.data);
+      } catch (error) {
+        // No old folder, or the new one already has data: leave both as they are.
+        if (["ENOENT", "EEXIST", "ENOTEMPTY"].includes(errorCode(error) ?? ""))
+          return;
+        this.dataMoved = undefined;
+        throw new StorageError(
+          503,
+          "Saved data cannot be read. Check the data directory permissions and availability.",
+        );
+      }
+    })();
+    return this.dataMoved;
   }
 
   /** Before profiles had their own maps, `map.json` was the only map; it becomes the first profile's. */

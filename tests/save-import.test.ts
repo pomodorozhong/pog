@@ -136,7 +136,7 @@ describe("finding the save", () => {
   }
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), "route-of-grace saves "));
+    home = await mkdtemp(join(tmpdir(), "pog saves "));
     flagTable = join(home, "eventflag_bst.txt");
     await writeFile(flagTable, "71,0\n10,1\n");
   });
@@ -218,7 +218,7 @@ describe("finding the save", () => {
     expect(await reader.stamp(join(home, "nothing"))).toBe("");
   });
 
-  it("reads only ROUTE_OF_GRACE_SAVE_DIR when it is set", async () => {
+  it("reads only POG_SAVE_DIR when it is set", async () => {
     const override = join(home, "override");
     const file = await put(join(override, STEAM), save([slot("Burning")]));
     const chosen = await put(join(home, "chosen", STEAM), save([slot("X")]));

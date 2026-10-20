@@ -1,6 +1,6 @@
-# Route of Grace: architecture
+# Path of Grace: architecture
 
-How the app works and why. What is being built, and in which order, lives in [GitHub milestones](https://github.com/pomodorozhong/route-of-grace/milestones), its issues and `HANDOFF.md`. Interface details (sizes, timings, wording) live in the code and its tests; this page keeps the model and the rules that span files.
+How the app works and why. What is being built, and in which order, lives in [GitHub milestones](https://github.com/pomodorozhong/pog/milestones), its issues and `HANDOFF.md`. Interface details (sizes, timings, wording) live in the code and its tests; this page keeps the model and the rules that span files.
 
 ## Goal
 
@@ -82,7 +82,7 @@ Three kinds, kept separate:
 3. **Player state:** `player.json` in the app data folder (schema version 12; older files upgrade on read): app settings (language, map view, step number size, grace filter, grace names, save location, automatic import), the profiles and which one is active.
    - **Each profile:** ID, name, goal, constraints (structured fields plus a free-text note), wishlist (item, the pin holding it if any, status needed / acquired / skipped, note), progress (discovered graces, picked-up items, beaten bosses, as event flags), current position, the last grace rested at in the save, and the linked save slot (Steam ID, slot index, character name).
 
-`ROUTE_OF_GRACE_DATA_DIR` overrides the app data folder (used for tests). Saves are atomic, revision-checked across windows, and served to localhost only.
+`POG_DATA_DIR` overrides the app data folder (used for tests). Saves are atomic, revision-checked across windows, and served to localhost only.
 
 **Game graces are not stored.** Like the map tiles, they're game data: every profile's map shows them from `catalog.json`, with the grace ID as node ID, so paths, positions and fast travel refer to them directly and a game patch reaches every profile. They can't be moved or deleted, and keep their official name. What the player adds is merged onto them when the map is shown.
 
@@ -125,7 +125,7 @@ Create, switch, rename and delete from the header's switcher. A new profile star
 The import reads the character's event flags and marks discovered graces and beaten bosses in the active profile (items follow once their flags are extracted, #11). It asks only about bosses at the map's pins and graces, so other bosses' flags stay as they are.
 
 - **Where:** `drive_c/users/<user>/AppData/Roaming/EldenRing/<Steam ID>/ER0000.sl2` in a Windows prefix: an unencrypted BND4 with 10 character slots, each behind an MD5 checksum. The server looks in every CrossOver bottle and in Steam's own prefix (`~/Library/Application Support/Steam/steamapps/compatdata/1245620/pfx`), and lists each save it finds with its path (#43).
-- **Choosing the save:** picking a character remembers its save file (`saveLocation`, shared by every playthrough). "Choose another location" takes a typed or pasted path, since a browser file picker can't give the server a path to read again. `ROUTE_OF_GRACE_SAVE_DIR` wins over both.
+- **Choosing the save:** picking a character remembers its save file (`saveLocation`, shared by every playthrough). "Choose another location" takes a typed or pasted path, since a browser file picker can't give the server a path to read again. `POG_SAVE_DIR` wins over both.
 - **Slot linking:** the first import links a character slot to the profile. If the slot later holds a character with another name, the import asks instead of importing.
 - **Manual import** shows the changes for review before applying them. **Automatic import (#18)** applies them at once with a short note. The app polls the save's modification time and size every 3 seconds and reads it only when that changes; a checksum mismatch (the game was writing) is retried at the next check, and any other failure waits for the next change. Either way the save decides every grace and boss it reads: one marked by hand that the save lacks is cleared. Neither reads item pickups yet (#11); when they come, some pickups are only keys to a target item, which the tracker shouldn't list.
 - **Position (#69):** the slot stores the grace last rested at as its `bonfireEntityId` + 1000 (checked on three characters). The import keeps it as `lastGrace` and moves "I'm here" only when it changes, so a position set by hand stays until the character rests somewhere new. An Ashen Capital grace maps to its Royal Capital twin on the map. A catalog extracted before graces carried `entity` reads no last grace.

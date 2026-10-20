@@ -263,17 +263,17 @@ export type FoundSave = SaveSummary & { file: string };
 
 /**
  * Reads saves from disk. Each file is read into memory once per request and
- * never written. `ROUTE_OF_GRACE_SAVE_DIR`, when set, is the only place read,
+ * never written. `POG_SAVE_DIR`, when set, is the only place read,
  * over the player's chosen location and the search.
  */
 export class SaveReader {
   constructor(
     private flagTablePath: string,
-    private override = process.env.ROUTE_OF_GRACE_SAVE_DIR,
+    private override = process.env.POG_SAVE_DIR,
     private home = homedir(),
   ) {
     if (override !== undefined && (!override || !isAbsolute(override)))
-      throw new Error("ROUTE_OF_GRACE_SAVE_DIR must be an absolute path.");
+      throw new Error("POG_SAVE_DIR must be an absolute path.");
   }
 
   /** The places to read: the override, the player's location, or the search. */

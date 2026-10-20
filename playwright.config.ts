@@ -4,17 +4,17 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 
 // Both servers save into one disposable folder, never the player's own data.
-const dataDirectory = (process.env.ROUTE_OF_GRACE_E2E_DATA_DIR ??= mkdtempSync(
-  join(tmpdir(), "route-of-grace-e2e-"),
+const dataDirectory = (process.env.POG_E2E_DATA_DIR ??= mkdtempSync(
+  join(tmpdir(), "pog-e2e-"),
 ));
 if (
   dirname(dataDirectory) !== tmpdir() ||
-  !basename(dataDirectory).startsWith("route-of-grace-e2e-")
+  !basename(dataDirectory).startsWith("pog-e2e-")
 )
   throw new Error(
-    "E2E data must be a disposable route-of-grace-e2e- folder in the system temporary folder.",
+    "E2E data must be a disposable pog-e2e- folder in the system temporary folder.",
   );
-const env = { ROUTE_OF_GRACE_DATA_DIR: dataDirectory };
+const env = { POG_DATA_DIR: dataDirectory };
 
 export default defineConfig({
   testDir: "tests/e2e",

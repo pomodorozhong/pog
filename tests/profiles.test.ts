@@ -43,7 +43,7 @@ describe("playthrough profiles", () => {
   });
 
   it("upgrades a version 1 player file into one untitled playthrough", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "route-of-grace profiles "));
+    const directory = await mkdtemp(join(tmpdir(), "pog profiles "));
     try {
       const view = { layer: "overworld", x: 3968, y: 7542, zoom: 5 };
       await writeFile(
@@ -121,7 +121,7 @@ describe("the shared grace filter", () => {
   });
 
   it("saves and reloads the setting once for every playthrough", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "route-of-grace filter "));
+    const directory = await mkdtemp(join(tmpdir(), "pog filter "));
     try {
       const store = new FileStore(resolveStoragePaths(directory));
       const player = {

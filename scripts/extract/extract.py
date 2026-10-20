@@ -3,7 +3,7 @@
 Usage:
     .venv/bin/python scripts/extract/extract.py [--game-dir DIR] [--out DIR]
 
-Without --game-dir (or ROUTE_OF_GRACE_GAME_DIR), the game is looked for in
+Without --game-dir (or POG_GAME_DIR), the game is looked for in
 Steam's own library, then in every CrossOver bottle. Everything is read
 straight from the game's archives; the output folder holds
 game assets and must stay out of git.
@@ -420,7 +420,7 @@ def download_flag_table(out: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--game-dir", type=Path, default=os.environ.get("ROUTE_OF_GRACE_GAME_DIR"), help="default: found in Steam or a CrossOver bottle")
+    parser.add_argument("--game-dir", type=Path, default=os.environ.get("POG_GAME_DIR"), help="default: found in Steam or a CrossOver bottle")
     parser.add_argument("--out", type=Path, default=REPO / "game-data")
     parser.add_argument("--icon-size", type=int, default=256)
     parser.add_argument("--skip-icons", action="store_true")
