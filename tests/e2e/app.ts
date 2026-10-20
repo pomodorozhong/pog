@@ -4,7 +4,7 @@ import { expect } from "./fixtures";
 export const MAP = "maps/profile-1";
 
 /** A point on the map, in pixels from the center of the map area. */
-async function onMap(page: Page, dx: number, dy: number) {
+export async function onMap(page: Page, dx: number, dy: number) {
   const box = await page.locator(".leaflet-container").boundingBox();
   if (!box) throw new Error("The map isn't showing.");
   return { x: box.x + box.width / 2 + dx, y: box.y + box.height / 2 + dy };

@@ -142,9 +142,13 @@ Everything here runs for the active profile (`src/routing/`).
 - **Next stops:** the planned route as a list in the side panel. It isn't drawn on the map, since the player draws their own paths.
 - **Planned, not built:** fast travel blocked where the game blocks it (inside legacy dungeons before their grace); fitting a new wishlist item into the route at the cheapest point and saying where ("best after the Liurnia grace"); and the "Blocked by X" view ("beating Radahn unlocks 4 of your wishlist items", #17), which needs requirement flags (#15).
 
-### OBS viewer (#14)
+### OBS viewer
 
-A read-only page that mirrors the operator's screen: the same layout, open modals, scroll position and map view. There are no separate viewer layouts; what the operator sees is what the stream shows. With `?mode=viewer` in the URL the page ignores all input and never sends updates back, so state only flows one way (operator → viewers). It builds on the old project's viewer (a WebSocket relay; the operator publishes state snapshots, viewers follow live).
+A local mirror of the operator's own screen, for streaming: the player works in a normal browser window, and `/?mode=viewer` is the OBS browser source stream viewers see, so nothing has to be operated inside OBS. There is one viewer, on the same computer; the menu's "Viewer link" gives its address.
+
+- **Relay** (`server/viewer.ts`, attached to the dev and preview servers): a WebSocket at `/api/viewer`, local requests only. The operator's window publishes snapshots; the relay validates them, keeps the latest in memory and sends it to viewers, and closes any viewer that sends anything. Each server port has its own live session.
+- **Snapshot** (`src/sync/types.ts`): the player document, the active map with edits not saved yet, save status, and the screen state by key. Screen state is component state written with `useSharedState` instead of `useState` (what is selected, open menus and modals, filters, import steps), the map view on every frame of a move, and scroll positions. Snapshots are batched over 50 ms.
+- **Viewer:** lays out at its own size, so OBS's source size picks the narrow or wide layout. The map keeps to the operator's center and zoom; a scrolling panel (`data-scroll-sync`) keeps to the same entry and how far through it, not to pixels. It reads the saved documents until the first snapshot, keeps the last screen when the operator's window closes, and catches up after a reload or reconnect. It never saves, never reads the game's save, ignores keys, and its page is `inert`, so it looks like the operator's screen rather than disabled. No status shows on it; `<html data-live data-operator>` holds the connection state for tests.
 
 ### Agent tools (#12)
 

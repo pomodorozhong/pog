@@ -20,13 +20,17 @@ type Session<N extends DocumentName> = {
  * after loading. Saves are debounced; the client keeps them in order. When
  * `key` changes (another profile's map), the last edit of the old document is
  * saved at once and the new one is loaded. A null key loads nothing yet.
+ * A read-only document (on a viewer) loads but never saves.
  */
 export function usePersistentDocument<N extends DocumentName>(
   name: N,
   key: DocumentKey | null,
   state: Documents[N] | null,
   onLoad: (state: Documents[N], key: DocumentKey) => void,
-  delay = 400,
+  {
+    delay = 400,
+    readOnly = false,
+  }: { delay?: number; readOnly?: boolean } = {},
 ) {
   // One client per document, so reopening one waits for its pending saves.
   const clients = useRef(
@@ -68,7 +72,8 @@ export function usePersistentDocument<N extends DocumentName>(
       });
     return () => {
       cancelled = true;
-      if (current.unsaved) void clientFor(key).save(current.unsaved);
+      if (current.unsaved && !readOnly)
+        void clientFor(key).save(current.unsaved);
       current.unsaved = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -77,6 +82,7 @@ export function usePersistentDocument<N extends DocumentName>(
   useEffect(() => {
     const current = session.current;
     if (
+      readOnly ||
       !state ||
       !current?.loaded ||
       state === current.loaded ||

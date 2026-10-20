@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import {
   LAYERS,
   type LayerId,
@@ -11,6 +11,7 @@ import { LAYER_NAMES } from "../map/labels";
 import { importMap } from "./importMap";
 import { PencilIcon } from "../layout/icons";
 import { activeProfile, removeProfile, updateProfile } from "./profiles";
+import { useSharedState } from "../sync/shared";
 
 /** The switcher's choice that starts a new playthrough instead of switching. */
 const NEW_PLAYTHROUGH = "new";
@@ -118,7 +119,7 @@ export function ProfilePanel({
   setPlayer(player: PlayerDocument): void;
 }) {
   const profile = activeProfile(player);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useSharedState("playthrough.editing", false);
   const update = (changes: Parameters<typeof updateProfile>[2]) =>
     setPlayer(updateProfile(player, profile.id, changes));
   return (
@@ -214,7 +215,7 @@ export function ImportFromAnother({
   /** The import form, shown when opened. */
   importer: ReactNode;
 }) {
-  const [importing, setImporting] = useState(false);
+  const [importing, setImporting] = useSharedState("map-import.open", false);
   if (player.profiles.length < 2) return null;
   return (
     <>
@@ -279,10 +280,16 @@ export function ImportFromProfile({
   edit(action: MapAction): void;
 }) {
   const others = player.profiles.filter((p) => p.id !== player.activeProfile);
-  const [source, setSource] = useState("");
-  const [layer, setLayer] = useState<LayerId | "">("");
-  const [result, setResult] = useState<string>();
-  const [busy, setBusy] = useState(false);
+  const [source, setSource] = useSharedState("map-import.source", "");
+  const [layer, setLayer] = useSharedState<LayerId | "">(
+    "map-import.layer",
+    "",
+  );
+  const [result, setResult] = useSharedState<string | undefined>(
+    "map-import.result",
+    undefined,
+  );
+  const [busy, setBusy] = useSharedState("map-import.busy", false);
   if (!others.length) return null;
   const from = others.some((p) => p.id === source) ? source : others[0].id;
 

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type {
   Language,
   MapDocument,
@@ -19,6 +18,7 @@ import {
   type ImportPlan,
   type SaveSearch,
 } from "./importSave";
+import { useSharedState } from "../sync/shared";
 
 /** Each step that reads a save keeps where it is: a path, or null to look everywhere. */
 type Step =
@@ -56,7 +56,9 @@ export function SaveImport({
   doc: MapDocument;
 }) {
   const profile = activeProfile(player);
-  const [step, setStep] = useState<Step>({ kind: "idle" });
+  const [step, setStep] = useSharedState<Step>("save-import.step", {
+    kind: "idle",
+  });
   const { known, isBoss, bossName, graceName } = importFlags(
     data,
     doc,
@@ -315,7 +317,10 @@ export function SaveImport({
             </p>
           )}
           {step.plan.added.length + step.plan.removed.length > 0 && (
-            <ul className="max-h-48 space-y-0.5 overflow-y-auto rounded border border-line p-2 text-xs">
+            <ul
+              data-scroll-sync="save-slots"
+              className="max-h-48 space-y-0.5 overflow-y-auto rounded border border-line p-2 text-xs"
+            >
               {step.plan.added.map((flag) => (
                 <li key={`+${flag}`}>
                   +{" "}

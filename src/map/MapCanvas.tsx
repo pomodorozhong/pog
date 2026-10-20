@@ -36,13 +36,17 @@ export type MapCanvasHandlers = {
   onNodeMove(id: string, point: Point): void;
   onEdgeClick(id: string): void;
   onViewChange(view: MapView): void;
+  /** The view on every frame of a move, for viewers to follow live. */
+  onViewMove?(view: MapView): void;
 };
 
 type Props = MapCanvasHandlers & {
   layer: LayerId;
   info: MapLayerInfo;
-  /** View to show when the layer is (re)opened. */
+  /** View to show when the layer is (re)opened, and always when `follow`. */
   view: MapView;
+  /** Keep to `view` as it changes: a viewer following the operator's map. */
+  follow?: boolean;
   nodes: MapNode[];
   edges: MapEdge[];
   selection: Selection;
@@ -206,15 +210,17 @@ export function MapCanvas(props: Props) {
         event.latlng,
       ]);
     });
-    const report = () => {
+    const currentView = (): MapView => {
       const center = toPoint(instance.getCenter());
-      latest.current.onViewChange({
+      return {
         layer: latest.current.layer,
         x: center[0],
         y: center[1],
         zoom: instance.getZoom(),
-      });
+      };
     };
+    const report = () => latest.current.onViewChange(currentView());
+    instance.on("move zoom", () => latest.current.onViewMove?.(currentView()));
     // Gestures move the map every frame; report the view once it settles.
     let reportTimer: ReturnType<typeof setTimeout> | undefined;
     instance.on("moveend zoomend", () => {
@@ -268,6 +274,17 @@ export function MapCanvas(props: Props) {
       tiles.remove();
     };
   }, [layer, info]);
+
+  // A viewer keeps to the operator's view on the same layer.
+  const { follow, view } = props;
+  useEffect(() => {
+    const instance = map.current;
+    if (!follow || !instance || view.layer !== latest.current.layer) return;
+    const [x, y] = toPoint(instance.getCenter());
+    if (x === view.x && y === view.y && instance.getZoom() === view.zoom)
+      return;
+    instance.setView(toLatLng([view.x, view.y]), view.zoom, { animate: false });
+  }, [follow, view]);
 
   // Redraw nodes, edges and the path being drawn.
   const {

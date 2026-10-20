@@ -73,6 +73,9 @@ import {
   usePersistentDocument,
   type SaveStatus,
 } from "./storage/usePersistentDocument";
+import { useShared, useSharedState, useSharedValue } from "./sync/shared";
+import type { LiveSnapshot } from "./sync/types";
+import { useOperatorSync, useViewerSync } from "./sync/useLiveSync";
 
 export type Tool = "select" | "pin" | "path";
 const STEP_SIZE_NAMES: Record<StepSize, string> = {
@@ -103,6 +106,11 @@ const TOOLS: { tool: Tool; label: string; key: string; tip: string }[] = [
 ];
 
 export default function App() {
+  const shared = useShared();
+  /** A read-only viewer, such as an OBS browser source, mirroring the operator. */
+  const viewer = shared.viewer;
+  /** Whether a viewer has had a snapshot; until then it shows the saves. */
+  const live = useRef(false);
   const [data, setData] = useState<GameData | null>(null);
   const [dataError, setDataError] = useState(false);
   // Game graces show on every profile's map without being stored in it.
@@ -125,26 +133,41 @@ export default function App() {
     future: [],
   });
   const [player, setPlayer] = useState<PlayerDocument | null>(null);
-  const [tool, setTool] = useState<Tool>("select");
-  const [selection, setSelection] = useState<Selection>(null);
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [highlight, setHighlight] = useState<string | null>(null);
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [tool, setTool] = useSharedState<Tool>("app.tool", "select");
+  const [selection, setSelection] = useSharedState<Selection>(
+    "app.selection",
+    null,
+  );
+  const [draft, setDraft] = useSharedState<Draft | null>("app.draft", null);
+  const [highlight, setHighlight] = useSharedState<string | null>(
+    "app.highlight",
+    null,
+  );
+  const [detailsOpen, setDetailsOpen] = useSharedState(
+    "app.details-open",
+    false,
+  );
   /** Choosing "New playthrough…" in the switcher. */
-  const [creating, setCreating] = useState(false);
-  const [hintOpen, setHintOpen] = useState(false);
+  const [creating, setCreating] = useSharedState("app.creating", false);
+  const [hintOpen, setHintOpen] = useSharedState("app.hint-open", false);
   // A narrow window shows the route; editing is one tab of its bottom sheet.
   const narrow = useMediaQuery(NARROW);
-  const [sheet, setSheet] = useState<"route" | "edit">("route");
-  const [sheetTall, setSheetTall] = useState(false);
+  const [sheet, setSheet] = useSharedState<"route" | "edit">(
+    "app.sheet",
+    "route",
+  );
+  const [sheetTall, setSheetTall] = useSharedState("app.sheet-tall", false);
   const editing = !narrow || sheet === "edit";
   // Below this width the tools show as icons with their keys.
   const compact = useMediaQuery(COMPACT);
   /** Select something and show its details in the panel. */
-  const selectAndEdit = useCallback((next: Selection) => {
-    setSelection(next);
-    if (next) setSheet("edit");
-  }, []);
+  const selectAndEdit = useCallback(
+    (next: Selection) => {
+      setSelection(next);
+      if (next) setSheet("edit");
+    },
+    [setSelection, setSheet],
+  );
   /** The profile whose map is in `history`. */
   const [mapProfile, setMapProfile] = useState<string | null>(null);
   const views = useRef(new Map<LayerId, MapView>());
@@ -166,6 +189,7 @@ export default function App() {
     activeProfileId === null ? null : mapKey(activeProfileId),
     mapLoaded ? doc : null,
     (loaded, key) => {
+      if (live.current) return;
       if (mapProfile) histories.current.set(mapProfile, latestHistory.current);
       const profile = key.slice("maps/".length);
       const kept = histories.current.get(profile);
@@ -179,6 +203,7 @@ export default function App() {
       setDraft(null);
       setMapProfile(profile);
     },
+    { readOnly: viewer },
   );
   const readSavedMap = mapSave.read;
   const readMap = useCallback(
@@ -193,10 +218,47 @@ export default function App() {
     "player",
     player,
     (loaded) => {
+      if (live.current) return;
       views.current.set(loaded.view.layer, loaded.view);
       setPlayer(loaded);
     },
+    { readOnly: viewer },
   );
+
+  // The operator's window publishes what it shows; a viewer follows it.
+  const statuses = useMemo(
+    () => [mapSave.status, playerSave.status],
+    [mapSave.status, playerSave.status],
+  );
+  const [liveStatuses, setLiveStatuses] = useState<SaveStatus[] | null>(null);
+  const published = useMemo(
+    () =>
+      !viewer && player && mapProfile && mapLoaded
+        ? { player, map: doc, mapProfile, saveStatus: statuses }
+        : null,
+    [viewer, player, mapProfile, mapLoaded, doc, statuses],
+  );
+  useOperatorSync(shared, published);
+  const shownRaw = useRef({ player: "", map: "" });
+  useViewerSync(shared, (snapshot: LiveSnapshot) => {
+    live.current = true;
+    // Snapshots arrive many times a second; redraw only what changed.
+    const player = JSON.stringify(snapshot.player);
+    const map = JSON.stringify(snapshot.map);
+    if (map !== shownRaw.current.map || snapshot.mapProfile !== mapProfile) {
+      dispatch({ type: "load", doc: snapshot.map });
+      setMapProfile(snapshot.mapProfile);
+    }
+    if (player !== shownRaw.current.player) setPlayer(snapshot.player);
+    shownRaw.current = { player, map };
+    setLiveStatuses(snapshot.saveStatus);
+  });
+  // While the operator pans or zooms, viewers follow every frame.
+  const settledView = player?.view ?? null;
+  useEffect(() => {
+    if (!viewer && settledView) shared.set("map.view", settledView);
+  }, [viewer, shared, settledView]);
+  const liveView = useSharedValue<MapView | null>("map.view", null);
 
   useEffect(() => {
     loadGameData().then(setData, () => setDataError(true));
@@ -213,10 +275,13 @@ export default function App() {
 
   const layer = player?.view.layer ?? "overworld";
   const edit = useCallback((action: MapAction) => dispatch(action), []);
-  const changeHistory = useCallback((type: "undo" | "redo") => {
-    setDraft(null);
-    dispatch({ type });
-  }, []);
+  const changeHistory = useCallback(
+    (type: "undo" | "redo") => {
+      setDraft(null);
+      dispatch({ type });
+    },
+    [setDraft],
+  );
 
   const profile = player ? activeProfile(player) : null;
   const progress = profile?.progress ?? null;
@@ -297,8 +362,12 @@ export default function App() {
       if (activeTool !== "path") selectAndEdit({ kind: "edge", id });
     },
     onViewChange(view: MapView) {
+      if (viewer) return;
       views.current.set(view.layer, view);
       setPlayer((p) => (p && p.view.layer === view.layer ? { ...p, view } : p));
+    },
+    onViewMove(view: MapView) {
+      if (!viewer) shared.set("map.view", view);
     },
   };
 
@@ -363,7 +432,7 @@ export default function App() {
       setTool("path");
       setDraft({ from: last, edge: id });
     },
-    [doc.edges, showNode],
+    [doc.edges, showNode, setSelection, setTool, setDraft],
   );
 
   const deleteSelection = useCallback(() => {
@@ -374,10 +443,11 @@ export default function App() {
         : { type: "removeEdge", id: selection.id },
     );
     setSelection(null);
-  }, [selection, edit]);
+  }, [selection, edit, setSelection]);
 
-  // Keyboard shortcuts, ignored while typing.
+  // Keyboard shortcuts, ignored while typing and on a viewer.
   useEffect(() => {
+    if (viewer) return;
     function onKey(event: KeyboardEvent) {
       const target = event.target as HTMLElement;
       if (target.closest("input, textarea, select")) return;
@@ -403,7 +473,15 @@ export default function App() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [draft, deleteSelection, changeHistory]);
+  }, [
+    viewer,
+    draft,
+    deleteSelection,
+    changeHistory,
+    setDraft,
+    setSelection,
+    setTool,
+  ]);
 
   if (dataError)
     return (
@@ -691,7 +769,11 @@ export default function App() {
   );
 
   return (
-    <div className="flex h-full flex-col">
+    // A viewer takes no input: it shows what the operator does.
+    <div
+      className={`flex h-full flex-col ${viewer ? "pointer-events-none" : ""}`}
+      inert={viewer}
+    >
       <header className="relative z-[1100] border-b border-line bg-panel">
         <ProfileSummary
           t={t}
@@ -703,7 +785,7 @@ export default function App() {
               <span className="ml-auto text-xs has-[span:empty]:hidden">
                 <SaveIndicator
                   t={t}
-                  statuses={[mapSave.status, playerSave.status]}
+                  statuses={(viewer && liveStatuses) || statuses}
                   quiet
                 />
               </span>
@@ -718,6 +800,7 @@ export default function App() {
                   <span className="label">{t("Language")}</span>
                   {languageSelect}
                 </label>
+                <ViewerLink t={t} />
               </AppMenu>
             </>
           }
@@ -762,7 +845,8 @@ export default function App() {
             {...handlers}
             layer={layer}
             info={data.layers[layer]}
-            view={player.view}
+            view={viewer && liveView?.layer === layer ? liveView : player.view}
+            follow={viewer}
             nodes={map.nodes}
             edges={map.edges}
             selection={selection}
@@ -820,9 +904,9 @@ export default function App() {
 
 /** The menu at the top right: display settings. */
 function AppMenu({ t, children }: { t: Translate; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useSharedState("app.menu-open", false);
   const container = useRef<HTMLDivElement>(null);
-  const close = useCallback(() => setOpen(false), []);
+  const close = useCallback(() => setOpen(false), [setOpen]);
   useDismiss(container, open, close);
   return (
     <div ref={container} className="relative">
@@ -843,6 +927,39 @@ function AppMenu({ t, children }: { t: Translate; children: ReactNode }) {
   );
 }
 
+/** The address of the viewer, to add as a browser source in OBS. */
+function ViewerLink({ t }: { t: Translate }) {
+  const [copied, setCopied] = useSharedState("app.viewer-link-copied", false);
+  const url = new URL("/?mode=viewer", window.location.href).href;
+  return (
+    <section aria-label={t("Viewer link")} className="flex flex-col gap-1">
+      <span className="label">{t("Viewer link")}</span>
+      <div className="flex gap-1.5">
+        <input
+          className="field min-w-0 flex-1 text-xs"
+          aria-label={t("Viewer link")}
+          readOnly
+          value={url}
+          onFocus={(event) => event.target.select()}
+        />
+        <button
+          className="chip shrink-0"
+          onClick={() =>
+            void navigator.clipboard.writeText(url).then(() => setCopied(true))
+          }
+        >
+          {t(copied ? "Copied" : "Copy")}
+        </button>
+      </div>
+      <p className="text-xs text-muted">
+        {t(
+          "Add it as a browser source in OBS. It shows what this window shows and can't change anything.",
+        )}
+      </p>
+    </section>
+  );
+}
+
 /**
  * Start a playthrough, empty or from a template, chosen from the playthrough
  * switcher. It opens under the switcher.
@@ -856,7 +973,10 @@ function NewPlaythrough({
   close(): void;
   create(template?: (typeof TEMPLATES)[number]): void;
 }) {
-  const [template, setTemplate] = useState("");
+  const [template, setTemplate] = useSharedState(
+    "new-playthrough.template",
+    "",
+  );
   const container = useRef<HTMLElement>(null);
   useDismiss(container, true, close);
   return (

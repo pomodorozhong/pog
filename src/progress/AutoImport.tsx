@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { Language, MapDocument, PlayerDocument } from "../domain/types";
 import type { Translate } from "../i18n/translation";
 import type { GameData } from "../map/catalog";
@@ -14,6 +14,7 @@ import {
   SaveRequestError,
   summarizeChanges,
 } from "./importSave";
+import { useShared, useSharedState } from "../sync/shared";
 
 /** How often the save's modification time is checked. */
 export const AUTO_IMPORT_INTERVAL = 3000;
@@ -48,7 +49,10 @@ export function AutoImport({
   /** The profile's map with its game graces, loaded. */
   doc: MapDocument;
 }) {
-  const [notice, setNotice] = useState<Notice | null>(null);
+  const [notice, setNotice] = useSharedState<Notice | null>(
+    "auto-import.notice",
+    null,
+  );
   // The polling reads the latest of these without restarting.
   const latest = useRef({ t, language, data, player, setPlayer, doc });
   useEffect(() => {
@@ -58,8 +62,10 @@ export function AutoImport({
   const profile = activeProfile(player);
   const link = profile.save;
   // Polling restarts, and imports at once, when any of these change.
+  // A viewer shows the operator's imports; it never reads the save itself.
+  const { viewer } = useShared();
   const watching =
-    player.autoImport && link
+    !viewer && player.autoImport && link
       ? JSON.stringify([
           profile.id,
           link.steamId,
@@ -137,13 +143,13 @@ export function AutoImport({
       stopped = true;
       clearTimeout(timer);
     };
-  }, [watching]);
+  }, [watching, setNotice]);
 
   useEffect(() => {
     if (notice?.kind !== "imported") return;
     const timer = setTimeout(() => setNotice(null), NOTE_TIME);
     return () => clearTimeout(timer);
-  }, [notice]);
+  }, [notice, setNotice]);
 
   // A note about another playthrough, or an earlier link, is gone.
   if (!notice || !link || notice.watching !== watching) return null;
