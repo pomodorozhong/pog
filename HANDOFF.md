@@ -6,17 +6,17 @@
 
 ### feat/obs-viewer
 
-- Task: the OBS viewer, closes #14. A local mirror of the player's own window for the OBS browser source; decisions are on the issue.
+- Task: the OBS mirror (called the viewer until 2026-10-20), closes #14. A read-only copy of the player's own window for the OBS browser source, at `/?mode=mirror`; decisions are on the issue.
 - PR: #79, open, waiting for the player's review and merge. No CI checks run on it.
-- Code checkpoint: c8e069f, on 9712fcd (main). Lint, typecheck, unit tests (181), build and `npm run test:e2e` (13, run twice) pass.
-- State: relay and client ported from the old project; screen state shared with `useSharedState`; the map and scrolling panels follow; "Viewer link" in the menu. See the OBS viewer section of `docs/architecture.md`.
+- Code checkpoint: b1bd60b, on 9712fcd (main). Lint, typecheck, unit tests (181), build and `npm run test:e2e` (13, run twice) pass.
+- State: relay and client ported from the old project; screen state shared with `useSharedState`; the map and scrolling panels follow; "Mirror link" in the menu. See the OBS mirror section of `docs/architecture.md`.
 - Next action: after #79 merges, pick the top of Ranked work (#12).
 
 ## Ranked work
 
 Grouped by milestone, in order (GitHub doesn't sort milestones by rank; this list does).
 
-**OBS viewer**
+**OBS mirror**
 
 1. #14 Port the viewer from the old project
 
