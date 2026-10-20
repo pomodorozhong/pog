@@ -339,7 +339,7 @@ describe("the automatic import's note", () => {
   const t = (key: string, values?: Record<string, string | number>) =>
     translate("en", key, values);
   const isBoss = (flag: number) => flag === 10000800;
-  const unmoved = { lastGrace: null, moveTo: null };
+  const unmoved = { lastGrace: null, moveTo: null, acquired: [] };
   it("leaves out what didn't change", () => {
     expect(
       summarizeChanges(

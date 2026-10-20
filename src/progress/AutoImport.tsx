@@ -90,7 +90,12 @@ export function AutoImport({
       try {
         stamp = await fetchSaveStamp(location);
         if (link && stamp && stamp !== seen) {
-          const { known, isBoss } = importFlags(data, doc, language);
+          const { known, isBoss, isItem, tracked } = importFlags(
+            data,
+            doc,
+            language,
+            profile.wishlist,
+          );
           const result = await fetchSlotFlags(location, link, known);
           if (stopped) return;
           seen = stamp;
@@ -99,19 +104,20 @@ export function AutoImport({
             return; // Paused until the player answers.
           }
           const now = latest.current.player;
-          // The save decides every grace and boss, as the manual import does.
+          // The save decides every grace, boss and tracked pickup, as the manual import does.
           const plan = planImport(
             activeProfile(now).progress,
             known,
             result.set,
             lastGraceOnMap(data, doc, result.lastGrace),
+            tracked,
           );
           if (changesSomething(plan)) {
             latest.current.setPlayer(
               applyImport(now, profile.id, plan, link, location),
             );
             const changes = [
-              summarizeChanges(t, plan, isBoss),
+              summarizeChanges(t, plan, isBoss, isItem),
               plan.moveTo &&
                 t("You're at {grace}", {
                   grace: data.byId.get(plan.moveTo)?.name[language] ?? "",
@@ -247,7 +253,7 @@ export function AutoImportSwitch({
       </p>
       <p className="text-xs text-muted">
         {t(
-          "Each time the game saves, graces discovered and bosses beaten on this map are read from the linked character and applied at once, with a short note of what changed. The save decides every grace and boss on this map: one you marked by hand is cleared if the save doesn't have it. When the character rests at a new grace, “I'm here” moves there. Items aren't read. Applies to every playthrough.",
+          "Each time the game saves, graces discovered, bosses beaten on this map and wishlist items picked up are read from the linked character and applied at once, with a short note of what changed. The save decides every grace and boss on this map: one you marked by hand is cleared if the save doesn't have it. A wishlist item becomes acquired when the save has picked up its spot in the game; items without a spot in the game data stay as you mark them. When the character rests at a new grace, “I'm here” moves there. Applies to every playthrough.",
         )}
       </p>
     </section>
