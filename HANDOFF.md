@@ -7,10 +7,10 @@
 ### feat/mcp-wishlist
 
 - Task: agent tools for the wishlist, closes #12. Design changed from the issue (agreed with the player 2026-10-20): the tools run in the app's window and only queue proposals, which the player applies or dismisses under "Agent changes"; a stdio MCP server (`server/mcp.ts`) reaches the window through a relay on the dev/preview server. Also fixes undo back to the loaded map not saving.
-- PR: not opened yet; the branch is local, waiting for the player's approval to push. Link it to #12 when pushing.
+- PR: opened on 2026-10-20 (`gh pr view`), waiting for the player's review and merge. Its body closes #12.
 - Code checkpoint: see `git log`; on 2bc5880 (main). Lint, typecheck, unit tests (198), build and `npm run test:e2e` (13 of 15) pass. The 2 tests that use the preview on port 5199 were not run, since another local app held that port; the run used a temporary config with the preview on 5197.
 - Checked by hand on a scratch data folder: proposals sent through `node server/mcp.ts`, the review in English (wide) and zh-TW (phone width), apply, apply all, dismiss, and `get_proposal_status`.
-- Next action: after approval, push, open the PR (`open-pr`), and comment on #12 with the design change.
+- Next action: after the PR merges, try the tools from a real Claude Code or Codex session. WebMCP in the page is noted on #20.
 
 ## Ranked work
 
