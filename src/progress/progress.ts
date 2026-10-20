@@ -1,5 +1,6 @@
 import type { MapNode, PlayerDocument, Progress } from "../domain/types";
 import type { GameData } from "../map/catalog";
+import { graceTwins } from "../map/graces";
 
 function changeProgress(
   player: PlayerDocument,
@@ -41,7 +42,60 @@ export function graceFlag(data: GameData, node: MapNode): number | undefined {
   return data.graceFlags.get(node.ref);
 }
 
-/** Graces on the map whose game flag isn't set yet in this progress. */
+const twinFlagCache = new WeakMap<GameData, Map<string, number[]>>();
+
+/** The "discovered" flags of the twins hidden behind each shown grace, by its id. */
+function twinFlags(data: GameData): Map<string, number[]> {
+  let flags = twinFlagCache.get(data);
+  if (!flags) {
+    const { twins } = graceTwins(data.catalog.graces);
+    flags = new Map(
+      [...twins].map(([id, hidden]) => [id, hidden.map((g) => g.flag)]),
+    );
+    twinFlagCache.set(data, flags);
+  }
+  return flags;
+}
+
+/**
+ * Every flag that marks a node's game grace discovered: its own, and its
+ * hidden twin's. After Leyndell burns, only the Ashen Capital twins' flags
+ * get set. Empty for a node that isn't a game grace.
+ */
+export function discoveryFlags(data: GameData, node: MapNode): number[] {
+  const flag = graceFlag(data, node);
+  if (flag === undefined) return [];
+  return [flag, ...(twinFlags(data).get(node.ref!) ?? [])];
+}
+
+/** Whether a node is a game grace discovered in this progress, by itself or its twin. */
+export const isDiscovered = (
+  data: GameData,
+  node: MapNode,
+  flags: Set<number>,
+) => discoveryFlags(data, node).some((f) => flags.has(f));
+
+/**
+ * Mark a game grace discovered (its own flag) or not (its twins' flags too,
+ * so it reads as undiscovered).
+ */
+export const setDiscovered = (
+  player: PlayerDocument,
+  profileId: string,
+  data: GameData,
+  node: MapNode,
+  on: boolean,
+): PlayerDocument => {
+  const [own, ...twins] = discoveryFlags(data, node);
+  if (own === undefined) return player;
+  if (on) return setFlag(player, profileId, own, true);
+  return [own, ...twins].reduce(
+    (p, flag) => setFlag(p, profileId, flag, false),
+    player,
+  );
+};
+
+/** Graces on the map that this progress hasn't discovered yet. */
 export function undiscoveredGraces(
   data: GameData,
   nodes: MapNode[],
@@ -50,10 +104,8 @@ export function undiscoveredGraces(
   const flags = new Set(progress.flags);
   return new Set(
     nodes
-      .filter((n) => {
-        const flag = graceFlag(data, n);
-        return flag !== undefined && !flags.has(flag);
-      })
+      .filter((n) => graceFlag(data, n) !== undefined)
+      .filter((n) => !isDiscovered(data, n, flags))
       .map((n) => n.id),
   );
 }
@@ -65,12 +117,7 @@ export function discoveredGraces(
   progress: Progress,
 ): string[] {
   const flags = new Set(progress.flags);
-  return nodes
-    .filter((n) => {
-      const flag = graceFlag(data, n);
-      return flag !== undefined && flags.has(flag);
-    })
-    .map((n) => n.id);
+  return nodes.filter((n) => isDiscovered(data, n, flags)).map((n) => n.id);
 }
 
 /** How many of the game's graces this progress has discovered. */

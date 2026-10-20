@@ -64,7 +64,7 @@ Everything below comes from the player's own install, read natively on macOS in 
 - Event flags (grace discovered, item picked up, boss beaten) tie these sources together. They are the keys for each profile's progress and for prerequisites.
 - **Patches can change formats:** `regulation.bin` switched from Kraken to ZSTD compression in a recent patch. Param field offsets come from Paramdex and are checked against row size, so a layout change fails loudly. After a game patch, rerun `npm run extract`.
 - **Some bosses share a flag:** the Night's Cavalry at `1039510800` and the Deathbird at `1044530800` have the Bell Bearing Hunter's flag `1043530800`, so the save can't tell them apart.
-- **Leyndell graces come in twins:** the Royal and Ashen Capital versions share a name and spot but have separate flags. Only the first of each pair shows on the map (#27).
+- **Leyndell graces come in twins:** the Royal and Ashen Capital versions share a name and spot but have separate flags. Only the first of each pair shows on the map, and it counts as discovered when either flag is set (#27): after Leyndell burns, only the Ashen flags get set. Marking it undiscovered by hand clears both.
 - **No boss portraits:** the menu archive the extractor reads (`menu/hi/00_solo`) holds item icons, loading screens and tutorial images, and nothing per boss. Remembrance icons are the nearest boss pictures.
 - **`dlc-underground` has no graces:** every DLC grace has display mask 0, so the surface/underground bit doesn't apply there (#5).
 - **Known gaps:** about 120 tiny archive files use an Oodle codec we don't decode, and 3 icons referenced by items don't exist. Neither affects the app.
