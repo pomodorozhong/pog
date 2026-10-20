@@ -152,16 +152,20 @@ A read-only copy of the player's own app window, for streaming: the player works
 
 ### Agent tools (#12)
 
-A local MCP server for Claude Code and Claude Desktop, mainly for managing the wishlist from a chat. Every tool works on the active profile only, and the app updates live.
+A local MCP server for Claude Code and Claude Desktop, mainly for managing the wishlist from a chat (setup: [agent-tools.md](agent-tools.md)). Every tool works on the active profile only.
 
-| Tool              | Does                                                                                                                                                                                                                                                                               |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `search_items`    | Finds catalog items by English or zh-TW name, so the right item ID is added.                                                                                                                                                                                                       |
-| `add_to_wishlist` | Adds an item, optionally with a note. Item only: an entry with no pin, attached in the app. Item and pin: agents rarely have usable coordinates, so the agent names the nearest grace and the tool adds a pin near it holding the item. Suggesting region and requirements is #13. |
-| `get_wishlist`    | Lists the wishlist with each item's state (needed / acquired / skipped) and note.                                                                                                                                                                                                  |
-| `set_item_note`   | Adds or replaces the note on a wishlist item.                                                                                                                                                                                                                                      |
+| Tool                  | Does                                                                                                                                                                                                                                                                                                        |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `search_items`        | Finds catalog items by English or zh-TW name, so the right item ID is added.                                                                                                                                                                                                                                |
+| `get_wishlist`        | Lists the wishlist with each item's pin, state (needed / acquired / skipped) and note, and the proposals waiting.                                                                                                                                                                                           |
+| `add_to_wishlist`     | Proposes an item, optionally with a note. Item only: an entry with no pin, attached in the app. Item and pin: agents rarely have usable coordinates, so the agent names the nearest grace and applying it adds a junction pin holding the item 40 px east of it. Suggesting region and requirements is #13. |
+| `set_item_note`       | Proposes adding or replacing the note on a wishlist entry.                                                                                                                                                                                                                                                  |
+| `get_proposal_status` | Whether proposals were applied, dismissed, or are still waiting.                                                                                                                                                                                                                                            |
 
-Tool definitions stay separate from transport, so a WebMCP adapter can come later (#20).
+- **The tools run in the app's window** (`src/agent/`), on what it shows, like bookmark-router's WebMCP tools. The window is the only writer, so a change shows at once, saves through the usual revision checks, and undoes like any edit. The cost: the app must be open.
+- **Getting there:** `server/mcp.ts` is a stdio MCP server that lists the tools (`src/agent/tools.ts`, plain data) and passes each call to the dev or preview server's relay (`server/agent.ts`, a WebSocket at `/api/agent`, local requests only). The relay hands it to the newest app window and the answer back, or says the app isn't open. Mirrors never connect.
+- **Review first:** the write tools only queue a proposal; the player applies or dismisses it under "Agent changes" in the header. A proposal that went out of date says why and can only be dismissed. The queue is screen state in the app's window (`useSharedState`), so the mirror shows it and a reload drops it.
+- **Later:** a WebMCP adapter (#20) can register the same tools in the page.
 
 ## Risks
 
