@@ -9,6 +9,7 @@ import type { GameData } from "../map/catalog";
 import { activeProfile } from "../profiles/profiles";
 import {
   applyImport,
+  changesSomething,
   fetchSaves,
   fetchSlotFlags,
   importFlags,
@@ -355,10 +356,38 @@ export function SaveImport({
               ))}
             </ul>
           )}
-          <div className="flex gap-2">
+          {showsChanges(step.plan) ? (
+            <div className="flex gap-2">
+              <button
+                className="chip"
+                onClick={() => {
+                  setPlayer(
+                    applyImport(
+                      player,
+                      profile.id,
+                      step.plan,
+                      step.link,
+                      step.location,
+                    ),
+                  );
+                  setStep({ kind: "idle", message: t("Progress imported.") });
+                }}
+              >
+                {t("Apply")}
+              </button>
+              <button
+                className="chip"
+                onClick={() => setStep({ kind: "idle" })}
+              >
+                {t("Cancel")}
+              </button>
+            </div>
+          ) : (
             <button
               className="chip"
               onClick={() => {
+                // Nothing to review, but the link to this character and the
+                // last grace rested at are still kept, as Apply would.
                 setPlayer(
                   applyImport(
                     player,
@@ -368,17 +397,21 @@ export function SaveImport({
                     step.location,
                   ),
                 );
-                setStep({ kind: "idle", message: t("Progress imported.") });
+                setStep({ kind: "idle" });
               }}
             >
-              {t("Apply")}
+              {t("Close")}
             </button>
-            <button className="chip" onClick={() => setStep({ kind: "idle" })}>
-              {t("Cancel")}
-            </button>
-          </div>
+          )}
         </div>
       )}
     </div>
   );
 }
+
+/**
+ * Whether the plan changes anything the review shows: everything but the
+ * record of the last grace rested at, when "I'm here" is already there.
+ */
+const showsChanges = (plan: ImportPlan) =>
+  changesSomething({ ...plan, lastGrace: null }) || plan.moveTo !== null;

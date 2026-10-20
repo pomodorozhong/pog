@@ -163,6 +163,18 @@ describe("importing progress with bosses", () => {
     fireEvent.click(screen.getByText("Import progress from save"));
     expect(await screen.findByText("+1 graces discovered")).toBeInTheDocument();
   });
+  it("offers only Close when nothing changed, still keeping the link", async () => {
+    const { player } = setup([71000], [71000]);
+    fireEvent.click(screen.getByText("Import progress from save"));
+    expect(await screen.findByText("Nothing has changed.")).toBeInTheDocument();
+    expect(screen.queryByText("Apply")).toBeNull();
+    expect(screen.queryByText("Cancel")).toBeNull();
+    fireEvent.click(screen.getByText("Close"));
+    expect(screen.queryByText("Nothing has changed.")).toBeNull();
+    expect(screen.queryByText("Progress imported.")).toBeNull();
+    expect(activeProfile(player()).progress.flags).toEqual([71000]);
+    expect(activeProfile(player()).save?.name).toBe("Tarnished");
+  });
 });
 
 describe("choosing where the save is", () => {

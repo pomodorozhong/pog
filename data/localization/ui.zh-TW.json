@@ -104,6 +104,7 @@
   "Look here": "在這裡找",
   "Look everywhere": "全部找一遍",
   "Cancel": "取消",
+  "Close": "關閉",
   "Slot {slot} now holds “{found}”, not “{name}”. Is it still this playthrough?": "欄位 {slot} 現在是「{found}」，不是「{name}」。這仍是同一個周目嗎？",
   "Import from “{name}”": "從「{name}」匯入",
   "Pick another character": "選擇其他角色",
