@@ -21,6 +21,14 @@ export default tseslint.config(
     rules: { ...hooks.configs.recommended.rules },
   },
   {
+    // Playwright fixtures take `use` and an object pattern, even an empty one.
+    files: ["tests/e2e/**"],
+    rules: {
+      "react-hooks/rules-of-hooks": "off",
+      "no-empty-pattern": "off",
+    },
+  },
+  {
     files: ["**/*.mjs", "eslint.config.js"],
     languageOptions: {
       globals: {

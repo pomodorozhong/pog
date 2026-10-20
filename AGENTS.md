@@ -37,4 +37,4 @@ Route of Grace is a map-based Elden Ring route planner. See `docs/architecture.m
 
 ## Checks
 
-`npm run lint`, `npm run typecheck`, `npm test`, `npm run build`. Format with Prettier.
+`npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e` (needs `npm run extract` first; see `docs/testing.md`). Format with Prettier.

@@ -1,6 +1,7 @@
 # Docs
 
 - [architecture.md](architecture.md): goal, decisions, how the app works, what the game data taught us, risks. Status and order live in [GitHub milestones](https://github.com/pomodorozhong/route-of-grace/milestones) and issues.
+- [testing.md](testing.md): unit and end-to-end tests, and where the browser tests save.
 - [progress/](progress/): what was built and learned, by date, with test results (up to 2026-10-13; later work is recorded in PRs and issues).
 - [../scripts/extract/README.md](../scripts/extract/README.md): the game data extractor and its output.
 
