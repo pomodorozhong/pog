@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
-import type { Map as LeafletMap } from "leaflet";
+import L, { type Map as LeafletMap } from "leaflet";
 import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LayerId, MapNode } from "../src/domain/types";
@@ -78,6 +78,7 @@ describe("cross-layer waygate numbers", () => {
           language="en"
           data={data}
           undiscovered={new Set()}
+          unfinished={new Set()}
           position={null}
           beaten={new Set()}
           highlight={null}
@@ -134,6 +135,7 @@ const canvasProps = (): ComponentProps<typeof MapCanvas> => ({
   language: "en",
   data,
   undiscovered: new Set(),
+  unfinished: new Set(),
   position: null,
   beaten: new Set(),
   highlight: null,
@@ -162,6 +164,87 @@ describe("path options", () => {
     expect(note).toHaveTextContent("<b>Needs</b> the key");
     expect(note.previousElementSibling).toHaveTextContent("1");
     expect(note.querySelector("b")).toBeNull();
+  });
+});
+
+describe("direction arrows", () => {
+  it("point along every path, and run on the one the player is on", () => {
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(600);
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(400);
+    const edges = [
+      { ...drawn("next", ["grace/1", "grace/3"]), step: 2 },
+      { ...drawn("other", ["grace/4", "grace/2"]), step: 1 },
+    ];
+    const { container, rerender } = render(
+      <MapCanvas {...canvasProps()} edges={edges} position="grace/1" />,
+    );
+    const moving = container.querySelectorAll(".path-arrow.is-moving");
+    const still = container.querySelectorAll(".path-arrow:not(.is-moving)");
+    expect(moving.length).toBeGreaterThan(0);
+    // They move along the path rather than sit still.
+    expect(moving[0].querySelector("span")!.getAttribute("style")).toMatch(
+      /offset-path:path\('M[^']+L[^']+'\)/,
+    );
+    expect(still.length).toBeGreaterThan(0);
+    // The path from grace/4 back to grace/2 points left.
+    expect(still[0].querySelector("span")!.style.transform).toBe(
+      "rotate(180deg)",
+    );
+
+    rerender(<MapCanvas {...canvasProps()} edges={edges} position={null} />);
+    expect(container.querySelectorAll(".path-arrow.is-moving")).toHaveLength(0);
+    vi.restoreAllMocks();
+  });
+
+  it("pause the moving arrows while a gesture zooms", () => {
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(600);
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(400);
+    const edges = [{ ...drawn("next", ["grace/1", "grace/3"]), step: 1 }];
+    const { container } = render(
+      <MapCanvas {...canvasProps()} edges={edges} position="grace/1" />,
+    );
+    const spans = () => [
+      ...container.querySelectorAll<HTMLElement>(".path-arrow.is-moving span"),
+    ];
+    const moving = () =>
+      spans().filter((s) => s.getAttribute("style")!.includes("offset-path"));
+    // The far end of the line the arrows follow; its start is the map's center.
+    const end = () => {
+      const [, x, y] = /L([-\d.]+) ([-\d.]+)'\)/.exec(
+        moving()[0].getAttribute("style")!,
+      )!;
+      return L.point(Number(x), Number(y));
+    };
+    const map = leaflet.current!;
+    const internal = map as unknown as {
+      _move: (...args: unknown[]) => void;
+      _moveEnd: (zoomChanged: boolean) => void;
+    };
+    const from = map.containerPointToLatLng(end());
+    // A pinch moves the map a frame at a time, as the gestures do. Zooming
+    // out keeps the line's end on screen, where it isn't clipped.
+    act(() =>
+      internal._move(map.getCenter(), map.getZoom() - 0.5, {
+        pinch: true,
+        round: false,
+      }),
+    );
+    // Paused: still arrows on the map, which a zoom moves along with it.
+    expect(moving()).toHaveLength(0);
+    expect(spans().length).toBeGreaterThan(0);
+    act(() =>
+      internal._move(map.getCenter(), map.getZoom() - 0.25, {
+        pinch: true,
+        round: false,
+      }),
+    );
+    expect(moving()).toHaveLength(0);
+    // Once the zoom ends they move again, along the path where it is now.
+    act(() => internal._moveEnd(true));
+    expect(end().distanceTo(map.latLngToContainerPoint(from))).toBeLessThan(
+      0.2,
+    );
+    vi.restoreAllMocks();
   });
 });
 

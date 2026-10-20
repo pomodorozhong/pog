@@ -370,6 +370,57 @@ body {
   outline-offset: 2px;
 }
 
+/*
+ * Direction arrows along paths. The path leaving where the player is has its
+ * arrows move along it, the way it goes, fading in and out at its ends.
+ */
+.path-arrow span {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000);
+  opacity: 0.85;
+}
+.path-arrow svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* Larger, and still when motion is reduced. */
+.path-arrow.is-moving span {
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  opacity: 1;
+}
+/* Moving ones: placed by offset-path from the screen's top-left corner. */
+.path-arrow.is-moving span[style*="offset-path"] {
+  top: 0;
+  left: 0;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  offset-rotate: auto;
+  filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000)
+    drop-shadow(0 0 3px #000);
+  animation: path-arrow-move linear infinite;
+}
+@keyframes path-arrow-move {
+  from {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  8%,
+  92% {
+    opacity: 1;
+  }
+  to {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
 .edge-arrow span {
   display: block;
   font-size: 16px;
