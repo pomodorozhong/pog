@@ -1,6 +1,6 @@
 # Agent tools
 
-An agent in Claude Code or Claude Desktop can search the item catalog, read the active playthrough's wishlist, and propose wishlist changes. Nothing changes until the player applies a proposal in the app. How it works is in [architecture.md](architecture.md#agent-tools-12).
+An agent in Claude Code, Claude Desktop or Codex can search the item catalog, read the active playthrough's wishlist, and propose wishlist changes. Nothing changes until the player applies a proposal in the app. How it works is in [architecture.md](architecture.md#agent-tools-12).
 
 ## What it needs
 
@@ -28,6 +28,19 @@ Add the server to `claude_desktop_config.json` (Settings → Developer → Edit 
 ```
 
 If Claude Desktop can't find `node`, give its full path (`which node`) as `command`.
+
+## Codex
+
+Codex doesn't read `.mcp.json`. Add the server to `~/.codex/config.toml`, with the repository's absolute path, then restart Codex:
+
+```toml
+[mcp_servers.pog]
+command = "node"
+args = ["/absolute/path/to/pog/server/mcp.ts"]
+# env = { POG_URL = "http://127.0.0.1:5174" }
+```
+
+These are MCP tools, not WebMCP tools registered in the page, so a WebMCP lookup (such as `chrome-devtools-mcp`'s) doesn't find them. Registering them in the page is #20.
 
 ## The tools
 
