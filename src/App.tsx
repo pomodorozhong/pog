@@ -17,6 +17,8 @@ import {
   type Point,
   type StepSize,
 } from "./domain/types";
+import { AgentChanges } from "./agent/AgentChanges";
+import { useAgent } from "./agent/useAgent";
 import { translate, type Translate } from "./i18n/translation";
 import { loadGameData, type GameData } from "./map/catalog";
 import { AutoImport, AutoImportSwitch } from "./progress/AutoImport";
@@ -275,6 +277,13 @@ export default function App() {
 
   const layer = player?.view.layer ?? "overworld";
   const edit = useCallback((action: MapAction) => dispatch(action), []);
+  const agent = useAgent({
+    data,
+    player,
+    map: mapLoaded ? map : null,
+    setPlayer,
+    edit,
+  });
   const changeHistory = useCallback(
     (type: "undo" | "redo") => {
       setDraft(null);
@@ -789,6 +798,13 @@ export default function App() {
                   quiet
                 />
               </span>
+              <AgentChanges
+                t={t}
+                language={language}
+                data={data}
+                map={map}
+                {...agent}
+              />
               {!narrow && historyButtons}
               <AppMenu t={t}>
                 <AutoImportSwitch t={t} player={player} setPlayer={setPlayer} />
