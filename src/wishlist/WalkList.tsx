@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   WISHLIST_STATUSES,
   type Language,
@@ -26,6 +25,7 @@ import {
   type PinnedEntry,
   type TrackerRow,
 } from "./wishlist";
+import { useSharedState } from "../sync/shared";
 
 /** A tracker row; an entry on no walked path has no step or color. */
 type Row =
@@ -71,8 +71,11 @@ export function WalkList({
   doc: MapDocument;
   showNode(id: string): void;
 }) {
-  const [query, setQuery] = useState("");
-  const [shown, setShown] = useState<WishlistStatus | "all">("all");
+  const [query, setQuery] = useSharedState("tracker.query", "");
+  const [shown, setShown] = useSharedState<WishlistStatus | "all">(
+    "tracker.shown",
+    "all",
+  );
   const profile = activeProfile(player);
   const { pinned: wishlist, unpinned } = combinedWishlist(
     doc,
@@ -230,7 +233,10 @@ export function WalkList({
           </div>
         </div>
       )}
-      <div className="min-h-0 overflow-y-auto px-4 pb-2">
+      <div
+        data-scroll-sync="tracker"
+        className="min-h-0 overflow-y-auto px-4 pb-2"
+      >
         {shownCounts.all === 0 ? (
           <p className="text-muted">
             {unpinned.length

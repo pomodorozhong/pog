@@ -32,7 +32,7 @@ Route of Grace is a map-based Elden Ring route planner. See `docs/architecture.m
 ## Interface
 
 - All interface text supports English and Traditional Chinese (zh-TW). Write English in the code and add the zh-TW string to `data/localization/ui.zh-TW.json`.
-- The viewer (`?mode=viewer`, not built yet) mirrors the operator's screen (same layout, open modals, scroll position, map view) for use as an OBS browser source. It accepts no input and never sends updates back, so state only flows from the operator to viewers.
+- The mirror (`?mode=mirror`) is a read-only copy of the player's own app window (same open modals, scroll position, map view, laid out at its own size) for use as an OBS browser source, so the player never operates the app inside OBS. It is not an audience feature: there is one mirror, on the same computer. It accepts no input and never sends updates back, so state only flows from the app to the mirror.
 - When adding a wishlist item, suggest its region and requirements, and ask the player to confirm the exact pin.
 
 ## Checks

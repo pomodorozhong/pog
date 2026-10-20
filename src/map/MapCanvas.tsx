@@ -21,7 +21,7 @@ import {
 } from "./catalog";
 import type { Draft } from "./drawing";
 import { edgeRuns } from "./editing";
-import { enableGestures } from "./gestures";
+import { enableGestures, followViews } from "./gestures";
 import { arrowsAlong, clipToBox, lineLength, currentPath } from "./pathArrows";
 import { placeStep } from "./stepPlacement";
 import { ARROW_SYMBOL, BOSS_SYMBOL, NODE_SYMBOL, pathStyle } from "./style";
@@ -36,13 +36,17 @@ export type MapCanvasHandlers = {
   onNodeMove(id: string, point: Point): void;
   onEdgeClick(id: string): void;
   onViewChange(view: MapView): void;
+  /** The view on every frame of a move, for mirrors to follow live. */
+  onViewMove?(view: MapView): void;
 };
 
 type Props = MapCanvasHandlers & {
   layer: LayerId;
   info: MapLayerInfo;
-  /** View to show when the layer is (re)opened. */
+  /** View to show when the layer is (re)opened, and always when `follow`. */
   view: MapView;
+  /** Keep to `view` as it changes: a mirror following the app's map. */
+  follow?: boolean;
   nodes: MapNode[];
   edges: MapEdge[];
   selection: Selection;
@@ -80,6 +84,7 @@ const ARROW_SPEED = 60;
 export function MapCanvas(props: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
+  const follower = useRef<ReturnType<typeof followViews> | null>(null);
   const overlay = useRef<L.LayerGroup | null>(null);
   const rubberBand = useRef<L.Polyline | null>(null);
   /** Every pin and grace marker, with half its size, for step numbers to avoid. */
@@ -206,15 +211,17 @@ export function MapCanvas(props: Props) {
         event.latlng,
       ]);
     });
-    const report = () => {
+    const currentView = (): MapView => {
       const center = toPoint(instance.getCenter());
-      latest.current.onViewChange({
+      return {
         layer: latest.current.layer,
         x: center[0],
         y: center[1],
         zoom: instance.getZoom(),
-      });
+      };
     };
+    const report = () => latest.current.onViewChange(currentView());
+    instance.on("move zoom", () => latest.current.onViewMove?.(currentView()));
     // Gestures move the map every frame; report the view once it settles.
     let reportTimer: ReturnType<typeof setTimeout> | undefined;
     instance.on("moveend zoomend", () => {
@@ -238,9 +245,11 @@ export function MapCanvas(props: Props) {
     });
     instance.on("zoomend", updateLabels);
     const disableGestures = enableGestures(instance);
+    follower.current = followViews(instance);
     return () => {
       clearTimeout(reportTimer);
       disableGestures();
+      follower.current?.dispose();
       instance.remove();
       map.current = null;
     };
@@ -268,6 +277,19 @@ export function MapCanvas(props: Props) {
       tiles.remove();
     };
   }, [layer, info]);
+
+  // A mirror keeps to the app's view on the same layer.
+  const { follow, view } = props;
+  useEffect(() => {
+    const instance = map.current;
+    if (!follow || !instance || view.layer !== latest.current.layer) return;
+    const [x, y] = toPoint(instance.getCenter());
+    if (x === view.x && y === view.y && instance.getZoom() === view.zoom)
+      return;
+    // The app's view changes every frame of a zoom; setView would reset
+    // the tiles each time and make the map flash.
+    follower.current?.moveTo(toLatLng([view.x, view.y]), view.zoom);
+  }, [follow, view]);
 
   // Redraw nodes, edges and the path being drawn.
   const {

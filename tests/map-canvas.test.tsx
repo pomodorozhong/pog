@@ -14,6 +14,7 @@ vi.mock("../src/map/gestures", () => ({
     leaflet.current = map;
     return () => {};
   },
+  followViews: () => ({ moveTo() {}, dispose() {} }),
 }));
 
 afterEach(cleanup);

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   WISHLIST_STATUSES,
   type Language,
@@ -28,6 +27,7 @@ import {
   updateWishlistItem,
   type PinnedEntry,
 } from "./wishlist";
+import { useSharedState } from "../sync/shared";
 
 export const STATUS_NAMES: Record<WishlistStatus, string> = {
   needed: "Needed",
@@ -75,10 +75,10 @@ export function WishlistPanel({
   const { pinned, unpinned } = combinedWishlist(doc, profile.wishlist);
   const wishlist = [...pinned, ...unpinned];
   const stranded = strandedEntries(doc, unpinned).length;
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useSharedState("wishlist.query", "");
   // The route list shows the wishlist; this one, for notes and statuses,
   // stays folded so the panel stays short.
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useSharedState("wishlist.open", false);
   // Search adds an entry with no pin; an item that has one already says so.
   const waiting = new Set(unpinned.map((w) => w.item));
   const results = searchCatalog(data.catalog.items, query, 10);
@@ -218,7 +218,10 @@ export function WishlistPanel({
         onChange={(e) => setQuery(e.target.value)}
       />
       {results.length > 0 && (
-        <ul className="max-h-64 overflow-y-auto rounded border border-line">
+        <ul
+          data-scroll-sync="wishlist-search"
+          className="max-h-64 overflow-y-auto rounded border border-line"
+        >
           {results.map((item) => (
             <li key={item.id}>
               <button

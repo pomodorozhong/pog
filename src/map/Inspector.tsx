@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
 import {
   NODE_KINDS,
   PATH_COLORS,
@@ -46,6 +40,7 @@ import { isGameGrace } from "./graces";
 import type { Selection } from "./MapCanvas";
 import { LAYER_NAMES, NODE_KIND_NAMES, PATH_COLOR_NAMES } from "./labels";
 import { PATH_COLOR, pathStyle } from "./style";
+import { useSharedState } from "../sync/shared";
 
 type Props = {
   t: Translate;
@@ -93,7 +88,10 @@ export function Inspector(props: Props) {
       ? inStepOrder(doc.edges).find((e) => e.id === selection.id)
       : undefined;
   return (
-    <aside className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 pt-1 pb-4">
+    <aside
+      data-scroll-sync="inspector"
+      className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 pt-1 pb-4"
+    >
       {props.recovery !== undefined && (
         <div className="rounded border border-danger/60 p-2 text-sm">
           <p>
@@ -151,7 +149,10 @@ function NodePanel({
   const place = entrancePlace(node);
   const placeEntry = place ? data.byId.get(place) : undefined;
   // A grace is an entrance once its place is linked; until then, while picking one.
-  const [graceEntrance, setGraceEntrance] = useState(place !== null);
+  const [graceEntrance, setGraceEntrance] = useSharedState(
+    "node.grace-entrance",
+    place !== null,
+  );
   const shownKind = fixed ? (graceEntrance ? "entrance" : "grace") : kind;
   const setPlace = (id: string | null) =>
     update(fixed ? { place: id ?? "" } : { ref: id });
@@ -583,7 +584,7 @@ function CatalogSearch({
   detail?(entry: CatalogItem | CatalogName): string | undefined;
   pick(id: string): void;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useSharedState(`search:${label}`, "");
   const results = query ? searchCatalog(entries, query) : [];
   const other = language === "en" ? "zh-TW" : "en";
   const input = (
@@ -616,7 +617,10 @@ function CatalogSearch({
         input
       )}
       {results.length > 0 && (
-        <ul className="max-h-64 overflow-y-auto rounded-xl border border-line bg-panel">
+        <ul
+          data-scroll-sync={`search:${label}`}
+          className="max-h-64 overflow-y-auto rounded-xl border border-line bg-panel"
+        >
           {results.map((result) => (
             <li key={result.id}>
               <button
@@ -660,7 +664,7 @@ function CatalogSearch({
 function EdgePanel(props: Props & { edgeId: string }) {
   const { t, language, data, doc, edgeId, edit, showNode, deleteSelection } =
     props;
-  const [moving, setMoving] = useState(false);
+  const [moving, setMoving] = useSharedState("path.moving", false);
   const walked = inStepOrder(doc.edges);
   const edge = walked.find((e) => e.id === edgeId)!;
   const pins = edge.nodes.map((id) => doc.nodes.find((n) => n.id === id)!);
@@ -875,7 +879,11 @@ function MoveList({
           {t("Done")}
         </button>
       </header>
-      <div ref={list} className="min-h-0 overflow-y-auto">
+      <div
+        ref={list}
+        data-scroll-sync="move-path"
+        className="min-h-0 overflow-y-auto"
+      >
         <ol
           className="space-y-0.5 text-sm"
           onMouseLeave={() => highlight(edge.id)}

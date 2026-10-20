@@ -6,6 +6,7 @@ import type { Plugin } from "vite";
 import type { DocumentKey } from "../src/domain/types.ts";
 import { documentNameOf } from "../src/storage/schema.ts";
 import { SaveError, SaveReader } from "./save.ts";
+import { attachMirrorRelay } from "./mirror.ts";
 import { FileStore, MAX_SAVE_BYTES, StorageError } from "./store.ts";
 import { assertLocalRequest } from "./security.ts";
 
@@ -181,11 +182,13 @@ export function localServerPlugin(gameDataRoot: string): Plugin {
       server.middlewares.use(storage);
       server.middlewares.use(save);
       server.middlewares.use(gameData);
+      if (server.httpServer) attachMirrorRelay(server.httpServer);
     },
     configurePreviewServer(server) {
       server.middlewares.use(storage);
       server.middlewares.use(save);
       server.middlewares.use(gameData);
+      attachMirrorRelay(server.httpServer);
     },
   };
 }

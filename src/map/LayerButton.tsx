@@ -1,9 +1,10 @@
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useId, useRef } from "react";
 import { LAYERS, type LayerId } from "../domain/types";
 import type { Translate } from "../i18n/translation";
 import { LayersIcon } from "../layout/icons";
 import { useDismiss } from "../layout/useDismiss";
 import { LAYER_NAMES } from "./labels";
+import { useSharedState } from "../sync/shared";
 
 /** Map layer picker that sits on the map. */
 export function LayerButton({
@@ -15,9 +16,9 @@ export function LayerButton({
   layer: LayerId;
   onChange(layer: LayerId): void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useSharedState("layer-menu.open", false);
   const container = useRef<HTMLDivElement>(null);
-  const close = useCallback(() => setOpen(false), []);
+  const close = useCallback(() => setOpen(false), [setOpen]);
   useDismiss(container, open, close);
   const listId = useId();
   return (
