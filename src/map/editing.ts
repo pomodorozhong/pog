@@ -8,7 +8,7 @@ import {
   type Point,
   type WalkedPath,
 } from "../domain/types";
-import { updateGrace } from "./graces";
+import { isGameGrace, updateGrace } from "./graces";
 
 export const newId = (prefix: string) =>
   `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
@@ -295,4 +295,20 @@ export function edgeRuns(
   }
   if (run.length > 1) runs.push(run);
   return runs;
+}
+
+/**
+ * What's drawn on one layer of a map with its game graces: the player's own
+ * nodes (game graces are on every map, so they don't count), and the walked
+ * paths through any node there, a path drawn only through graces included.
+ */
+export function layerCounts(doc: MapDocument, layer: LayerId) {
+  const here = doc.nodes.filter((n) => n.layer === layer);
+  const ids = new Set(here.map((n) => n.id));
+  return {
+    nodes: here.filter((n) => !isGameGrace(n.id)).length,
+    paths: inStepOrder(doc.edges).filter((e) =>
+      e.nodes.some((id) => ids.has(id)),
+    ).length,
+  };
 }
