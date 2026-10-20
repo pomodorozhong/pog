@@ -36,7 +36,7 @@ def msb_names(game: GameFiles) -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--game-dir", type=Path, default=Path(os.environ.get("ROUTE_OF_GRACE_GAME_DIR", DEFAULT_GAME_DIR)))
+    parser.add_argument("--game-dir", type=Path, default=Path(os.environ.get("POG_GAME_DIR", DEFAULT_GAME_DIR)))
     parser.add_argument("--json", type=Path)
     args = parser.parse_args()
     if not (args.game_dir / "eldenring.exe").exists():

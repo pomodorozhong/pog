@@ -7,7 +7,7 @@ uv venv .venv && uv pip install --python .venv -r scripts/extract/requirements.t
 .venv/bin/python scripts/extract/extract.py
 ```
 
-Without `--game-dir` or `ROUTE_OF_GRACE_GAME_DIR`, it looks for the game in Steam's own library (`~/Library/Application Support/Steam/steamapps/common/ELDEN RING/Game`), then in the Steam library of every CrossOver bottle, and lists where it looked if none has `eldenring.exe`. The first run decrypts the archive indexes (about 3 minutes) and caches them in `.cache/bhd/`; later runs take about 100 seconds.
+Without `--game-dir` or `POG_GAME_DIR`, it looks for the game in Steam's own library (`~/Library/Application Support/Steam/steamapps/common/ELDEN RING/Game`), then in the Steam library of every CrossOver bottle, and lists where it looked if none has `eldenring.exe`. The first run decrypts the archive indexes (about 3 minutes) and caches them in `.cache/bhd/`; later runs take about 100 seconds.
 
 ## Output (`game-data/`, git-ignored)
 

@@ -5,7 +5,7 @@
 
 ## End-to-end tests
 
-- They start two servers: the dev server on port 5198 and a built preview on 5199. Both save into one disposable `route-of-grace-e2e-*` folder in the system temporary folder (through `ROUTE_OF_GRACE_DATA_DIR`), so they never touch the player's own data. The config refuses any other folder, and the folder is deleted afterwards.
+- They start two servers: the dev server on port 5198 and a built preview on 5199. Both save into one disposable `pog-e2e-*` folder in the system temporary folder (through `POG_DATA_DIR`), so they never touch the player's own data. The config refuses any other folder, and the folder is deleted afterwards.
 - Every test starts with an empty folder and a `player.json` with the import from the save turned off, so a save on this computer never changes what a test sees.
 - They need the extracted game data (`npm run extract`), which stays out of git. Without it every test is skipped with that message.
 - Tests check both the screen and the saved files (`saved("player")`, `saved("maps/<profile id>")` in `tests/e2e/fixtures.ts`). Map clicks are positions from the center of the map (`tests/e2e/app.ts`); keep them clear of graces.

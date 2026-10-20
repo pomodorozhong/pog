@@ -177,7 +177,7 @@ export function localServerPlugin(gameDataRoot: string): Plugin {
     new SaveReader(join(gameDataRoot, "eventflag_bst.txt")),
   );
   return {
-    name: "route-of-grace-local-server",
+    name: "pog-local-server",
     configureServer(server) {
       server.middlewares.use(storage);
       server.middlewares.use(save);

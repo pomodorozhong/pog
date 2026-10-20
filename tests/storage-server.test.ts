@@ -20,7 +20,7 @@ import {
 
 let directory: string;
 beforeEach(async () => {
-  directory = await mkdtemp(join(tmpdir(), "route-of-grace storage "));
+  directory = await mkdtemp(join(tmpdir(), "pog storage "));
 });
 afterEach(async () => {
   await rm(directory, { recursive: true, force: true });
@@ -30,9 +30,7 @@ const MAP = mapKey("profile-2");
 
 describe("file store", () => {
   it("keeps each document in its own file, one map per profile", async () => {
-    expect(() => resolveStoragePaths("relative")).toThrow(
-      "ROUTE_OF_GRACE_DATA_DIR",
-    );
+    expect(() => resolveStoragePaths("relative")).toThrow("POG_DATA_DIR");
     const { map, player } = initialDocuments();
     const saved = await store().write(MAP, map, null);
     await store().write("player", player, null);
@@ -94,6 +92,28 @@ describe("file store", () => {
     expect(await store().read(mapKey("profile-1"))).toEqual(first);
     // A new profile starts with no map.
     expect(await store().read(MAP)).toEqual({ state: null, revision: null });
+  });
+
+  it("moves the data folder from before the rename once", async () => {
+    const legacy = join(directory, "route-of-grace");
+    const data = join(directory, "pog");
+    const renamed = () =>
+      new FileStore(resolveStoragePaths(undefined, { data }, { data: legacy }));
+    const { player } = initialDocuments();
+    await mkdir(legacy);
+    await writeFile(join(legacy, "player.json"), JSON.stringify(player));
+    expect((await renamed().read("player")).state).toEqual(player);
+    await expect(access(legacy)).rejects.toThrow();
+    // When both exist, the new folder wins and the old one stays.
+    await mkdir(legacy);
+    await writeFile(join(legacy, "player.json"), "{}");
+    const { revision } = await renamed().read("player");
+    await renamed().write("player", { ...player, language: "zh-TW" }, revision);
+    expect(await readFile(join(legacy, "player.json"), "utf8")).toBe("{}");
+    // A new install writes straight into the new folder.
+    await rm(directory, { recursive: true });
+    await renamed().write("player", player, null);
+    await expect(access(join(data, "player.json"))).resolves.toBeUndefined();
   });
 
   it("moves a deleted profile's map to the deleted folder", async () => {

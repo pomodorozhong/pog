@@ -3,13 +3,12 @@ import { isAbsolute, join } from "node:path";
 import type { DocumentKey } from "../src/domain/types.ts";
 
 export function resolveStoragePaths(
-  override = process.env.ROUTE_OF_GRACE_DATA_DIR,
-  platformPaths = envPaths("route-of-grace", { suffix: "" }),
+  override = process.env.POG_DATA_DIR,
+  platformPaths: { data: string } = envPaths("pog", { suffix: "" }),
+  legacyPaths: { data: string } = envPaths("route-of-grace", { suffix: "" }),
 ) {
   if (override !== undefined && (!override || !isAbsolute(override)))
-    throw new Error(
-      "ROUTE_OF_GRACE_DATA_DIR must be an absolute directory path.",
-    );
+    throw new Error("POG_DATA_DIR must be an absolute directory path.");
   const data = override ?? platformPaths.data;
   if (!isAbsolute(data))
     throw new Error(
@@ -17,6 +16,8 @@ export function resolveStoragePaths(
     );
   return {
     data,
+    /** The data folder from before the project was renamed, moved to `data` once. */
+    legacyData: override === undefined ? legacyPaths.data : null,
     /** Keys are checked by `documentNameOf` first, so they stay inside `data`. */
     document: (key: DocumentKey) => join(data, `${key}.json`),
     /** The single map saved before each profile had its own. */

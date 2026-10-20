@@ -101,7 +101,7 @@ export function Inspector(props: Props) {
           </p>
           <a
             className="text-gold underline"
-            download="route-of-grace-original.json"
+            download="pog-original.json"
             href={`data:application/json;charset=utf-8,${encodeURIComponent(props.recovery)}`}
           >
             {t("Download original saved data")}
