@@ -2,23 +2,22 @@
 
 ## In progress
 
-#72 to #78 merged on 2026-10-20. Before #6 or #27 starts, run `npm run extract` so graces get `entity` (needed by #72's last-grace import).
+#72 to #79 merged on 2026-10-20. Before #6 or #27 starts, run `npm run extract` so graces get `entity` (needed by #72's last-grace import).
 
-### feat/obs-viewer
+### chore/rename-to-pog
 
-- Task: the OBS mirror (called the viewer until 2026-10-20), closes #14. A read-only copy of the player's own window for the OBS browser source, at `/?mode=mirror`; decisions are on the issue.
-- PR: #79, open, waiting for the player's review and merge. No CI checks run on it.
-- Code checkpoint: b1bd60b, on 9712fcd (main). Lint, typecheck, unit tests (181), build and `npm run test:e2e` (13, run twice) pass.
-- State: relay and client ported from the old project; screen state shared with `useSharedState`; the map and scrolling panels follow; "Mirror link" in the menu. See the OBS mirror section of `docs/architecture.md`.
-- Next action: after #79 merges, pick the top of Ranked work (#12).
+- Task: rename the project to Path of Grace (pog), closes #80. The GitHub repository is renamed and `origin` points to `pomodorozhong/pog`. The branch isn't pushed yet; its PR waits for the player's approval.
+- Code checkpoint: c025f02, on 18db698 (main). Lint, typecheck, unit tests (182), build and `npm run test:e2e` (13) pass.
+- State: the name, `POG_*` environment variables, docs links and zh-TW name 賜福黯道 are changed. The server moves the old `route-of-grace` data folder to `pog` on first use. Not tried on the player's real data folder yet: running this branch moves it, and `main` would then start empty.
+- Next action: after the player approves, push and open the PR (`open-pr`). After it merges, run the app once on `main` to confirm the data folder moved to `pog`.
 
 ## Ranked work
 
 Grouped by milestone, in order (GitHub doesn't sort milestones by rank; this list does).
 
-**OBS mirror**
+**Rename**
 
-1. #14 Port the viewer from the old project
+1. #80 Rename the project to Path of Grace (pog)
 
 **MCP server**
 
