@@ -43,3 +43,12 @@ test("a window with an older copy can't overwrite a newer save", async ({
   await placePin(other, 100, 60);
   await expect.poll(async () => (await saved(MAP))?.nodes.length).toBe(2);
 });
+
+test("undoing back to the map as loaded saves it", async ({ page, saved }) => {
+  await openApp(page);
+  await placePin(page, -120, -80);
+  await expect.poll(async () => (await saved(MAP))?.nodes.length).toBe(1);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Undo" }).first().click();
+  await expect.poll(async () => (await saved(MAP))?.nodes.length).toBe(0);
+});

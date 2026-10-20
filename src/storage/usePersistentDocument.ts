@@ -10,6 +10,7 @@ export type SaveStatus = "loading" | "saved" | "saving" | SaveResult | "memory";
 
 type Session<N extends DocumentName> = {
   key: DocumentKey;
+  /** As loaded, then as last handed to the client to save. */
   loaded: Documents[N] | null;
   /** The latest edit not handed to the client yet. */
   unsaved: Documents[N] | null;
@@ -94,6 +95,8 @@ export function usePersistentDocument<N extends DocumentName>(
     const timer = setTimeout(() => {
       if (!current.unsaved) return;
       current.unsaved = null;
+      // Undoing back to the document as loaded must save it too.
+      current.loaded = state;
       setStatus("saving");
       void clientFor(current.key)
         .save(state)
