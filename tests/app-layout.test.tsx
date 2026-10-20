@@ -10,6 +10,7 @@ import type { MapCanvasHandlers } from "../src/map/MapCanvas";
 import type { MapEdge, MapNode, WishlistItem } from "../src/domain/types";
 import { initialDocuments } from "../src/storage/schema";
 import App from "../src/App";
+import { PATH_COLOR } from "../src/map/style";
 import { drawn } from "./paths";
 
 // The real app; the Leaflet surface is replaced by buttons that send the same clicks.
@@ -195,6 +196,22 @@ describe("the playthrough tracker", () => {
     expect(
       within(tracker).getAllByRole("button", { name: /: (acquired|beaten)$/ }),
     ).toHaveLength(1);
+  });
+  it("colors each step badge like the path it shows (#59)", async () => {
+    await open(
+      [{ item: "weapon/1", pin: "cellar", status: "needed", note: "" }],
+      {
+        nodes: [pin, attic, { ...pin, id: "loose", items: ["weapon/2"] }],
+        edges: [
+          { ...drawn("e1", ["cellar", "attic"]), color: "teal", step: 1 },
+        ],
+      },
+    );
+    const tracker = screen.getByRole("region", { name: "Playthrough tracker" });
+    const badges = within(tracker).getAllByText("1");
+    expect(badges.length).toBeGreaterThan(0);
+    for (const badge of badges)
+      expect(badge).toHaveStyle({ background: PATH_COLOR.teal });
   });
 });
 

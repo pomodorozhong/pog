@@ -14,7 +14,7 @@ import {
   type CatalogBoss,
   type GameData,
 } from "../map/catalog";
-import { BOSS_SYMBOL } from "../map/style";
+import { BOSS_SYMBOL, PATH_COLOR } from "../map/style";
 import { activeProfile } from "../profiles/profiles";
 import { beatenBosses, setFlag } from "../progress/progress";
 import { STATUS_NAMES, pinName } from "./WishlistPanel";
@@ -27,10 +27,16 @@ import {
   type TrackerRow,
 } from "./wishlist";
 
-/** A tracker row; an entry on no walked path has no step. */
+/** A tracker row; an entry on no walked path has no step or color. */
 type Row =
   | TrackerRow
-  | { kind: "item"; entry: PinnedEntry; pin: string; step?: undefined };
+  | {
+      kind: "item";
+      entry: PinnedEntry;
+      pin: string;
+      step?: undefined;
+      color?: undefined;
+    };
 
 /** The filter reads as a to-do list: a beaten boss is done, like an acquired item. */
 const FILTER_NAMES: Record<WishlistStatus, string> = {
@@ -131,8 +137,10 @@ export function WalkList({
         : where(r.pin);
     return (
       <li key={`${r.pin} ${id}`} className="flex items-center gap-2">
+        {/* In the color of the path whose step it shows, as on the map. */}
         <span
-          className={`grid h-5 w-7 shrink-0 place-items-center rounded-full text-xs font-semibold ${r.step === undefined ? "border border-dashed border-line text-muted" : "bg-gold text-ink"}`}
+          className={`grid h-5 w-7 shrink-0 place-items-center rounded-full text-xs font-semibold ${r.step === undefined ? "border border-dashed border-line text-muted" : "text-ink"}`}
+          style={r.color && { background: PATH_COLOR[r.color] }}
         >
           {r.step ?? "–"}
         </span>

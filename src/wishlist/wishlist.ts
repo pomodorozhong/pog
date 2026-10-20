@@ -3,6 +3,7 @@ import {
   isWalked,
   pinItems,
   type MapDocument,
+  type PathColor,
   type PlayerDocument,
   type WishlistItem,
   type WishlistStatus,
@@ -158,16 +159,24 @@ export const countByStatus = (wishlist: WishlistItem[]) =>
 export type WalkEntry = { entry: PinnedEntry; pin: string; step: number };
 
 /**
- * Where the walk first reaches each pin: the step of the first walked path
- * through it, and its place in the whole walk (by step, then along that path).
+ * Where the walk first reaches each pin: the step and color of the first
+ * walked path through it, and its place in the whole walk (by step, then
+ * along that path).
  */
 function reachedPins(map: MapDocument) {
-  const reached = new Map<string, { step: number; order: number }>();
+  const reached = new Map<
+    string,
+    { step: number; color: PathColor; order: number }
+  >();
   const walked = map.edges.filter(isWalked).sort((a, b) => a.step - b.step);
   for (const edge of walked)
     for (const node of edge.nodes)
       if (!reached.has(node))
-        reached.set(node, { step: edge.step, order: reached.size });
+        reached.set(node, {
+          step: edge.step,
+          color: edge.color,
+          order: reached.size,
+        });
   return reached;
 }
 
@@ -189,8 +198,11 @@ export function walkOrder(map: MapDocument, wishlist: PinnedEntry[]) {
   };
 }
 
-/** A row of the playthrough tracker: a wishlist entry or a boss, where the walk reaches it. */
-export type TrackerRow = { pin: string; step: number } & (
+/**
+ * A row of the playthrough tracker: a wishlist entry or a boss, where the
+ * walk reaches it, with the step and color of the path that does.
+ */
+export type TrackerRow = { pin: string; step: number; color: PathColor } & (
   { kind: "item"; entry: PinnedEntry } | { kind: "boss"; boss: string }
 );
 
@@ -213,7 +225,7 @@ export function playthroughOrder(map: MapDocument, wishlist: PinnedEntry[]) {
       if (bosses.has(boss)) return;
       bosses.add(boss);
       onRoute.push({
-        row: { kind: "boss", boss, pin, step: at.step },
+        row: { kind: "boss", boss, pin, step: at.step, color: at.color },
         key: [at.order, 0, place],
       });
     });
@@ -222,7 +234,13 @@ export function playthroughOrder(map: MapDocument, wishlist: PinnedEntry[]) {
     if (!at) offRoute.push({ entry, pin: entry.pin });
     else
       onRoute.push({
-        row: { kind: "item", entry, pin: entry.pin, step: at.step },
+        row: {
+          kind: "item",
+          entry,
+          pin: entry.pin,
+          step: at.step,
+          color: at.color,
+        },
         key: [at.order, 1, pinItems(nodes.get(entry.pin)!).indexOf(entry.item)],
       });
   }

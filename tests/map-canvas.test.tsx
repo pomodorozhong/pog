@@ -6,6 +6,7 @@ import type { LayerId, MapNode } from "../src/domain/types";
 import { drawn } from "./paths";
 import type { GameData } from "../src/map/catalog";
 import { MapCanvas } from "../src/map/MapCanvas";
+import { PATH_COLOR } from "../src/map/style";
 
 const leaflet = vi.hoisted(() => ({ current: null as LeafletMap | null }));
 vi.mock("../src/map/gestures", () => ({
@@ -164,6 +165,21 @@ describe("path options", () => {
     expect(note).toHaveTextContent("<b>Needs</b> the key");
     expect(note.previousElementSibling).toHaveTextContent("1");
     expect(note.querySelector("b")).toBeNull();
+  });
+
+  it("colors a path's step number like the path", () => {
+    const { container } = render(
+      <MapCanvas
+        {...canvasProps()}
+        edges={[
+          { ...drawn("walk", ["grace/1", "grace/2"]), color: "red", step: 1 },
+        ]}
+      />,
+    );
+    const number = container.querySelector<HTMLElement>(
+      ".path-step .step-number",
+    )!;
+    expect(number.style.getPropertyValue("--path-color")).toBe(PATH_COLOR.red);
   });
 });
 

@@ -373,7 +373,7 @@ export function MapCanvas(props: Props) {
       const marker = L.marker(toLatLng(stepRuns[0][0]), {
         icon: L.divIcon({
           className: highlighted ? "path-step is-highlighted" : "path-step",
-          html: `<span class="step-number">${edge.step}</span>${note}`,
+          html: `<span class="step-number" style="--path-color: ${style.color}">${edge.step}</span>${note}`,
           iconSize: [0, 0],
         }),
         keyboard: false,

@@ -204,7 +204,7 @@ describe("playthrough order", () => {
         node("c", ["boss/4"]),
       ],
       edges: [
-        { ...drawn("e1", ["b", "a"]), step: 2 },
+        { ...drawn("e1", ["b", "a"]), color: "red", step: 2 },
         { ...drawn("e2", ["a", "b"]), step: 1 },
       ],
     };
@@ -216,12 +216,13 @@ describe("playthrough order", () => {
         r.kind === "boss" ? r.boss : r.entry.item,
         r.pin,
         r.step,
+        r.color,
       ]),
     ).toEqual([
-      ["boss/2", "a", 1],
-      ["boss/1", "a", 1],
-      ["weapon/a", "a", 1],
-      ["boss/3", "b", 1],
+      ["boss/2", "a", 1, "gold"],
+      ["boss/1", "a", 1, "gold"],
+      ["weapon/a", "a", 1, "gold"],
+      ["boss/3", "b", 1, "gold"],
     ]);
     expect(offRoute).toEqual([]);
   });
