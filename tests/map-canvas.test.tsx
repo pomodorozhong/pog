@@ -41,7 +41,14 @@ const nodes: MapNode[] = [
 ];
 const info = { mapId: "test", tileSize: 256, maxZoom: 0, size: 1000 };
 const data: GameData = {
-  catalog: { items: [], graces: [], bosses: [], places: [], npcs: [] },
+  catalog: {
+    items: [],
+    graces: [],
+    bosses: [],
+    pickups: [],
+    places: [],
+    npcs: [],
+  },
   layers: {
     overworld: info,
     underground: info,
@@ -51,6 +58,7 @@ const data: GameData = {
   byId: new Map(),
   uniquePlaces: [],
   graceFlags: new Map(),
+  pickupsByItem: new Map(),
 };
 
 describe("cross-layer waygate numbers", () => {

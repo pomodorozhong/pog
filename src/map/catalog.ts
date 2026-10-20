@@ -39,10 +39,29 @@ export type CatalogBoss = CatalogName & {
   y?: number;
   legacy?: boolean;
 };
+/**
+ * One spot where the map layout files place an item lot: a pickup on the
+ * ground, a chest or a corpse. A lot can have several spots, and the lots
+ * chained after it share its spot. Inside a legacy dungeon, cave or catacomb
+ * the spot is projected onto the open-world map.
+ */
+export type CatalogPickup = {
+  /** Its `ItemLotParam_map` row. */
+  lot: number;
+  /** Event flag set once the lot is picked up. Chained lots may share one. */
+  flag: number | null;
+  /** Catalog ids of the items it gives. */
+  items: string[];
+  layer: LayerId;
+  x: number;
+  y: number;
+  legacy: boolean;
+};
 export type Catalog = {
   items: CatalogItem[];
   graces: CatalogGrace[];
   bosses: CatalogBoss[];
+  pickups: CatalogPickup[];
   places: CatalogName[];
   npcs: CatalogName[];
 };
@@ -60,6 +79,8 @@ export type GameData = {
   uniquePlaces: CatalogName[];
   /** The "discovered" event flag of each grace, by catalog id. */
   graceFlags: Map<string, number>;
+  /** The spots placing each item, by catalog item id. */
+  pickupsByItem: Map<string, CatalogPickup[]>;
 };
 
 export async function loadGameData(
@@ -74,8 +95,9 @@ export async function loadGameData(
       },
     ),
   );
-  // A catalog extracted before bosses were added has none.
+  // A catalog extracted before bosses or pickups were added has none.
   catalog.bosses ??= [];
+  catalog.pickups ??= [];
   const byId = new Map<string, CatalogItem | CatalogName>();
   for (const entry of [
     ...catalog.items,
@@ -92,7 +114,11 @@ export async function loadGameData(
   const graceFlags = new Map(
     (catalog as Catalog).graces.map((g) => [g.id, g.flag]),
   );
-  return { catalog, layers, byId, uniquePlaces, graceFlags };
+  const pickupsByItem = new Map<string, CatalogPickup[]>();
+  for (const pickup of (catalog as Catalog).pickups)
+    for (const item of pickup.items)
+      pickupsByItem.set(item, [...(pickupsByItem.get(item) ?? []), pickup]);
+  return { catalog, layers, byId, uniquePlaces, graceFlags, pickupsByItem };
 }
 
 /** The game grace nearest a boss's arena on its layer, to tell same-named bosses apart. */
