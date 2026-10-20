@@ -8,7 +8,7 @@
 
 - Task: the OBS viewer, closes #14. A local mirror of the player's own window for the OBS browser source; decisions are on the issue.
 - PR: none yet; waiting for the player's approval to push and open it.
-- Code checkpoint: 80dd482, on 9712fcd (main). Lint, typecheck, unit tests (181), build and `npm run test:e2e` (12, run twice) pass.
+- Code checkpoint: c8e069f, on 9712fcd (main). Lint, typecheck, unit tests (181), build and `npm run test:e2e` (13, run twice) pass.
 - State: relay and client ported from the old project; screen state shared with `useSharedState`; the map and scrolling panels follow; "Viewer link" in the menu. See the OBS viewer section of `docs/architecture.md`.
 - Next action: open the PR once approved.
 
