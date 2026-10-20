@@ -27,7 +27,7 @@ from pathlib import Path
 from PIL import Image
 
 from er_archive import GameFiles, dcx_decompress
-from formats import read_bhf4, read_bnd4, read_emevd, read_fmg, read_mtmsk, read_tpf
+from formats import read_bhf4, read_bnd4, read_emevd, read_fmg, read_msb_treasures, read_mtmsk, read_tpf
 from params import LAYOUTS, read_param, read_regulation
 
 REPO = Path(__file__).resolve().parents[2]
@@ -82,7 +82,8 @@ def lookup(names: dict, lang: str, table: str, text_id: int) -> tuple[str | None
     return None, False
 
 
-def build_catalog(game: GameFiles, game_dir: Path) -> dict:
+def build_catalog(game: GameFiles, game_dir: Path, pickup_stats: dict | None = None) -> dict:
+    """Items, graces, bosses, pickups, places and NPCs; `pickup_stats` receives build_pickups' counts."""
     names = load_names(game)
     regulation = read_regulation(game_dir / "regulation.bin")
     missing_zh = 0
@@ -121,8 +122,11 @@ def build_catalog(game: GameFiles, game_dir: Path) -> dict:
 
     graces = build_graces(regulation, names)
     bosses = build_bosses(game, regulation, names)
+    pickups, stats = build_pickups(game, regulation, {item["id"] for item in items})
+    if pickup_stats is not None:
+        pickup_stats.update(stats)
     log(f"catalog: {len(items)} items, {len(graces)} graces, {len(bosses)} bosses, {len(others['places'])} places, {len(others['npcs'])} npcs, {missing_zh} items without zh-TW")
-    return {"items": items, "graces": graces, "bosses": bosses, **others}
+    return {"items": items, "graces": graces, "bosses": bosses, "pickups": pickups, **others}
 
 
 # Open-world map areas: 60 is the Lands Between, 61 the Realm of Shadow. Grid cells are 256 m.
@@ -191,6 +195,111 @@ def build_graces(regulation: dict[str, bytes], names: dict) -> list[dict]:
     if skipped:
         log(f"graces: {skipped} rows skipped (no name or no route to the open world)")
     return graces
+
+
+# ItemLotParam lotItemCategory -> catalog type.
+LOT_ITEM_TYPES = {1: "goods", 2: "weapon", 3: "armor", 4: "talisman", 5: "ash_of_war"}
+
+
+def msb_names(game: GameFiles) -> list[str]:
+    """Every map layout in the archives: legacy maps, then open-world tiles of 256 m, 512 m and 1 km."""
+    candidates = [f"m{area}_{block:02d}_00_00" for area in range(10, 60) for block in range(100)]
+    candidates += [
+        f"m{area}_{x:02d}_{z:02d}_{level:02d}" for area in OPEN_WORLD for x in range(100) for z in range(100) for level in range(3)
+    ]
+    return [name for name in candidates if game.find(f"/map/mapstudio/{name}.msb.dcx")]
+
+
+def lot_items(row: dict) -> list[str]:
+    """Catalog ids of the items an item lot gives, in slot order (weapons by their base id)."""
+    found = []
+    for item_id, category in zip(row["lotItemId"], row["lotItemCategory"]):
+        if item_id > 0 and category in LOT_ITEM_TYPES:
+            kind = LOT_ITEM_TYPES[category]
+            item = f"{kind}/{item_id - item_id % 10000 if kind == 'weapon' else item_id}"
+            if item not in found:
+                found.append(item)
+    return found
+
+
+def build_pickups(game: GameFiles, regulation: dict[str, bytes], known: set[str]) -> tuple[list[dict], dict]:
+    """Every item lot the map layout files place, at each spot holding it, with its pickup flag.
+
+    Treasure events in each MSB name an item lot and the part (asset, chest or
+    corpse) holding it. Picking up a lot also gives the lot rows right after it,
+    up to the next gap or placed lot, so each of those gets the same spot.
+    Returns the pickups and counts for the item location report.
+    """
+    to_open_world = open_world_projector(regulation)
+    underground_cells = {
+        (row["areaNo"], row["gridXNo"], row["gridZNo"]): bool(row["dispMask"] & 2)
+        for row in read_param(regulation["BonfireWarpParam"], LAYOUTS["BonfireWarpParam"]).values()
+    }
+    lots = {
+        row_id: row
+        for row_id, row in read_param(regulation["ItemLotParam_map"], LAYOUTS["ItemLotParam_map"]).items()
+        if any(i > 0 and c > 0 for i, c in zip(row["lotItemId"], row["lotItemCategory"]))
+    }
+
+    def project(name: str, position: tuple) -> dict | None:
+        area, x, z, level = (int(part) for part in name[1:].split("_"))
+        if area in OPEN_WORLD:
+            # Tiles of 512 m and 1 km measure from their center; 256 m tiles from their corner.
+            size = 256 << level
+            offset = size / 2 if level else 0
+            found = (area, x * size + offset + position[0], z * size + offset + position[2])
+            cell = (area, int(found[1] // 256), int(found[2] // 256))
+        else:
+            cell = (area, x, z)
+            found = to_open_world(cell, position)
+        if not found:
+            return None
+        world, wx, wz = found
+        layer = "dlc" if OPEN_WORLD[world] else "underground" if underground_cells.get(cell) else "overworld"
+        return {"layer": layer, "x": round(wx - MAP_ORIGIN_X), "y": round(MAP_ORIGIN_Z - wz), "legacy": area not in OPEN_WORLD}
+
+    names = msb_names(game)
+    spots: dict[int, list[dict]] = {}
+    stats = {"layouts": len(names), "unread": [], "events": 0, "noPart": 0, "unprojected": 0}
+    for name in names:
+        try:
+            treasures = read_msb_treasures(dcx_decompress(game.get(f"/map/mapstudio/{name}.msb.dcx")))
+        except ValueError:
+            stats["unread"].append(name)
+            continue
+        for treasure in treasures:
+            stats["events"] += 1
+            if not treasure["position"]:
+                stats["noPart"] += 1
+                continue
+            spot = project(name, treasure["position"])
+            if not spot:
+                stats["unprojected"] += 1
+                continue
+            # Leyndell's Royal and Ashen Capital layouts place the same lot at the same spot.
+            known_spots = spots.setdefault(treasure["lot"], [])
+            if not any(s["layer"] == spot["layer"] and math.hypot(s["x"] - spot["x"], s["y"] - spot["y"]) <= 2 for s in known_spots):
+                known_spots.append(spot)
+
+    # Each placed lot reaches itself and the rows after it, up to a gap or another placed lot.
+    reached: dict[int, int] = {}
+    for lot in spots:
+        following = lot
+        while following in lots and (following == lot or following not in spots):
+            reached[following] = lot
+            following += 1
+
+    pickups = []
+    for lot, origin in sorted(reached.items()):
+        items = [item for item in lot_items(lots[lot]) if item in known]
+        if not items:
+            continue  # runes, or things the catalog doesn't list
+        for spot in spots[origin]:
+            pickups.append({"lot": lot, "flag": lots[lot]["getItemFlagId"] or None, "items": items, **spot})
+    stats.update(lotsWithItems=len(lots), placedLots=len(spots), reachedLots=len(reached))
+    stats["inLots"] = sorted(set().union(*(lot_items(row) for row in lots.values())) & known)
+    log(f"pickups: {len(pickups)} spots for {len({p['lot'] for p in pickups})} item lots, {len({i for p in pickups for i in p['items']})} catalog items")
+    return pickups, stats
 
 
 # Event script instructions (bank, id): start an event of this map, start a common event,
