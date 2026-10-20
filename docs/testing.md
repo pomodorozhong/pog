@@ -10,4 +10,5 @@
 - They need the extracted game data (`npm run extract`), which stays out of git. Without it every test is skipped with that message.
 - Tests check both the screen and the saved files (`saved("player")`, `saved("maps/<profile id>")` in `tests/e2e/fixtures.ts`). Map clicks are positions from the center of the map (`tests/e2e/app.ts`); keep them clear of graces.
 - `mirror.spec.ts` opens the mirror in its own browser context, as OBS is, and checks that it follows the app and never sends a request or WebSocket frame.
+- `agent.spec.ts` calls the tools as the MCP server does (`callApp` in `server/mcp.ts`) and applies the proposal in the app.
 - Run one spec with `npx playwright test flows`, or watch it with `--headed`. Failures leave traces in `test-results/` (ignored by git).

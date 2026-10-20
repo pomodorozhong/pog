@@ -242,5 +242,21 @@
   "Mirror link": "鏡像連結",
   "Copy": "複製",
   "Copied": "已複製",
-  "Add it as a browser source in OBS. It shows what this window shows and can't change anything.": "在 OBS 加入為瀏覽器來源。它顯示這個視窗的畫面，無法更改任何內容。"
+  "Add it as a browser source in OBS. It shows what this window shows and can't change anything.": "在 OBS 加入為瀏覽器來源。它顯示這個視窗的畫面，無法更改任何內容。",
+  "Agent changes": "代理程式的提議",
+  "An agent proposed these changes. Nothing changes until you apply them.": "代理程式提議了這些變更。套用之前不會有任何改變。",
+  "Add {item} on a new pin near {grace}": "在{grace}旁新增標記，放上{item}",
+  "Add {item}, not attached to a pin": "加入{item}，未連結標記",
+  "Note on {item} ({place})": "{item}的筆記（{place}）",
+  "not attached to a pin": "未連結標記",
+  "a pin": "標記",
+  "Note: {note}": "筆記：{note}",
+  "Clears the note": "清除筆記",
+  "Proposed for another playthrough": "這是為其他周目提議的",
+  "Already on the wishlist": "已在願望清單中",
+  "That grace isn't on the map any more": "地圖上已沒有這個賜福",
+  "That entry isn't on the wishlist any more": "願望清單中已沒有這個項目",
+  "Dismiss": "不採用",
+  "Apply all ({count})": "全部套用（{count}）",
+  "a pin near {grace}": "{grace}附近的標記"
 }

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "pog": {
+      "command": "node",
+      "args": ["server/mcp.ts"]
+    }
+  }
+}
