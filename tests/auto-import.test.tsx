@@ -54,6 +54,7 @@ const data = {
   byId: new Map(graces.map((g) => [g.id, g])),
   catalog: {
     items: [],
+    pickups: [],
     graces,
     bosses: [
       {

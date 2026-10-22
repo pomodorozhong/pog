@@ -125,7 +125,7 @@ Create, switch, rename and delete from the header's switcher. A new profile star
 
 ### Progress from the save
 
-The import reads the character's event flags and marks discovered graces, beaten bosses and picked-up wishlist items in the active profile. It asks only about bosses at the map's pins and graces, and about the pickups of wishlist entries, so other flags stay as they are.
+The import reads the character's event flags and marks discovered graces, beaten bosses and picked-up wishlist items in the active profile. It asks only about bosses at the map's pins and graces, and about item pickups (every spot in the catalog, so the map can show which are picked up), so other flags stay as they are. The review lists the pickups of wishlist entries one by one and only counts the other spots.
 
 - **Items (#11):** a wishlist entry is tracked by the game's pickup spot for its item (`pickups` in the catalog): the item's only spot, or, for an item with several (Golden Seeds, Smithing Stones), the spot nearest the entry's pin on its layer within 250 px (dungeon spots can sit 100–200 px off the entrance). Entries joined from a walked path count too. A needed entry whose pickup flag is set becomes acquired, and a joined one is saved then; the save never makes an entry needed again, and skipped stays skipped. Items with no spot near their pin, and shop wares, boss and enemy drops, are marked by hand.
 

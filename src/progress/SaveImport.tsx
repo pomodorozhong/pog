@@ -61,8 +61,19 @@ export function SaveImport({
   const [step, setStep] = useSharedState<Step>("save-import.step", {
     kind: "idle",
   });
-  const { known, isBoss, isItem, bossName, graceName, itemName, tracked } =
-    importFlags(data, doc, language, profile.wishlist);
+  const {
+    known,
+    isBoss,
+    isItem,
+    isSpot,
+    bossName,
+    graceName,
+    itemName,
+    tracked,
+  } = importFlags(data, doc, language, profile.wishlist);
+  // Other item spots are only counted in the summary.
+  const notSpot = (flag: number) => !isSpot(flag);
+  const listed = (flags: number[]) => flags.filter(notSpot).length;
   const slotName = (link: { slot: number; name: string }) =>
     t("{name} (slot {slot})", { name: link.name, slot: link.slot + 1 });
 
@@ -305,7 +316,7 @@ export function SaveImport({
             step.plan.acquired.length >
           0 ? (
             <p className="text-muted">
-              {summarizeChanges(t, step.plan, isBoss, isItem)}
+              {summarizeChanges(t, step.plan, isBoss, isItem, isSpot)}
             </p>
           ) : (
             !step.plan.moveTo && (
@@ -319,12 +330,12 @@ export function SaveImport({
               })}
             </p>
           )}
-          {step.plan.added.length + step.plan.removed.length > 0 && (
+          {listed(step.plan.added) + listed(step.plan.removed) > 0 && (
             <ul
               data-scroll-sync="save-slots"
               className="max-h-48 space-y-0.5 overflow-y-auto rounded border border-line p-2 text-xs"
             >
-              {step.plan.added.map((flag) => (
+              {step.plan.added.filter(notSpot).map((flag) => (
                 <li key={`+${flag}`}>
                   +{" "}
                   {isBoss(flag)
@@ -338,7 +349,7 @@ export function SaveImport({
                         })}
                 </li>
               ))}
-              {step.plan.removed.map((flag) => (
+              {step.plan.removed.filter(notSpot).map((flag) => (
                 <li key={`-${flag}`} className="text-danger">
                   −{" "}
                   {isBoss(flag)

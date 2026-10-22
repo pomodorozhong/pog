@@ -90,7 +90,7 @@ export function AutoImport({
       try {
         stamp = await fetchSaveStamp(location);
         if (link && stamp && stamp !== seen) {
-          const { known, isBoss, isItem, tracked } = importFlags(
+          const { known, isBoss, isItem, isSpot, tracked } = importFlags(
             data,
             doc,
             language,
@@ -117,7 +117,7 @@ export function AutoImport({
               applyImport(now, profile.id, plan, link, location),
             );
             const changes = [
-              summarizeChanges(t, plan, isBoss, isItem),
+              summarizeChanges(t, plan, isBoss, isItem, isSpot),
               plan.moveTo &&
                 t("You're at {grace}", {
                   grace: data.byId.get(plan.moveTo)?.name[language] ?? "",
