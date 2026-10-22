@@ -553,4 +553,53 @@ describe("item spots", () => {
     rerender(<MapCanvas {...props} spots={[spot(2, "overworld", true)]} />);
     expect(container.querySelectorAll(".item-spot")).toHaveLength(1);
   });
+
+  it("while choosing, raises the spots over the pins and a click chooses one", () => {
+    const onSpotChoose = vi.fn();
+    const chosen = spot(1, "overworld", false);
+    const props = { ...canvasProps(), spots: [chosen], onSpotChoose };
+    const { container, rerender } = render(<MapCanvas {...props} />);
+    const pane = container.querySelector<HTMLElement>(".leaflet-spots-pane")!;
+    expect(pane.style.zIndex).toBe("610");
+    const marker = container.querySelector(".item-spot")!;
+    expect(marker).toHaveClass("is-choosable");
+    fireEvent.click(marker);
+    expect(onSpotChoose).toHaveBeenCalledWith(chosen);
+    expect(props.onMapClick).not.toHaveBeenCalled();
+    rerender(<MapCanvas {...props} onSpotChoose={undefined} />);
+    expect(pane.style.zIndex).toBe("390");
+    expect(container.querySelector(".item-spot")).not.toHaveClass(
+      "is-choosable",
+    );
+  });
+
+  it("zooms to the spots being chosen when choosing starts, not each time they're recomputed", () => {
+    const props = {
+      ...canvasProps(),
+      spots: [spot(1, "overworld", false), spot(2, "overworld", false)],
+    };
+    const { rerender } = render(<MapCanvas {...props} />);
+    const fit = vi.spyOn(leaflet.current!, "fitBounds");
+    const choose = vi.fn();
+    rerender(<MapCanvas {...props} onSpotChoose={choose} />);
+    expect(fit).toHaveBeenCalledTimes(1);
+    // Recomputed after an import: the same spots, one now picked up.
+    rerender(
+      <MapCanvas
+        {...props}
+        spots={[spot(1, "overworld", false), spot(2, "overworld", true)]}
+        onSpotChoose={choose}
+      />,
+    );
+    expect(fit).toHaveBeenCalledTimes(1);
+    // Another item's spots.
+    rerender(
+      <MapCanvas
+        {...props}
+        spots={[spot(5, "overworld", false)]}
+        onSpotChoose={choose}
+      />,
+    );
+    expect(fit).toHaveBeenCalledTimes(2);
+  });
 });

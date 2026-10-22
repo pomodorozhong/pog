@@ -16,6 +16,7 @@ import {
   type PlayerDocument,
   type Point,
   type StepSize,
+  type WishlistItem,
 } from "./domain/types";
 import { AgentChanges } from "./agent/AgentChanges";
 import { useAgent } from "./agent/useAgent";
@@ -34,7 +35,15 @@ import { gameGraceNodes, withGameGraces } from "./map/graces";
 import { Inspector } from "./map/Inspector";
 import { MapCanvas, type Selection } from "./map/MapCanvas";
 import { MapDetails } from "./map/MapDetails";
-import { shownSpots, wishedItems } from "./map/itemSpots";
+import {
+  choosableSpots,
+  pinAtSpot,
+  shownSpots,
+  spotsOfItem,
+  wishedItems,
+  type ItemSpot,
+} from "./map/itemSpots";
+import { LAYER_NAMES } from "./map/labels";
 import {
   ImportFromProfile,
   DeletePlaythrough,
@@ -54,6 +63,7 @@ import { COMPACT, NARROW, useMediaQuery } from "./layout/useMediaQuery";
 import { LayerButton } from "./map/LayerButton";
 import { WalkList } from "./wishlist/WalkList";
 import {
+  attachToPin,
   combinedWishlist,
   countByStatus,
   walkedBosses,
@@ -153,6 +163,18 @@ export default function App() {
   /** Choosing "New playthrough…" in the switcher. */
   const [creating, setCreating] = useSharedState("app.creating", false);
   const [hintOpen, setHintOpen] = useSharedState("app.hint-open", false);
+  /**
+   * The wishlist entry whose new pin goes on the game spot chosen on the
+   * map, in the playthrough it belongs to: switching playthrough ends it.
+   */
+  const [spotChoice, setSpotChoice] = useSharedState<{
+    profile: string;
+    entry: WishlistItem;
+  } | null>("app.spot-choice", null);
+  const choice =
+    spotChoice && spotChoice.profile === player?.activeProfile
+      ? spotChoice.entry
+      : null;
   // A narrow window shows the route; editing is one tab of its bottom sheet.
   const narrow = useMediaQuery(NARROW);
   const [sheet, setSheet] = useSharedState<"route" | "edit">(
@@ -321,19 +343,22 @@ export default function App() {
     [spotMode, map, spotWishlist],
   );
   const spotFlags = progress?.flags;
+  const choiceItem = choice?.item ?? null;
   const spots = useMemo(
     () =>
       data && spotFlags
-        ? shownSpots(
-            t,
-            data,
-            spotLanguage,
-            spotMode,
-            wishedKey ? wishedKey.split("\n") : [],
-            spotFlags,
-          )
+        ? choiceItem
+          ? choosableSpots(t, data, spotLanguage, choiceItem, spotFlags)
+          : shownSpots(
+              t,
+              data,
+              spotLanguage,
+              spotMode,
+              wishedKey ? wishedKey.split("\n") : [],
+              spotFlags,
+            )
         : [],
-    [t, data, spotLanguage, spotMode, wishedKey, spotFlags],
+    [t, data, spotLanguage, spotMode, wishedKey, spotFlags, choiceItem],
   );
   const unfinished = useMemo(
     () =>
@@ -445,6 +470,43 @@ export default function App() {
     [nodeById, player, layer, selectAndEdit],
   );
 
+  /** Put a wishlist entry on a new pin at one of its item's game spots. */
+  const placeOnSpot = useCallback(
+    (entry: WishlistItem, spot: Pick<ItemSpot, "layer" | "x" | "y">) => {
+      if (!player) return;
+      const node = pinAtSpot(entry.item, spot);
+      edit({ type: "addNode", node });
+      const next = attachToPin(player, player.activeProfile, entry, node.id);
+      if (spot.layer === layer) setPlayer(next);
+      else {
+        const zoom = views.current.get(spot.layer)?.zoom ?? 4;
+        const view = { layer: spot.layer, x: spot.x, y: spot.y, zoom };
+        views.current.set(spot.layer, view);
+        setPlayer({ ...next, view });
+      }
+      setSpotChoice(null);
+      selectAndEdit({ kind: "node", id: node.id });
+    },
+    [player, edit, layer, setSpotChoice, selectAndEdit],
+  );
+
+  /**
+   * Place a wishlist entry's pin from game data: on its item's only spot, or
+   * on the one the player then chooses on the map.
+   */
+  const placeFromGameData = useCallback(
+    (entry: WishlistItem) => {
+      if (!data) return;
+      const options = spotsOfItem(data, entry.item);
+      if (options.length === 1) return placeOnSpot(entry, options[0]);
+      if (!options.length) return;
+      setSpotChoice({ profile: player!.activeProfile, entry });
+      if (!options.some((o) => o.layer === layer))
+        switchLayer(options[0].layer);
+    },
+    [data, player, layer, placeOnSpot, setSpotChoice, switchLayer],
+  );
+
   /** Where visiting a node fits best in the planned route, in words. */
   const detourText = (node: string) => {
     if (!plan) return t("Set your position to see where this fits the route.");
@@ -497,7 +559,11 @@ export default function App() {
       if (mod || event.altKey) return;
       // End the path being drawn; every pin dropped so far stays on the map.
       if (event.key === "Escape")
-        return draft ? setDraft(null) : setSelection(null);
+        return choice
+          ? setSpotChoice(null)
+          : draft
+            ? setDraft(null)
+            : setSelection(null);
       if (event.key === "Delete" || event.key === "Backspace")
         return deleteSelection();
       const picked = TOOLS.find(
@@ -513,6 +579,8 @@ export default function App() {
   }, [
     mirror,
     draft,
+    choice,
+    setSpotChoice,
     deleteSelection,
     changeHistory,
     setDraft,
@@ -622,6 +690,7 @@ export default function App() {
             setPlayer={setPlayer}
             doc={map}
             showNode={showNode}
+            placeFromGameData={placeFromGameData}
           />
         </>
       }
@@ -907,7 +976,20 @@ export default function App() {
             beaten={beaten}
             highlight={highlight}
             spots={spots}
+            onSpotChoose={
+              choice ? (spot) => placeOnSpot(choice, spot) : undefined
+            }
           />
+          {choice && (
+            <SpotChoiceHint
+              t={t}
+              item={data.byId.get(choice.item)?.name[language] ?? ""}
+              spots={spots}
+              layer={layer}
+              switchLayer={switchLayer}
+              cancel={() => setSpotChoice(null)}
+            />
+          )}
           {!narrow && (
             <div
               role="toolbar"
@@ -1062,6 +1144,55 @@ function NewPlaythrough({
         </button>
       </div>
     </section>
+  );
+}
+
+/** What to do while choosing an item's spot, and where its other spots are. */
+function SpotChoiceHint({
+  t,
+  item,
+  spots,
+  layer,
+  switchLayer,
+  cancel,
+}: {
+  t: Translate;
+  item: string;
+  spots: ItemSpot[];
+  layer: LayerId;
+  switchLayer(layer: LayerId): void;
+  cancel(): void;
+}) {
+  const elsewhere = new Map<LayerId, number>();
+  for (const spot of spots)
+    if (spot.layer !== layer)
+      elsewhere.set(spot.layer, (elsewhere.get(spot.layer) ?? 0) + 1);
+  return (
+    <div
+      role="status"
+      className="popover absolute top-14 left-1/2 z-[800] w-max max-w-[calc(100%-2rem)] -translate-x-1/2 space-y-1.5 p-2.5 text-sm"
+    >
+      <p>
+        {t("Choose one of the {count} spots of {item} for its pin.", {
+          count: spots.length,
+          item,
+        })}
+      </p>
+      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        {[...elsewhere].map(([other, count]) => (
+          <button
+            key={other}
+            className="chip"
+            onClick={() => switchLayer(other)}
+          >
+            {t("{layer} ({count})", { layer: t(LAYER_NAMES[other]), count })}
+          </button>
+        ))}
+        <button className="chip ml-auto" onClick={cancel}>
+          {t("Cancel")}
+        </button>
+      </div>
+    </div>
   );
 }
 
