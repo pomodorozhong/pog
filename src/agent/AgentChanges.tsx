@@ -55,6 +55,18 @@ export function AgentChanges({
       ? t("a pin near {grace}", { grace: name(grace.id) })
       : t("a pin");
   };
+  const spotDescription = (
+    item: string,
+    spot: NonNullable<Extract<Proposal, { kind: "add" }>["spot"]>,
+  ) => {
+    const grace = nearestGrace(map, spot);
+    return grace
+      ? t("Add {item} on a new pin at its spot near {grace}", {
+          item: name(item),
+          grace: name(grace.id),
+        })
+      : t("Add {item} on a new pin at its spot", { item: name(item) });
+  };
   const describe = (p: Proposal) =>
     p.kind === "note"
       ? t("Note on {item} ({place})", {
@@ -66,7 +78,9 @@ export function AgentChanges({
             item: name(p.item),
             grace: name(p.grace),
           })
-        : t("Add {item}, not attached to a pin", { item: name(p.item) });
+        : p.spot
+          ? spotDescription(p.item, p.spot)
+          : t("Add {item}, not attached to a pin", { item: name(p.item) });
   const ready = proposals.filter((p) => !problems.has(p.id));
 
   return (

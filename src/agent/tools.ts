@@ -64,7 +64,7 @@ export const AGENT_TOOLS: AgentTool[] = [
   {
     name: "add_to_wishlist",
     description:
-      "Propose adding an item to the active playthrough's wishlist. The player reviews the proposal in the app before anything changes. Without near_grace the entry isn't attached to a pin; with it, a new pin holding the item is placed beside that Site of Grace.",
+      "Propose adding an item to the active playthrough's wishlist. The player reviews the proposal in the app before anything changes. With near_grace, a new pin holding the item is placed beside that Site of Grace. Without it, an item with one spot in the game gets a new pin on that spot, and the result names its region (the nearest grace); an item with several spots isn't attached to a pin, and the result lists the regions of its spots so you can ask the player which one and call again with near_grace; other items aren't attached to a pin.",
     inputSchema: {
       type: "object",
       properties: {

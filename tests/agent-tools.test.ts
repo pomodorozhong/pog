@@ -8,15 +8,21 @@ import {
   type Proposal,
 } from "../src/agent/run";
 import type { MapDocument, PlayerDocument } from "../src/domain/types";
-import type { CatalogGrace, CatalogItem, GameData } from "../src/map/catalog";
+import type {
+  CatalogGrace,
+  CatalogItem,
+  CatalogPickup,
+  GameData,
+} from "../src/map/catalog";
 import { applyMapAction } from "../src/map/editing";
 import { gameGraceNodes, withGameGraces } from "../src/map/graces";
 import { activeProfile } from "../src/profiles/profiles";
 import { initialDocuments } from "../src/storage/schema";
-import { addToWishlist } from "../src/wishlist/wishlist";
+import { addToWishlist, updateWishlistItem } from "../src/wishlist/wishlist";
 
 const MOONVEIL = "weapon/2010000";
 const SEED = "goods/10010";
+const TEAR = "goods/10020";
 const item = (id: string, en: string, zh: string): CatalogItem => ({
   id,
   type: id.startsWith("weapon") ? "weapon" : "goods",
@@ -44,7 +50,24 @@ const grace = (
 const items = [
   item(MOONVEIL, "Moonveil", "名刀月隱"),
   item(SEED, "Golden Seed", "黃金種子"),
+  item(TEAR, "Sacred Tear", "聖杯露滴"),
 ];
+const spot = (
+  lot: number,
+  x: number,
+  layer: CatalogPickup["layer"] = "overworld",
+): CatalogPickup => ({
+  lot,
+  flag: lot,
+  items: [lot < 10 ? TEAR : SEED],
+  layer,
+  x,
+  y: 520,
+  legacy: false,
+});
+// The tear has one spot, by the second Twin Rest; the seed has three.
+const tearSpot = spot(1, 2980);
+const seedSpots = [spot(11, 90), spot(12, 1010), spot(13, 310, "underground")];
 const graces = [
   grace("grace/1", "Gatefront", "關卡前方", 100),
   grace("grace/2", "Stranded Graveyard", "孤立墓地", 300, "underground"),
@@ -56,7 +79,18 @@ const data = {
   byId: new Map<string, CatalogItem | CatalogGrace>(
     [...items, ...graces].map((e) => [e.id, e]),
   ),
-  catalog: { items, graces, bosses: [], places: [], npcs: [] },
+  catalog: {
+    items,
+    graces,
+    bosses: [],
+    pickups: [tearSpot, ...seedSpots],
+    places: [],
+    npcs: [],
+  },
+  pickupsByItem: new Map([
+    [TEAR, [tearSpot]],
+    [SEED, seedSpots],
+  ]),
 } as unknown as GameData;
 
 function state(
@@ -319,6 +353,91 @@ describe("agent tools", () => {
       { id: "proposal-1", status: "waiting" },
       { id: "proposal-2", status: "dismissed" },
       { id: "proposal-3", status: "unknown" },
+    ]);
+  });
+
+  it("puts an item with one spot in the game on a new pin there, naming its region", () => {
+    const s = state();
+    const { result, proposal } = runTool("add_to_wishlist", { item: TEAR }, s);
+    expect(result).toMatchObject({
+      pin: "a new pin on the item's spot in the game",
+      region: "Twin Rest",
+    });
+    expect(proposal).toMatchObject({
+      kind: "add",
+      spot: { layer: "overworld", x: 2980, y: 520 },
+    });
+    const applied = applyProposal(proposal!, s.player, s.map);
+    if ("problem" in applied) throw new Error(applied.problem);
+    const node = applied.action?.type === "addNode" && applied.action.node;
+    expect(node).toMatchObject({ layer: "overworld", x: 2980, y: 520 });
+    expect(activeProfile(applied.player).wishlist).toEqual([
+      { item: TEAR, pin: node && node.id, status: "needed", note: "" },
+    ]);
+    // A grace the agent names still wins.
+    expect(
+      runTool("add_to_wishlist", { item: TEAR, near_grace: "Gatefront" }, s)
+        .proposal,
+    ).not.toHaveProperty("spot");
+  });
+
+  it("lists the regions of an item's spots when it has several", () => {
+    const { result, proposal } = runTool(
+      "add_to_wishlist",
+      { item: SEED },
+      state(),
+    );
+    expect(proposal).not.toHaveProperty("spot");
+    expect(result).toMatchObject({
+      pin: "not attached to a pin",
+      item_spots: 3,
+      regions: [
+        { near_grace: "Gatefront", layer: "overworld" },
+        { near_grace: "Twin Rest", layer: "overworld" },
+        { near_grace: "Stranded Graveyard", layer: "underground" },
+      ],
+    });
+    expect((result as { hint: string }).hint).toContain("near_grace");
+  });
+
+  it("moves an entry already on the wishlist onto the spot's pin instead of adding another", () => {
+    const start = initialDocuments().player;
+    const player = updateWishlistItem(
+      addToWishlist(start, start.activeProfile, TEAR),
+      start.activeProfile,
+      TEAR,
+      null,
+      { status: "acquired", note: "Mine" },
+    );
+    const s = state(player);
+    const { proposal } = runTool("add_to_wishlist", { item: TEAR }, s);
+    const applied = applyProposal(proposal!, player, s.map);
+    if ("problem" in applied) throw new Error(applied.problem);
+    const node = applied.action?.type === "addNode" && applied.action.node;
+    expect(activeProfile(applied.player).wishlist).toEqual([
+      { item: TEAR, status: "acquired", note: "Mine", pin: node && node.id },
+    ]);
+
+    // Asked again once applied: the item is already on a pin at its spot.
+    const map = applyMapAction(s.map, applied.action!);
+    const again = runTool(
+      "add_to_wishlist",
+      { item: TEAR },
+      { ...s, player: applied.player, map },
+    ).proposal!;
+    expect(applyProposal(again, applied.player, map)).toEqual({
+      problem: "already-listed",
+    });
+    // A new note for it only changes the note.
+    const noted = applyProposal(
+      { ...again, kind: "add", note: "Second" } as Proposal,
+      applied.player,
+      map,
+    );
+    if ("problem" in noted) throw new Error(noted.problem);
+    expect(noted.action).toBeUndefined();
+    expect(activeProfile(noted.player).wishlist).toEqual([
+      { item: TEAR, status: "acquired", note: "Second", pin: node && node.id },
     ]);
   });
 });
