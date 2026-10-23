@@ -1,4 +1,5 @@
 import type {
+  LayerId,
   MapDocument,
   MapNode,
   PlayerDocument,
@@ -15,6 +16,7 @@ import { isGameGrace } from "../map/graces";
 import { activeProfile } from "../profiles/profiles";
 import {
   addToWishlist,
+  attachToPin,
   combinedWishlist,
   updateWishlistItem,
 } from "../wishlist/wishlist";
@@ -34,6 +36,8 @@ export type Proposal = {
       note?: string;
       /** The game grace a new pin holding the item goes beside. */
       grace?: string;
+      /** The item's only spot in the game, where a new pin holding it goes. */
+      spot?: { layer: LayerId; x: number; y: number };
     }
   | { kind: "note"; pin: string | null; note: string }
 );
@@ -126,8 +130,11 @@ function findGrace(state: AgentState, query: string): MapNode {
   );
 }
 
-/** The game grace nearest a node on its layer. */
-export function nearestGrace(map: MapDocument, node: MapNode) {
+/** The game grace nearest a node, or a point, on its layer. */
+export function nearestGrace(
+  map: MapDocument,
+  node: Pick<MapNode, "layer" | "x" | "y">,
+) {
   let best: MapNode | undefined;
   let bestDistance = Infinity;
   for (const grace of shownGraces(map)) {
@@ -170,11 +177,30 @@ function describeProposal(state: AgentState, p: Proposal) {
     ...(p.kind === "add"
       ? {
           ...(p.grace && { near_grace: nameOf(state.data, p.grace)?.en }),
+          ...(p.spot && { at_item_spot_near: spotRegion(state, p.spot) }),
           ...(p.note !== undefined && { note: p.note }),
         }
       : { pin: p.pin, note: p.note }),
   };
 }
+
+/** How many of an item's spots get listed for the agent to ask about. */
+export const MAX_LISTED_SPOTS = 5;
+
+/** The item's spots in the game, one per item lot. */
+function itemSpots(state: AgentState, item: string) {
+  const spots = state.data.pickupsByItem.get(item) ?? [];
+  return spots.filter((s, i) => spots.findIndex((t) => t.lot === s.lot) === i);
+}
+
+/** The grace a spot is nearest, by its English name. */
+const spotRegion = (
+  state: AgentState,
+  spot: Pick<MapNode, "layer" | "x" | "y">,
+) => {
+  const grace = nearestGrace(state.map, spot);
+  return (grace && nameOf(state.data, grace.id)?.en) ?? null;
+};
 
 /** A proposal like this one already waiting, so asking twice doesn't queue it twice. */
 const waiting = (state: AgentState, p: NewProposal) =>
@@ -248,14 +274,55 @@ export function runTool(
       const graceName = text(args, "near_grace");
       const grace =
         graceName === undefined ? undefined : findGrace(state, graceName).id;
+      // Without a grace, an item with one spot in the game gets its pin
+      // there; with several, the agent can ask which and name its grace.
+      const spots = grace === undefined ? itemSpots(state, item) : [];
+      const spot =
+        spots.length === 1
+          ? { layer: spots[0].layer, x: spots[0].x, y: spots[0].y }
+          : undefined;
       const proposal: NewProposal = {
         kind: "add",
         profile: profile.id,
         item,
         ...(note !== undefined && { note }),
         ...(grace !== undefined && { grace }),
+        ...(spot !== undefined && { spot }),
       };
-      return propose(state, proposal);
+      const proposed = propose(state, proposal);
+      if (spot)
+        return {
+          ...proposed,
+          result: {
+            ...proposed.result,
+            pin: "a new pin on the item's spot in the game",
+            region: spotRegion(state, spot),
+          },
+        };
+      if (spots.length > 1) {
+        const regions = [
+          ...new Map(
+            spots.map((s) => {
+              const region = spotRegion(state, s);
+              return [
+                `${region} ${s.layer}`,
+                { near_grace: region, layer: s.layer },
+              ];
+            }),
+          ).values(),
+        ];
+        return {
+          ...proposed,
+          result: {
+            ...proposed.result,
+            pin: "not attached to a pin",
+            item_spots: spots.length,
+            regions: regions.slice(0, MAX_LISTED_SPOTS),
+            hint: "The item has several spots in the game. To place its pin, ask the player which one and call add_to_wishlist again with near_grace.",
+          },
+        };
+      }
+      return proposed;
     }
     case "set_item_note": {
       const item = catalogItem(state.data, text(args, "item", true)!).id;
@@ -361,6 +428,42 @@ export function applyProposal(
       : updateWishlistItem(next, profile.id, item, pin, {
           note: proposal.note,
         });
+  if (proposal.spot !== undefined) {
+    const { spot } = proposal;
+    const { pinned, unpinned } = combinedWishlist(map, profile.wishlist);
+    const onSpot = (pin: string) => {
+      const node = map.nodes.find((n) => n.id === pin);
+      return (
+        node?.layer === spot.layer && node.x === spot.x && node.y === spot.y
+      );
+    };
+    // An entry already on a pin at the spot only takes the note.
+    const there = pinned.find((w) => w.item === item && onSpot(w.pin));
+    if (there) {
+      if (proposal.note === undefined || proposal.note === there.note)
+        return { problem: "already-listed" };
+      return { player: withNote(player, there.pin) };
+    }
+    const node: MapNode = {
+      id: newId("junction"),
+      ...spot,
+      kind: "junction",
+      label: "",
+      ref: null,
+      items: [item],
+    };
+    // An entry waiting without a pin moves onto the new one, status and all.
+    const waiting = unpinned.find((w) => w.item === item);
+    return {
+      player: withNote(
+        waiting
+          ? attachToPin(player, profile.id, waiting, node.id)
+          : addToWishlist(player, profile.id, item, node.id),
+        node.id,
+      ),
+      action: { type: "addNode", node },
+    };
+  }
   if (proposal.grace === undefined) {
     const entry = profile.wishlist.find((w) => w.item === item && !w.pin);
     if (entry && (proposal.note === undefined || proposal.note === entry.note))

@@ -263,5 +263,7 @@
   "That entry isn't on the wishlist any more": "願望清單中已沒有這個項目",
   "Dismiss": "不採用",
   "Apply all ({count})": "全部套用（{count}）",
-  "a pin near {grace}": "{grace}附近的標記"
+  "a pin near {grace}": "{grace}附近的標記",
+  "Add {item} on a new pin at its spot near {grace}": "在{grace}附近的道具位置新增標記，放上{item}",
+  "Add {item} on a new pin at its spot": "在道具位置新增標記，放上{item}"
 }
