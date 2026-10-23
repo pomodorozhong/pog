@@ -54,6 +54,7 @@ Everything below comes from the player's own install, read natively on macOS in 
 - **Gaps:** 52 tiny open-world layouts (at the map's edges) use an Oodle codec ooz lacks; 60 treasure events point at no part.
 - **Flags:** every placed lot has a pickup flag. Of the 92 spots holding a chain of lots, 50 share one flag across the chain; the rest give each row its own.
 - **Duplicates:** Leyndell's Royal and Ashen Capital layouts place the same lots at the same spots, so a spot within 2 px of one the lot already has is dropped.
+- **On the map (#83):** the map details panel chooses which spots show: none, the wishlist's (the default; entries joined from a walked path too, skipped ones not) or all of them. A spot is a small marker with its item's icon, under paths, pins and graces; hovering or tapping it names its items, and with the pin or path tool a click on it puts the pin or junction right on the spot. It's dimmed with a check mark once progress has its pickup flag. The save import asks about every spot's flag for this. The choice is saved in `player.json` (`itemSpots`, schema version 13).
 
 **Community sources (no coordinates worth taking):** Fextralife and Map Genie have hand-placed markers with no licence to reuse; [CreateDDy/EldenRing_MapInteractive](https://github.com/CreateDDy/EldenRing_MapInteractive) (MIT) has coordinates for key items only, on its own map image; [ERDB](https://github.com/EldenRingDatabase/erdb) (MIT) has text locations and requirements but no coordinates; the [item randomizer](https://github.com/thefifthmatt/SoulsRandomizers)'s `itemslots.txt` has a written location per lot but is all rights reserved. So item positions come from the game data: MSB treasures first (#9), then boss drops and enemy parts. They carry the official item IDs and pickup flags (`getItemFlagId`, #11), follow game patches, and need no permission. ERDB's text could later add descriptions and requirements.
 
@@ -125,7 +126,7 @@ Create, switch, rename and delete from the header's switcher. A new profile star
 
 ### Progress from the save
 
-The import reads the character's event flags and marks discovered graces, beaten bosses and picked-up wishlist items in the active profile. It asks only about bosses at the map's pins and graces, and about the pickups of wishlist entries, so other flags stay as they are.
+The import reads the character's event flags and marks discovered graces, beaten bosses and picked-up wishlist items in the active profile. It asks only about bosses at the map's pins and graces, and about item pickups (every spot in the catalog, so the map can show which are picked up), so other flags stay as they are. The review lists the pickups of wishlist entries one by one and only counts the other spots.
 
 - **Items (#11):** a wishlist entry is tracked by the game's pickup spot for its item (`pickups` in the catalog): the item's only spot, or, for an item with several (Golden Seeds, Smithing Stones), the spot nearest the entry's pin on its layer within 250 px (dungeon spots can sit 100–200 px off the entrance). Entries joined from a walked path count too. A needed entry whose pickup flag is set becomes acquired, and a joined one is saved then; the save never makes an entry needed again, and skipped stays skipped. Items with no spot near their pin, and shop wares, boss and enemy drops, are marked by hand.
 

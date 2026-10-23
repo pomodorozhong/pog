@@ -66,7 +66,9 @@ export const fetchSaveStamp = (location: string | null) =>
  * What an import asks the save about: every grace, the bosses at the map's
  * pins and graces (`doc` with its game graces), and the pickups of the
  * wishlist entries the game data tracks (see `trackingPickup`), with their
- * names. Bosses or items that share a flag share one name, joined.
+ * names. Bosses or items that share a flag share one name, joined. Every
+ * other item spot's pickup flag is asked too, so the map can show it picked
+ * up; those are counted, not listed one by one (`isSpot`).
  */
 export function importFlags(
   data: GameData,
@@ -101,13 +103,22 @@ export function importFlags(
     const names = itemName.get(flag)?.split(" / ") ?? [];
     if (!names.includes(name)) itemName.set(flag, [...names, name].join(" / "));
   }
+  const named = new Set([
+    ...graceName.keys(),
+    ...bossName.keys(),
+    ...itemName.keys(),
+  ]);
+  const spots = new Set(
+    data.catalog.pickups.flatMap((p) =>
+      p.flag === null || named.has(p.flag) ? [] : [p.flag],
+    ),
+  );
   return {
-    known: [
-      ...new Set([...graceName.keys(), ...bossName.keys(), ...itemName.keys()]),
-    ],
+    known: [...named, ...spots],
     isBoss: (flag: number) => !graceName.has(flag) && bossName.has(flag),
     isItem: (flag: number) =>
       !graceName.has(flag) && !bossName.has(flag) && itemName.has(flag),
+    isSpot: (flag: number) => spots.has(flag),
     bossName,
     graceName,
     itemName,
@@ -124,9 +135,16 @@ export function summarizeChanges(
   plan: ImportPlan,
   isBoss: (flag: number) => boolean,
   isItem: (flag: number) => boolean = () => false,
+  isSpot: (flag: number) => boolean = () => false,
 ) {
   const kind = (flag: number) =>
-    isBoss(flag) ? "boss" : isItem(flag) ? "item" : "grace";
+    isBoss(flag)
+      ? "boss"
+      : isItem(flag)
+        ? "item"
+        : isSpot(flag)
+          ? "spot"
+          : "grace";
   const count = (flags: number[], of: string) =>
     flags.filter((f) => kind(f) === of).length;
   return (
@@ -137,6 +155,8 @@ export function summarizeChanges(
       ["{count} bosses no longer beaten", count(plan.removed, "boss")],
       ["+{count} wishlist items acquired", plan.acquired.length],
       ["{count} items no longer picked up", count(plan.removed, "item")],
+      ["+{count} other items picked up", count(plan.added, "spot")],
+      ["{count} other items no longer picked up", count(plan.removed, "spot")],
     ] as const
   )
     .filter(([, n]) => n > 0)

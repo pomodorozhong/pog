@@ -26,6 +26,7 @@ import { arrowsAlong, clipToBox, lineLength, currentPath } from "./pathArrows";
 import { placeStep } from "./stepPlacement";
 import { ARROW_SYMBOL, BOSS_SYMBOL, NODE_SYMBOL, pathStyle } from "./style";
 import { isGameGrace } from "./graces";
+import { spotKey, type ItemSpot } from "./itemSpots";
 import { clearOfPins, spreadAlongEdges, type Area } from "./stepPlacement";
 
 export type Selection = { kind: "node" | "edge"; id: string } | null;
@@ -68,6 +69,8 @@ type Props = MapCanvasHandlers & {
   beaten: Set<string>;
   /** A path to point out, for example while choosing where to move a path. */
   highlight: string | null;
+  /** The game's item spots to show, on every layer. */
+  spots: ItemSpot[];
 };
 
 const LABEL_ZOOM = 4;
@@ -102,6 +105,11 @@ export function MapCanvas(props: Props) {
     [],
   );
   const arrowLayer = useRef<L.LayerGroup | null>(null);
+  const spotLayer = useRef<L.LayerGroup | null>(null);
+  /** The spot markers on the map, by `spotKey`, with what they were drawn from. */
+  const spotMarkers = useRef(
+    new Map<string, { marker: L.Marker; spot: ItemSpot }>(),
+  );
   /** The current path's moving arrows, placed again on every zoom frame. */
   const movingLayer = useRef<L.LayerGroup | null>(null);
   // Leaflet handlers are bound once; they read the latest props through this ref.
@@ -191,6 +199,11 @@ export function MapCanvas(props: Props) {
     });
     map.current = instance;
     overlay.current = L.layerGroup().addTo(instance);
+    // Item spots sit under paths, pins and graces, which stay the ones to
+    // click, and over the tiles.
+    instance.createPane("spots").style.zIndex = "390";
+    spotLayer.current = L.layerGroup().addTo(instance);
+    spotMarkers.current = new Map();
     arrowLayer.current = L.layerGroup().addTo(instance);
     movingLayer.current = L.layerGroup().addTo(instance);
     rubberBand.current = L.polyline([], {
@@ -570,6 +583,60 @@ export function MapCanvas(props: Props) {
     beaten,
     highlight,
   ]);
+
+  // The game's item spots. A click shows its details and acts like a click
+  // on the map at the spot, so the pin tool can place a pin right on it.
+  // Markers are kept and only redrawn when their spot changes: "All" has
+  // thousands, and progress changes at every import.
+  const { spots } = props;
+  useEffect(() => {
+    const group = spotLayer.current!;
+    const kept = spotMarkers.current;
+    const wanted = new Map(
+      spots.filter((s) => s.layer === layer).map((s) => [spotKey(s), s]),
+    );
+    for (const [key, { marker }] of kept)
+      if (!wanted.has(key)) {
+        group.removeLayer(marker);
+        kept.delete(key);
+      }
+    for (const [key, spot] of wanted) {
+      const old = kept.get(key);
+      if (
+        old &&
+        old.spot.picked === spot.picked &&
+        old.spot.icon === spot.icon &&
+        old.spot.label === spot.label
+      )
+        continue;
+      if (old) group.removeLayer(old.marker);
+      const item = spot.icon ? data.byId.get(spot.icon) : undefined;
+      const marker = L.marker(toLatLng([spot.x, spot.y]), {
+        pane: "spots",
+        icon: L.divIcon({
+          className: spot.picked ? "item-spot is-picked" : "item-spot",
+          html:
+            item && isItem(item) && item.icon
+              ? `<img src="${iconUrl(item.icon)}" alt="">`
+              : NODE_SYMBOL.item,
+          iconSize: undefined,
+        }),
+        keyboard: false,
+      })
+        .bindTooltip(escapeHtml(spot.label), {
+          direction: "right",
+          offset: [8, 0],
+          className: "node-label node-label--spot",
+        })
+        .on("click", (event) => {
+          L.DomEvent.stop(event);
+          marker.openTooltip();
+          latest.current.onMapClick([spot.x, spot.y]);
+        })
+        .addTo(group);
+      kept.set(key, { marker, spot });
+    }
+  }, [spots, layer, data]);
 
   // Pan to a node selected elsewhere (for example the far end of a waygate).
   useEffect(() => {

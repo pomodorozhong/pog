@@ -92,6 +92,7 @@ describe("cross-layer waygate numbers", () => {
           position={null}
           beaten={new Set()}
           highlight={null}
+          spots={[]}
           onMapClick={vi.fn()}
           onNodeClick={vi.fn()}
           onNodeMove={vi.fn()}
@@ -149,6 +150,7 @@ const canvasProps = (): ComponentProps<typeof MapCanvas> => ({
   position: null,
   beaten: new Set(),
   highlight: null,
+  spots: [],
   onMapClick: vi.fn(),
   onNodeClick: vi.fn(),
   onNodeMove: vi.fn(),
@@ -486,5 +488,69 @@ describe("bosses on the map", () => {
     expect(container.querySelector(".map-node--grace")).not.toHaveClass(
       "bosses-beaten",
     );
+  });
+});
+
+describe("item spots", () => {
+  const spot = (lot: number, layer: LayerId, picked: boolean) => ({
+    lot,
+    flag: lot,
+    items: ["goods/1"],
+    layer,
+    x: 200 + lot,
+    y: 200,
+    legacy: false,
+    picked,
+    icon: "goods/1",
+    label: picked ? "Golden Seed · Picked up" : "Golden Seed",
+  });
+
+  it("shows the layer's spots under the paths and pins, dims picked-up ones, and a click names one and clicks the map there", () => {
+    const props = {
+      ...canvasProps(),
+      spots: [
+        spot(1, "overworld", false),
+        spot(2, "overworld", true),
+        spot(3, "underground", false),
+      ],
+    };
+    const { container } = render(<MapCanvas {...props} />);
+    const markers = container.querySelectorAll(".item-spot");
+    expect(markers).toHaveLength(2);
+    const pane = markers[0].closest<HTMLElement>(".leaflet-spots-pane")!;
+    // Leaflet's paths are at 400 and its markers at 600.
+    expect(pane.style.zIndex).toBe("390");
+    expect([...markers].map((m) => m.classList.contains("is-picked"))).toEqual([
+      false,
+      true,
+    ]);
+    fireEvent.click(markers[1]);
+    // The pin tool places its pin right on the spot.
+    expect(props.onMapClick).toHaveBeenCalledWith([202, 200]);
+    expect(container.querySelector(".node-label--spot")?.textContent).toBe(
+      "Golden Seed · Picked up",
+    );
+  });
+
+  it("keeps the markers of spots that didn't change", () => {
+    const props = {
+      ...canvasProps(),
+      spots: [spot(1, "overworld", false), spot(2, "overworld", false)],
+    };
+    const { container, rerender } = render(<MapCanvas {...props} />);
+    const [first, second] = container.querySelectorAll(".item-spot");
+    // Recomputed after an import that picked up the second spot.
+    rerender(
+      <MapCanvas
+        {...props}
+        spots={[spot(1, "overworld", false), spot(2, "overworld", true)]}
+      />,
+    );
+    const after = container.querySelectorAll(".item-spot");
+    expect(after[0]).toBe(first);
+    expect(after[1]).not.toBe(second);
+    expect(after[1]).toHaveClass("is-picked");
+    rerender(<MapCanvas {...props} spots={[spot(2, "overworld", true)]} />);
+    expect(container.querySelectorAll(".item-spot")).toHaveLength(1);
   });
 });

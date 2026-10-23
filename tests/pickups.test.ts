@@ -82,14 +82,17 @@ describe("importing picked-up items", () => {
 
   it("asks the save about tracked entries, joined ones included", () => {
     const saved = [{ ...entry(SEED, "seed-pin"), status: "skipped" as const }];
-    const { known, isItem, itemName, tracked } = importFlags(
+    const { known, isItem, isSpot, itemName, tracked } = importFlags(
       data,
       doc,
       "en",
       saved,
     );
-    expect(known).toEqual([500001, 500003]);
+    // The second seed's spot tracks no entry: it's asked about, not named.
+    expect(known).toEqual([500001, 500003, 500002]);
     expect(isItem(500003)).toBe(true);
+    expect(isSpot(500002)).toBe(true);
+    expect(isSpot(500003)).toBe(false);
     expect(itemName.get(500003)).toBe("Sacred Tear");
     // The tear's entry joined from the walked path; the seed's is saved.
     expect(tracked.map((t) => t.entry)).toEqual([
@@ -159,5 +162,19 @@ describe("importing picked-up items", () => {
         () => true,
       ),
     ).toBe("2 items no longer picked up");
+  });
+
+  it("counts the other spots picked up without listing them", () => {
+    const { known, isBoss, isItem, isSpot } = importFlags(data, doc, "en");
+    const progress = initialDocuments().player.profiles[0].progress;
+    const plan = planImport(progress, known, [500002]);
+    expect(plan.flags).toEqual([500002]);
+    expect(summarizeChanges(t, plan, isBoss, isItem, isSpot)).toBe(
+      "+1 other items picked up",
+    );
+    const reset = planImport({ ...progress, flags: plan.flags }, known, []);
+    expect(summarizeChanges(t, reset, isBoss, isItem, isSpot)).toBe(
+      "1 other items no longer picked up",
+    );
   });
 });

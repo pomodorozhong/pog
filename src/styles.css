@@ -266,6 +266,50 @@ body {
   background: #4d3a37;
   color: #a7a093;
 }
+/* A spot where the game places an item: smaller than a pin, under it. */
+.item-spot {
+  display: grid;
+  place-items: center;
+  width: 18px !important;
+  height: 18px !important;
+  margin: -9px 0 0 -9px !important;
+  border: 1px solid #cbb98e;
+  border-radius: 50%;
+  background: radial-gradient(circle, #f3e9cf 40%, #cbb98e);
+  color: var(--color-gold);
+  font-size: 9px;
+  line-height: 1;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.6);
+}
+.item-spot img {
+  position: static;
+  width: 16px !important;
+  height: 16px !important;
+  object-fit: contain;
+}
+/* Picked up in this playthrough: dimmed, with a check mark. */
+.item-spot.is-picked {
+  background: #8d8673;
+  border-color: #8d8673;
+}
+.item-spot.is-picked img {
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+.item-spot.is-picked::after {
+  content: "✓";
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  display: grid;
+  place-items: center;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--color-ink);
+  color: #9fd98a;
+  font: 700 8px/1 var(--font-sans);
+}
 /* Graces not discovered in this playthrough yet: unlit. */
 .map-node--grace.is-undiscovered {
   background: #8d8673;

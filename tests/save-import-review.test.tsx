@@ -18,6 +18,7 @@ const boss = (id: number, en: string, flag = id): CatalogBoss => ({
 const data = {
   catalog: {
     items: [],
+    pickups: [],
     graces: [
       {
         id: "grace/1",

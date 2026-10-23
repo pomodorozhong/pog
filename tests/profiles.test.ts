@@ -152,3 +152,22 @@ describe("grace name settings", () => {
     ).toBe(false);
   });
 });
+
+describe("the item spots setting", () => {
+  it("upgrades version 12 to the wishlist's spots without changing anything else", () => {
+    const player = {
+      ...addProfile(initialDocuments().player),
+      graceNames: "hover" as const,
+      autoImport: false,
+    };
+    expect(player.itemSpots).toBe("wishlist");
+    const legacy: Record<string, unknown> = { ...player, schemaVersion: 12 };
+    delete legacy.itemSpots;
+    expect(validDocument("player", legacy)).toBe(false);
+    expect(upgradeDocument("player", legacy)).toEqual(player);
+    expect(validDocument("player", { ...player, itemSpots: "all" })).toBe(true);
+    expect(validDocument("player", { ...player, itemSpots: "some" })).toBe(
+      false,
+    );
+  });
+});
