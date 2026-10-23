@@ -126,6 +126,9 @@ export const STEP_SIZES = ["small", "medium", "large"] as const;
 export type StepSize = (typeof STEP_SIZES)[number];
 export const GRACE_NAME_MODES = ["auto", "hover", "always"] as const;
 export type GraceNameMode = (typeof GRACE_NAME_MODES)[number];
+/** Which of the game's item spots the map shows: none, the wishlist's, or all. */
+export const ITEM_SPOT_MODES = ["off", "wishlist", "all"] as const;
+export type ItemSpotMode = (typeof ITEM_SPOT_MODES)[number];
 export const WISHLIST_STATUSES = ["needed", "acquired", "skipped"] as const;
 export type WishlistStatus = (typeof WISHLIST_STATUSES)[number];
 
@@ -203,13 +206,14 @@ export type Profile = {
 };
 
 export type PlayerDocument = {
-  schemaVersion: 12;
+  schemaVersion: 13;
   language: Language;
   view: MapView;
   stepSize: StepSize;
   /** Hide graces no path on the active profile's map runs through. */
   hideUnusedGraces: boolean;
   graceNames: GraceNameMode;
+  itemSpots: ItemSpotMode;
   /**
    * Where the save import reads the game's save: a full path to the save
    * file the player chose or picked a character from, or a folder holding

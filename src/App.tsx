@@ -34,6 +34,7 @@ import { gameGraceNodes, withGameGraces } from "./map/graces";
 import { Inspector } from "./map/Inspector";
 import { MapCanvas, type Selection } from "./map/MapCanvas";
 import { MapDetails } from "./map/MapDetails";
+import { shownSpots, wishedItems } from "./map/itemSpots";
 import {
   ImportFromProfile,
   DeletePlaythrough,
@@ -306,6 +307,33 @@ export default function App() {
   const beaten = useMemo(
     () => (data ? beatenBosses(data, progress) : new Set<string>()),
     [data, progress],
+  );
+  // Only what they show: the view changes the player document on every move,
+  // and redrawing every spot on each map edit would be slow.
+  const spotMode = player?.itemSpots ?? "off";
+  const spotLanguage = player?.language ?? "en";
+  const spotWishlist = profile?.wishlist;
+  const wishedKey = useMemo(
+    () =>
+      spotMode === "wishlist" && spotWishlist
+        ? wishedItems(map, spotWishlist).join("\n")
+        : "",
+    [spotMode, map, spotWishlist],
+  );
+  const spotFlags = progress?.flags;
+  const spots = useMemo(
+    () =>
+      data && spotFlags
+        ? shownSpots(
+            t,
+            data,
+            spotLanguage,
+            spotMode,
+            wishedKey ? wishedKey.split("\n") : [],
+            spotFlags,
+          )
+        : [],
+    [t, data, spotLanguage, spotMode, wishedKey, spotFlags],
   );
   const unfinished = useMemo(
     () =>
@@ -878,6 +906,7 @@ export default function App() {
             position={progress?.position ?? null}
             beaten={beaten}
             highlight={highlight}
+            spots={spots}
           />
           {!narrow && (
             <div

@@ -1,7 +1,9 @@
 import { useEffect, useId, useRef } from "react";
 import {
   GRACE_NAME_MODES,
+  ITEM_SPOT_MODES,
   type GraceNameMode,
+  type ItemSpotMode,
   type PlayerDocument,
 } from "../domain/types";
 import type { Translate } from "../i18n/translation";
@@ -10,11 +12,19 @@ import { GraceOffIcon, SlidersIcon } from "../layout/icons";
 const ROUND =
   "grid size-8 place-items-center rounded-full bg-ink/80 shadow-lg hover:text-gold aria-pressed:text-gold aria-expanded:text-gold";
 
-type Settings = Pick<PlayerDocument, "graceNames" | "hideUnusedGraces">;
+type Settings = Pick<
+  PlayerDocument,
+  "graceNames" | "hideUnusedGraces" | "itemSpots"
+>;
 const NAME_MODES: Record<GraceNameMode, string> = {
   auto: "Automatic",
   hover: "On hover",
   always: "Always",
+};
+const SPOT_MODES: Record<ItemSpotMode, string> = {
+  off: "Off",
+  wishlist: "Wishlist items",
+  all: "All",
 };
 
 export function MapDetails({
@@ -89,6 +99,7 @@ export function MapDetails({
           className="popover mt-2 w-72 max-w-[calc(100vw-2rem)] space-y-3 p-3.5"
         >
           <GraceNameFields t={t} settings={settings} onChange={onChange} />
+          <ItemSpotFields t={t} settings={settings} onChange={onChange} />
         </section>
       )}
     </div>
@@ -127,6 +138,42 @@ function GraceNameFields({
       </p>
       <p className="text-xs text-muted">
         {t("Position, selection and planned-route names stay visible.")}
+      </p>
+    </>
+  );
+}
+
+function ItemSpotFields({
+  t,
+  settings,
+  onChange,
+}: {
+  t: Translate;
+  settings: Settings;
+  onChange(changes: Partial<Settings>): void;
+}) {
+  return (
+    <>
+      <label className="flex items-center justify-between gap-3">
+        <span>{t("Item spots")}</span>
+        <select
+          className="field"
+          value={settings.itemSpots}
+          onChange={(event) =>
+            onChange({ itemSpots: event.target.value as ItemSpotMode })
+          }
+        >
+          {ITEM_SPOT_MODES.map((mode) => (
+            <option key={mode} value={mode}>
+              {t(SPOT_MODES[mode])}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="text-xs text-muted">
+        {t(
+          "Where the game places items. Picked-up spots are dimmed once the save is imported.",
+        )}
       </p>
     </>
   );

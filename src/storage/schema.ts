@@ -1,5 +1,6 @@
 import {
   GRACE_NAME_MODES,
+  ITEM_SPOT_MODES,
   LANGUAGES,
   LAYERS,
   NODE_KINDS,
@@ -208,6 +209,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
       "stepSize",
       "hideUnusedGraces",
       "graceNames",
+      "itemSpots",
       "saveLocation",
       "autoImport",
       "activeProfile",
@@ -223,6 +225,7 @@ function checkPlayer(value: unknown): value is PlayerDocument {
     includes(STEP_SIZES, v.stepSize) &&
     typeof v.hideUnusedGraces === "boolean" &&
     includes(GRACE_NAME_MODES, v.graceNames) &&
+    includes(ITEM_SPOT_MODES, v.itemSpots) &&
     (v.saveLocation === null ||
       (typeof v.saveLocation === "string" &&
         v.saveLocation.startsWith("/") &&
@@ -261,9 +264,10 @@ function checkPlayer(value: unknown): value is PlayerDocument {
 }
 
 export const FIRST_PROFILE_ID = "profile-1";
-const PLAYER_VERSION = 12;
+const PLAYER_VERSION = 13;
 const MAP_VERSION = 4;
 const DEFAULT_STEP_SIZE = "medium";
+const DEFAULT_ITEM_SPOTS = "wishlist";
 const PROFILE_ID = /^[a-z0-9-]{1,64}$/;
 
 export const mapKey = (profile: string): DocumentKey => `maps/${profile}`;
@@ -298,6 +302,7 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
     stepSize?: unknown;
     hideUnusedGraces?: unknown;
     graceNames?: unknown;
+    itemSpots?: unknown;
     saveLocation?: unknown;
     autoImport?: unknown;
   };
@@ -312,6 +317,7 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
       stepSize: DEFAULT_STEP_SIZE,
       hideUnusedGraces: false,
       graceNames: "auto",
+      itemSpots: DEFAULT_ITEM_SPOTS,
       saveLocation: null,
       autoImport: true,
       activeProfile: FIRST_PROFILE_ID,
@@ -326,7 +332,8 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
     // Later versions added the wishlist (3), progress (4), save link (5),
     // routing rules (6), step number size (7), grace filter (8) and names (9).
     // Version 10 dropped the path types routing avoided, since paths have none.
-    // Version 11 added the save location, and 12 the automatic import.
+    // Version 11 added the save location, 12 the automatic import, and 13
+    // the item spots shown on the map.
     const added = firstProfile();
     v = {
       ...v,
@@ -334,6 +341,7 @@ export function upgradeDocument(name: DocumentName, value: unknown): unknown {
       stepSize: "stepSize" in v ? v.stepSize : DEFAULT_STEP_SIZE,
       hideUnusedGraces: "hideUnusedGraces" in v ? v.hideUnusedGraces : false,
       graceNames: "graceNames" in v ? v.graceNames : "auto",
+      itemSpots: "itemSpots" in v ? v.itemSpots : DEFAULT_ITEM_SPOTS,
       saveLocation: "saveLocation" in v ? v.saveLocation : null,
       autoImport: "autoImport" in v ? v.autoImport : true,
       profiles: v.profiles.map((p: unknown) =>
@@ -495,6 +503,7 @@ export const initialDocuments = (): Documents => ({
     stepSize: DEFAULT_STEP_SIZE,
     hideUnusedGraces: false,
     graceNames: "auto",
+    itemSpots: DEFAULT_ITEM_SPOTS,
     saveLocation: null,
     autoImport: true,
     activeProfile: FIRST_PROFILE_ID,

@@ -116,6 +116,9 @@ it("persists one filter across profiles and reloads, while routing still uses hi
   expect(names).toHaveValue("auto");
   fireEvent.change(names, { target: { value: "hover" } });
   expect(canvas.props!.graceNames).toBe("hover");
+  const spots = screen.getByRole("combobox", { name: "Item spots" });
+  expect(spots).toHaveValue("wishlist");
+  fireEvent.change(spots, { target: { value: "all" } });
   fireEvent.keyDown(names, { key: "Escape" });
   expect(details).toHaveAttribute("aria-expanded", "false");
   // Next stops are part of the playthrough, shown while editing.
@@ -139,6 +142,7 @@ it("persists one filter across profiles and reloads, while routing still uses hi
   await waitFor(() => {
     expect(documents.player.hideUnusedGraces).toBe(true);
     expect(documents.player.graceNames).toBe("hover");
+    expect(documents.player.itemSpots).toBe("all");
     expect(documents.player.activeProfile).toBe(second);
   });
   first.unmount();
