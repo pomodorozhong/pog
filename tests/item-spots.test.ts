@@ -6,7 +6,12 @@ import type {
 } from "../src/domain/types";
 import { translate } from "../src/i18n/translation";
 import type { CatalogPickup, GameData } from "../src/map/catalog";
-import { shownSpots, wishedItems } from "../src/map/itemSpots";
+import {
+  pinAtSpot,
+  shownSpots,
+  spotsOfItem,
+  wishedItems,
+} from "../src/map/itemSpots";
 
 const SEED = "goods/10010";
 const TEAR = "goods/10020";
@@ -116,5 +121,28 @@ describe("the item spots shown on the map", () => {
       [RUNE, false],
     ]);
     expect(all[0].label).toBe("Golden Seed (zh)");
+  });
+});
+
+describe("placing a pin from an item's spots", () => {
+  it("counts each place once, as a lot's chained rows share its spot", () => {
+    const chained = { ...both, lot: 20 };
+    const withChain = {
+      ...data,
+      pickupsByItem: new Map([[TEAR, [both, chained]]]),
+    } as unknown as GameData;
+    expect(spotsOfItem(withChain, TEAR)).toEqual([both]);
+    expect(spotsOfItem(data, RUNE)).toEqual([both, rune]);
+    expect(spotsOfItem(data, "goods/1")).toEqual([]);
+  });
+
+  it("puts a new pin holding the item on the spot", () => {
+    expect(pinAtSpot(SEED, seed)).toMatchObject({
+      layer: "overworld",
+      x: 100,
+      y: 0,
+      kind: "junction",
+      items: [SEED],
+    });
   });
 });

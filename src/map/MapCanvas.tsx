@@ -71,6 +71,8 @@ type Props = MapCanvasHandlers & {
   highlight: string | null;
   /** The game's item spots to show, on every layer. */
   spots: ItemSpot[];
+  /** Choosing one of `spots` to place a pin on: clicking one chooses it. */
+  onSpotChoose?(spot: ItemSpot): void;
 };
 
 const LABEL_ZOOM = 4;
@@ -108,7 +110,7 @@ export function MapCanvas(props: Props) {
   const spotLayer = useRef<L.LayerGroup | null>(null);
   /** The spot markers on the map, by `spotKey`, with what they were drawn from. */
   const spotMarkers = useRef(
-    new Map<string, { marker: L.Marker; spot: ItemSpot }>(),
+    new Map<string, { marker: L.Marker; spot: ItemSpot; choosing: boolean }>(),
   );
   /** The current path's moving arrows, placed again on every zoom frame. */
   const movingLayer = useRef<L.LayerGroup | null>(null);
@@ -585,13 +587,17 @@ export function MapCanvas(props: Props) {
   ]);
 
   // The game's item spots. A click shows its details and acts like a click
-  // on the map at the spot, so the pin tool can place a pin right on it.
+  // on the map at the spot, so the pin tool can place a pin right on it;
+  // while one is being chosen to place a pin on, a click chooses it.
   // Markers are kept and only redrawn when their spot changes: "All" has
   // thousands, and progress changes at every import.
-  const { spots } = props;
+  const { spots, onSpotChoose } = props;
+  const choosing = onSpotChoose !== undefined;
   useEffect(() => {
     const group = spotLayer.current!;
     const kept = spotMarkers.current;
+    // Spots being chosen go above pins and graces, to be clicked.
+    map.current!.getPane("spots")!.style.zIndex = choosing ? "610" : "390";
     const wanted = new Map(
       spots.filter((s) => s.layer === layer).map((s) => [spotKey(s), s]),
     );
@@ -604,6 +610,7 @@ export function MapCanvas(props: Props) {
       const old = kept.get(key);
       if (
         old &&
+        old.choosing === choosing &&
         old.spot.picked === spot.picked &&
         old.spot.icon === spot.icon &&
         old.spot.label === spot.label
@@ -614,7 +621,13 @@ export function MapCanvas(props: Props) {
       const marker = L.marker(toLatLng([spot.x, spot.y]), {
         pane: "spots",
         icon: L.divIcon({
-          className: spot.picked ? "item-spot is-picked" : "item-spot",
+          className: [
+            "item-spot",
+            spot.picked && "is-picked",
+            choosing && "is-choosable",
+          ]
+            .filter(Boolean)
+            .join(" "),
           html:
             item && isItem(item) && item.icon
               ? `<img src="${iconUrl(item.icon)}" alt="">`
@@ -630,13 +643,33 @@ export function MapCanvas(props: Props) {
         })
         .on("click", (event) => {
           L.DomEvent.stop(event);
+          const choose = latest.current.onSpotChoose;
+          if (choose) return choose(spot);
           marker.openTooltip();
           latest.current.onMapClick([spot.x, spot.y]);
         })
         .addTo(group);
-      kept.set(key, { marker, spot });
+      kept.set(key, { marker, spot, choosing });
     }
-  }, [spots, layer, data]);
+  }, [spots, layer, data, choosing]);
+
+  // Choosing a spot starts with all of them on this layer in view, and again
+  // on another layer, but not each time progress or the map changes.
+  const fitted = useRef<string | null>(null);
+  useEffect(() => {
+    if (!choosing) {
+      fitted.current = null;
+      return;
+    }
+    const here = spots.filter((spot) => spot.layer === layer);
+    const key = `${layer} ${here.map(spotKey).join(",")}`;
+    if (!here.length || fitted.current === key) return;
+    fitted.current = key;
+    map.current!.fitBounds(
+      L.latLngBounds(here.map((spot) => toLatLng([spot.x, spot.y]))),
+      { padding: [60, 60], maxZoom: 5 },
+    );
+  }, [choosing, spots, layer]);
 
   // Pan to a node selected elsewhere (for example the far end of a waygate).
   useEffect(() => {

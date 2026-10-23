@@ -15,6 +15,7 @@ import {
   searchCatalog,
   type GameData,
 } from "../map/catalog";
+import { spotsOfItem } from "../map/itemSpots";
 import { NODE_KIND_NAMES } from "../map/labels";
 import { activeProfile } from "../profiles/profiles";
 import {
@@ -70,12 +71,28 @@ export function WishlistPanel({
   setPlayer,
   doc,
   showNode,
-}: Props & { doc: MapDocument; showNode(id: string): void }) {
+  placeFromGameData,
+}: Props & {
+  doc: MapDocument;
+  showNode(id: string): void;
+  /** Put an entry on a new pin at one of its item's spots in the game. */
+  placeFromGameData(entry: WishlistItem): void;
+}) {
   const profile = activeProfile(player);
   const { pinned, unpinned } = combinedWishlist(doc, profile.wishlist);
   const wishlist = [...pinned, ...unpinned];
   const stranded = strandedEntries(doc, unpinned).length;
   const [query, setQuery] = useSharedState("wishlist.query", "");
+  // The item just added from the search, offered a pin from game data, in
+  // the playthrough it was added to.
+  const [added, setAdded] = useSharedState<{
+    profile: string;
+    item: string;
+  } | null>("wishlist.added", null);
+  const addedEntry =
+    added?.profile === profile.id
+      ? unpinned.find((w) => w.item === added.item)
+      : undefined;
   // The route list shows the wishlist; this one, for notes and statuses,
   // stays folded so the panel stays short.
   const [open, setOpen] = useSharedState("wishlist.open", false);
@@ -155,9 +172,12 @@ export function WishlistPanel({
               {t("Show on map")}
             </button>
           ) : (
-            <span className="text-muted">
-              {t("Attach it from a pin's Items.")}
-            </span>
+            <PlaceFromGameData
+              t={t}
+              data={data}
+              entry={entry}
+              place={placeFromGameData}
+            />
           )}
           {/* A joined item leaves with its path, so there's nothing to remove. */}
           {entry.joined ? (
@@ -230,6 +250,7 @@ export function WishlistPanel({
                 onClick={() => {
                   setPlayer(addToWishlist(player, profile.id, item.id));
                   setQuery("");
+                  setAdded({ profile: profile.id, item: item.id });
                 }}
               >
                 {item.icon && (
@@ -257,6 +278,30 @@ export function WishlistPanel({
           ))}
         </ul>
       )}
+      {addedEntry && !query && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded border border-line p-2 text-xs"
+        >
+          <span>
+            {t("{item} is on the wishlist, not attached to a pin.", {
+              item: data.byId.get(addedEntry.item)?.name[language] ?? "",
+            })}
+          </span>
+          <PlaceFromGameData
+            t={t}
+            data={data}
+            entry={addedEntry}
+            place={(entry) => {
+              setAdded(null);
+              placeFromGameData(entry);
+            }}
+          />
+          <button className="link ml-auto" onClick={() => setAdded(null)}>
+            {t("Not now")}
+          </button>
+        </div>
+      )}
       {open && (
         <>
           <ul className="space-y-3">{pinned.map(entryRow)}</ul>
@@ -269,6 +314,35 @@ export function WishlistPanel({
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * The offer to place an entry's pin from game data, with how many spots its
+ * item has; an item the game data doesn't place is attached by hand.
+ */
+function PlaceFromGameData({
+  t,
+  data,
+  entry,
+  place,
+}: {
+  t: Translate;
+  data: GameData;
+  entry: WishlistItem;
+  place(entry: WishlistItem): void;
+}) {
+  const count = spotsOfItem(data, entry.item).length;
+  if (!count)
+    return (
+      <span className="text-muted">{t("Attach it from a pin's Items.")}</span>
+    );
+  return (
+    <button className="link" onClick={() => place(entry)}>
+      {count === 1
+        ? t("Place pin from game data")
+        : t("Place pin from game data ({count} spots)", { count })}
+    </button>
   );
 }
 

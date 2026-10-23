@@ -2,11 +2,13 @@ import type {
   ItemSpotMode,
   Language,
   MapDocument,
+  MapNode,
   WishlistItem,
 } from "../domain/types";
 import type { Translate } from "../i18n/translation";
 import { combinedWishlist } from "../wishlist/wishlist";
 import type { CatalogPickup, GameData } from "./catalog";
+import { newId } from "./editing";
 
 /** A game item spot the map shows, with its name and whether it's picked up. */
 export type ItemSpot = CatalogPickup & {
@@ -56,19 +58,70 @@ export function shownSpots(
             [...wanted].flatMap((item) => data.pickupsByItem.get(item) ?? []),
           ),
         ];
-  return spots.map((spot) => {
-    const picked = spot.flag !== null && set.has(spot.flag);
-    const names = spot.items.map(
-      (id) => data.byId.get(id)?.name[language] ?? id,
-    );
-    return {
-      ...spot,
-      picked,
-      icon: spot.items.find((id) => wanted.has(id)) ?? spot.items[0] ?? null,
-      label: [...names, ...(picked ? [t("Picked up")] : [])].join(" · "),
-    };
-  });
+  return spots.map((spot) =>
+    toItemSpot(t, data, language, spot, set, (id) => wanted.has(id)),
+  );
 }
+
+function toItemSpot(
+  t: Translate,
+  data: GameData,
+  language: Language,
+  spot: CatalogPickup,
+  flags: Set<number>,
+  /** Items whose icon a spot giving several shows first. */
+  first: (item: string) => boolean,
+): ItemSpot {
+  const picked = spot.flag !== null && flags.has(spot.flag);
+  const names = spot.items.map((id) => data.byId.get(id)?.name[language] ?? id);
+  return {
+    ...spot,
+    picked,
+    icon: spot.items.find(first) ?? spot.items[0] ?? null,
+    label: [...names, ...(picked ? [t("Picked up")] : [])].join(" · "),
+  };
+}
+
+/**
+ * The game's spots for an item, each place once: the lots chained after a
+ * placed lot share its spot.
+ */
+export function spotsOfItem(data: GameData, item: string): CatalogPickup[] {
+  const spots = data.pickupsByItem.get(item) ?? [];
+  const place = (s: CatalogPickup) => `${s.layer} ${s.x} ${s.y}`;
+  return spots.filter(
+    (s, i) => spots.findIndex((o) => place(o) === place(s)) === i,
+  );
+}
+
+/** An item's spots to choose a pin's place from, with its icon. */
+export const choosableSpots = (
+  t: Translate,
+  data: GameData,
+  language: Language,
+  item: string,
+  flags: number[],
+): ItemSpot[] => {
+  const set = new Set(flags);
+  return spotsOfItem(data, item).map((spot) =>
+    toItemSpot(t, data, language, spot, set, (id) => id === item),
+  );
+};
+
+/** A new pin on a game spot, holding the item. */
+export const pinAtSpot = (
+  item: string,
+  spot: Pick<CatalogPickup, "layer" | "x" | "y">,
+): MapNode => ({
+  id: newId("junction"),
+  layer: spot.layer,
+  x: spot.x,
+  y: spot.y,
+  kind: "junction",
+  label: "",
+  ref: null,
+  items: [item],
+});
 
 /** Which marker a spot is: a lot can have several spots. */
 export const spotKey = (spot: CatalogPickup) =>
