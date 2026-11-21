@@ -1,6 +1,6 @@
 # Path of Grace: architecture
 
-How the app works and why. What is being built, and in which order, lives in [GitHub milestones](https://github.com/pomodorozhong/pog/milestones), its issues and `HANDOFF.md`. Interface details (sizes, timings, wording) live in the code and its tests; this page keeps the model and the rules that span files.
+How the app works and why. What is being built, and in which order, lives in [GitHub milestones](https://github.com/pomodorozhong/pog/milestones) and their issues. Interface details (sizes, timings, wording) live in the code and its tests; this page keeps the model and the rules that span files.
 
 ## Goal
 
